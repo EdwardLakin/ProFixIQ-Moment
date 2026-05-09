@@ -6,7 +6,7 @@ import type { MomentRouteResult } from "@/features/ai/types";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 
 const stuckSchema = z.object({ task_text: z.string().min(3), hardest_part: z.string().optional().default(""), emotional_state: z.string().optional().default("") });
-const route: MomentRouteResult = { primaryBrain: "stuck_decomposer", supportingBrains: [], routePath: "/stuck", reason: "Stuck reset requested.", confidence: "high" };
+const route: MomentRouteResult = { primaryBrainId: "task_start_brain", supportingBrainIds: [], routeLabel: "Task Start", routePath: "/stuck", reason: "Stuck reset requested.", confidence: 0.95, audience: "all", category: "task" };
 
 export async function POST(request: Request) {
   const supabase = await createSupabaseServerClient();

@@ -14,7 +14,7 @@ import { useMomentEnvironment } from "@/features/moment/context/hooks";
 import { getAdaptiveQuickActions } from "@/features/moment/orchestration/engine";
 import type { MomentGreetingOutput } from "@/features/moment/greeting/types";
 
-const chips = ["Overwhelmed", "Avoiding homework", "Math makes no sense", "Too many thoughts", "Friend drama", "Can’t start", "Shutting down", "Anxious", "Tired", "Embarrassed"];
+const chips = ["Work", "Money", "Relationship", "Home", "Decision", "School", "Math", "Social", "Stuck"];
 
 const stateMap = {
   overwhelmed: ["Overwhelmed", "Too many thoughts", "Anxious", "Tired"],
@@ -84,12 +84,12 @@ export function DashboardClient({ greeting }: { greeting: MomentGreetingOutput }
     setResult(data);
     environment.trackRoute("dashboard", data.route.routePath);
     environment.setRecoveryContext(data.response.reflection, "dashboard");
-    environment.upsertLoop({ id: data.route.primaryBrain, label: data.route.reason, routePath: data.route.routePath, tinyStep: data.response.tinyNextStep, updatedAt: new Date().toISOString() });
+    environment.upsertLoop({ id: data.route.primaryBrainId, label: data.route.reason, routePath: data.route.routePath, tinyStep: data.response.tinyNextStep, updatedAt: new Date().toISOString() });
     if (selectedStates.includes("Shutting down")) environment.setEmotionalState("shutdown");
     if (data.response.tinyNextStep) environment.setSuccessfulRestart();
   }
 
-  const quickActions = result ? getAdaptiveQuickActions(result.route.primaryBrain, environment.state) : [];
+  const quickActions = result ? getAdaptiveQuickActions(result.route.primaryBrainId, environment.state) : [];
   const styles = stateStyles[visualState];
 
   return (
@@ -115,7 +115,7 @@ export function DashboardClient({ greeting }: { greeting: MomentGreetingOutput }
         {result ? <div className={`rounded-[1.6rem] border bg-white/[0.02] p-1.5 ${styles.response}`}><MomentResponseCard route={result.route} response={result.response} quickActions={quickActions} /></div> : null}
 
         <MomentCard className="border-white/10 bg-white/[0.025]">
-          <h3 className="text-sm font-semibold uppercase tracking-[0.14em] text-violet-100/75">Secondary routes</h3>
+          <h3 className="text-sm font-semibold uppercase tracking-[0.14em] text-violet-100/75">Need a specific reset?</h3>
           <div className="mt-3 grid gap-2 sm:grid-cols-2">{[{ href: "/check-in", label: "Check in" }, { href: "/stuck", label: "Stuck" }, { href: "/math-reset", label: "Math reset" }, { href: "/drama-pause", label: "Drama pause" }].map((item) => <Link key={item.href} href={item.href} className="min-h-10 rounded-xl border border-white/10 px-3 py-2 text-sm text-slate-200 transition hover:bg-white/5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-100">{item.label}</Link>)}</div>
         </MomentCard>
       </div>

@@ -1,6 +1,6 @@
 import type { MomentBrainId, MomentCheckInResponse } from "@/features/ai/types";
 
-const byBrain: Record<MomentBrainId, MomentCheckInResponse> = {
+const byBrain: Partial<Record<MomentBrainId, MomentCheckInResponse>> = {
   math_reset_helper: { reflection: "Math is feeling like static right now, not a skill issue.", tinyNextStep: "Circle one problem and label what part is confusing.", steps: ["Write what the problem is asking in your own words.", "Identify one known value or formula.", "Try only the first operation."], supportiveNote: "You only need one clear move to restart momentum.", followUpActions: [{ label: "Explain the math", href: "/math-reset?from=check-in" }, { label: "Break this down", href: "/stuck?from=check-in" }] },
   social_boundary_helper: { reflection: "You are carrying social pressure that is draining your focus.", tinyNextStep: "Pause replies for 10 minutes and choose one boundary line.", steps: ["Decide what is your responsibility vs not.", "Pick a short non-escalating response.", "Mute one thread while you reset."], supportiveNote: "Protecting your energy is a smart move.", followUpActions: [{ label: "Help me stay out of it", href: "/drama-pause?from=check-in" }] },
   stuck_decomposer: { reflection: "The task feels bigger than your current bandwidth.", tinyNextStep: "Set a five-minute timer and do the first visible action.", steps: ["Open the tab or notebook.", "Write one rough starter line.", "Stop after five minutes or continue if it feels easier."], supportiveNote: "Tiny starts are real progress.", followUpActions: [{ label: "I still feel stuck", href: "/stuck?from=check-in" }] },
@@ -15,5 +15,5 @@ const byBrain: Record<MomentBrainId, MomentCheckInResponse> = {
 };
 
 export function getMockResponse(brain: MomentBrainId): MomentCheckInResponse {
-  return byBrain[brain] ?? byBrain.emotion_reflector;
+  return byBrain[brain] ?? byBrain.emotion_reflector ?? { reflection: "You checked in.", tinyNextStep: "Take one small step." };
 }

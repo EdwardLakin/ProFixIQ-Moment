@@ -13,8 +13,8 @@ export function normalizeResponse(input: OrchestrationPipelineInput): Normalized
 }
 
 export function getAdaptiveQuickActions(brain: MomentBrainId, environment: MomentEnvironmentState) {
-  if (brain === "math_reset_helper") return [{ label: "Try a smaller problem", href: "/math-reset" }, { label: "Explain this differently", href: "/stuck" }];
-  if (brain === "social_boundary_helper") return [{ label: "Stay out of the middle", href: "/drama-pause" }, { label: "Send a boundary reply", href: "/drama-pause" }];
+  if (brain === "math_reset_brain") return [{ label: "Try a smaller problem", href: "/math-reset" }, { label: "Explain this differently", href: "/stuck" }];
+  if (brain === "social_boundary_brain") return [{ label: "Stay out of the middle", href: "/drama-pause" }, { label: "Send a boundary reply", href: "/drama-pause" }];
   if (environment.recentEmotionalState === "shutdown") return [{ label: "Do a two-minute restart", href: "/check-in" }, { label: "Lower the pressure", href: "/stuck" }];
   return [{ label: "Take one tiny step", href: "/stuck" }, { label: "Calm reset", href: "/check-in" }];
 }

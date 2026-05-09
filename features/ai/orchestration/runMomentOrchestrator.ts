@@ -1,18 +1,11 @@
 import { routeMoment } from "@/features/ai/router/routeMoment";
 import type { RouteMomentInput } from "@/features/ai/router/types";
+import type { MomentRouteResult } from "@/features/ai/types";
 
 export type OrchestratorBlockType = "reflection" | "tiny_step" | "route_transition" | "grounding" | "boundary_prompt" | "decision_frame" | "money_clarity" | "work_reset" | "relationship_reflection";
 
 export type MomentOrchestratorResult = {
-  route: {
-    primaryBrainId: string;
-    supportingBrainIds: string[];
-    routeLabel: string;
-    routePath: string;
-    category: string;
-    confidence: number;
-    reason: string;
-  };
+  route: MomentRouteResult;
   response: {
     reflection: string;
     tinyNextStep: string;

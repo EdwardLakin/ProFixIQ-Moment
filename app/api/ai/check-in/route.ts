@@ -53,7 +53,7 @@ export async function POST(request: Request) {
       route: {
         primaryBrainId: "safety_support_brain",
         supportingBrainIds: [],
-        primaryBrain: "safety_classifier",
+        primaryBrain: "safety_support_brain",
         supportingBrains: [],
         routeLabel: "Emotional Reset",
         routePath: "/check-in",

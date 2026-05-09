@@ -6,7 +6,7 @@ import type { MomentRouteResult } from "@/features/ai/types";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 
 const stuckSchema = z.object({ task_text: z.string().min(3), hardest_part: z.string().optional().default(""), emotional_state: z.string().optional().default("") });
-const route: MomentRouteResult = { primaryBrain: "stuck_decomposer", supportingBrains: [], routePath: "/stuck", reason: "Stuck reset requested.", confidence: "high" };
+const route: MomentRouteResult = { primaryBrainId: "task_start_brain", supportingBrainIds: [], primaryBrain: "task_start_brain", supportingBrains: [], routeLabel: "Task Start", routePath: "/stuck", reason: "Stuck reset requested.", confidence: "high", audience: "all", category: "task" };
 
 export async function POST(request: Request) {
   const supabase = await createSupabaseServerClient();
@@ -20,12 +20,12 @@ export async function POST(request: Request) {
   const risk = detectSupportRisk(joinedInput);
   const response = risk.severity === "high"
     ? normalizeMomentBrainOutput({ reflection: "Thanks for sharing this. You deserve immediate real-world support.", tinyNextStep: "Pause and contact a trusted adult right now.", steps: ["Send one clear message asking for help now."], supportiveNote: "If there is immediate danger, contact emergency services now.", followUpActions: [{ label: "Return to Moment", href: "/dashboard" }] })
-    : await runMomentBrain("stuck_decomposer", joinedInput);
+    : await runMomentBrain("task_start_brain", joinedInput);
 
   const warnings: string[] = [];
   const { data: session, error: sessionError } = await supabase.from("moment_stuck_sessions").insert({ user_id: user.id, ...parsed.data, ai_response: response }).select("id").single();
   if (sessionError) warnings.push(`Failed to persist stuck session: ${sessionError.message}`);
-  const { data: aiMessage, error: aiError } = await supabase.from("moment_ai_messages").insert({ user_id: user.id, mode: "stuck_decomposer", source_table: "moment_stuck_sessions", source_id: session?.id, input_snapshot: parsed.data, output_snapshot: response, safety_flags: risk.flags }).select("id").single();
+  const { data: aiMessage, error: aiError } = await supabase.from("moment_ai_messages").insert({ user_id: user.id, mode: "task_start_brain", source_table: "moment_stuck_sessions", source_id: session?.id, input_snapshot: parsed.data, output_snapshot: response, safety_flags: risk.flags }).select("id").single();
   if (aiError) warnings.push(`Failed to persist AI message: ${aiError.message}`);
 
   return NextResponse.json({ route, response, persisted: { sessionId: session?.id ?? null, aiMessageId: aiMessage?.id ?? null }, warnings });

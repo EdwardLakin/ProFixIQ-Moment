@@ -13,7 +13,7 @@ type LegacyStuckResult = { summary: string; likely_block: string; tiny_steps: st
 
 type StuckResponseEnvelope = { response: MomentCheckInResponse; route?: MomentRouteResult };
 
-const defaultStuckRoute: MomentRouteResult = { primaryBrain: "stuck_decomposer", supportingBrains: [], routePath: "/stuck", reason: "Stuck reset requested.", confidence: "high" };
+const defaultStuckRoute: MomentRouteResult = { primaryBrainId: "task_start_brain", supportingBrainIds: [], primaryBrain: "task_start_brain", supportingBrains: [], routeLabel: "Task Start", routePath: "/stuck", reason: "Stuck reset requested.", confidence: "high", audience: "all", category: "task" };
 
 function normalizeLegacyResponse(result: LegacyStuckResult): MomentCheckInResponse {
   return {

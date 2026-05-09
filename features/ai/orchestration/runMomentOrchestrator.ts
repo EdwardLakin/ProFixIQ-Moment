@@ -5,10 +5,15 @@ import type { MomentRouteResult, OperationalBlock } from "@/features/ai/types";
 export type MomentOrchestratorResult = {
   route: MomentRouteResult;
   response: {
+    routeLabel: string;
+    routePath: string;
     reflection: string;
     tinyNextStep: string;
-    whyThisHelps: string;
+    whyThisRoute: string;
     continueLabel: string;
+    steps: string[];
+    supportiveNote: string;
+    followUpActions: { label: string; href: string }[];
     blocks: OperationalBlock[];
   };
   warnings: string[];
@@ -33,5 +38,5 @@ export function runMomentOrchestrator(input: RouteMomentInput): MomentOrchestrat
     routeBlock[route.primaryBrainId] ?? { type: "grounding", text: "Take one slow breath, unclench your shoulders, and choose one tiny action." },
   ];
 
-  return { route, response: { reflection, tinyNextStep: blocks[1].text, whyThisHelps: "Small actions lower overwhelm and build momentum.", continueLabel: `Continue with ${route.routeLabel}`, blocks }, warnings: route.primaryBrainId === "safety_support_brain" ? ["High-severity safety signals detected."] : [] };
+  return { route, response: { routeLabel: route.routeLabel, routePath: route.routePath, reflection, tinyNextStep: blocks[1].text, whyThisRoute: "Small actions lower overwhelm and build momentum.", continueLabel: `Continue with ${route.routeLabel}`, steps: [blocks[1].text], supportiveNote: "Small consistent steps create progress.", followUpActions: [{ label: `Open ${route.routeLabel}`, href: route.routePath }], blocks }, warnings: route.primaryBrainId === "safety_support_brain" ? ["High-severity safety signals detected."] : [] };
 }

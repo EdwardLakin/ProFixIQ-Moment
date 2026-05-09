@@ -28,7 +28,7 @@ export function normalizeMomentBrainOutput(input: Partial<MomentCheckInResponse>
 async function runOpenAI(primaryBrain: MomentBrainId, userText: string): Promise<Partial<MomentCheckInResponse>> {
   const apiKey = getOpenAIKey();
   if (!apiKey) return getMockResponse(primaryBrain);
-  const brain = brainRegistry[primaryBrain];
+  const brain = brainRegistry[primaryBrain as keyof typeof brainRegistry];
 
   const response = await fetch("https://api.openai.com/v1/responses", {
     method: "POST",

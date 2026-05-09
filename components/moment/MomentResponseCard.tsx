@@ -9,7 +9,7 @@ import { RecoveryPromptBlock } from "@/components/moment/RecoveryPromptBlock";
 import { motionTokens } from "@/features/ui/momentTheme";
 
 export function MomentResponseCard({ route, response, quickActions }: { route: MomentRouteResult; response: MomentCheckInResponse; quickActions: { label: string; href: string }[] }) {
-  const normalized = normalizeResponse({ reflection: response.reflection, tinyNextStep: response.tinyNextStep, steps: response.steps, supportiveNote: response.supportiveNote });
+  const normalized = normalizeResponse({ reflection: response.reflection, tinyNextStep: response.tinyNextStep, steps: response.steps ?? [], supportiveNote: response.supportiveNote ?? "Keep it light and specific." });
 
   return <MomentActionCard><MomentRouteBadge route={route} /><div className={`mt-4 space-y-3 ${motionTokens.cardTransition}`}>{response.blocks?.map((block, idx) => {
     if (block.type === "momentum_builder") return <MomentumBuilderBlock key={`${block.type}-${idx}`} text={block.text} />;

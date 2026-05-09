@@ -70,18 +70,18 @@ export default async function OnboardingPage() {
           subtitle="Private support for school stress, social pressure, and restart friction."
         />
 
-        <MomentCard className="bg-white/[0.06]">
-          <form action={completeOnboarding} className="space-y-5">
+        <MomentCard>
+          <form action={completeOnboarding} className="space-y-4">
             <input
               name="display_name"
               required
               placeholder="Display name"
-              className="w-full rounded-2xl border border-white/10 bg-white/[0.09] p-4 text-white placeholder:text-slate-400 outline-none focus:border-violet-300/70"
+              className="w-full rounded-xl border border-white/10 bg-[#202a40] p-3 text-[#f8f1e7] placeholder:text-[#a7a8bd] outline-none focus:border-[#c4b5fd] focus:ring-2 focus:ring-[#c4b5fd]/40"
             />
 
             <select
               name="age_range"
-              className="w-full rounded-2xl border border-white/10 bg-white/[0.09] p-4 text-white outline-none focus:border-violet-300/70"
+              className="w-full rounded-xl border border-white/10 bg-[#202a40] p-3 text-[#f8f1e7] placeholder:text-[#a7a8bd] outline-none focus:border-[#c4b5fd] focus:ring-2 focus:ring-[#c4b5fd]/40"
             >
               <option value="under_13">Under 13</option>
               <option value="13_15">13-15</option>
@@ -98,7 +98,10 @@ export default async function OnboardingPage() {
                   ["task_start", "Starting tasks"],
                   ["math_stress", "Math stress"],
                 ].map(([value, label]) => (
-                  <label key={value} className="flex items-center gap-3 rounded-2xl bg-white/[0.05] px-4 py-3 text-sm text-slate-200">
+                  <label
+                    key={value}
+                    className="flex items-center gap-3 rounded-2xl bg-white/[0.05] px-4 py-3 text-sm text-slate-200"
+                  >
                     <input type="checkbox" name="focus_areas" value={value} className="h-4 w-4" />
                     {label}
                   </label>
@@ -114,7 +117,10 @@ export default async function OnboardingPage() {
                   ["finish_small_tasks", "Finish small tasks"],
                   ["protect_boundaries", "Protect boundaries"],
                 ].map(([value, label]) => (
-                  <label key={value} className="flex items-center gap-3 rounded-2xl bg-white/[0.05] px-4 py-3 text-sm text-slate-200">
+                  <label
+                    key={value}
+                    className="flex items-center gap-3 rounded-2xl bg-white/[0.05] px-4 py-3 text-sm text-slate-200"
+                  >
                     <input type="checkbox" name="support_goals" value={value} className="h-4 w-4" />
                     {label}
                   </label>
@@ -126,14 +132,14 @@ export default async function OnboardingPage() {
               name="guardian_email"
               type="email"
               placeholder="Guardian email (optional)"
-              className="w-full rounded-2xl border border-white/10 bg-white/[0.09] p-4 text-white placeholder:text-slate-400 outline-none focus:border-violet-300/70"
+              className="w-full rounded-xl border border-white/10 bg-[#202a40] p-3 text-[#f8f1e7] placeholder:text-[#a7a8bd] outline-none focus:border-[#c4b5fd] focus:ring-2 focus:ring-[#c4b5fd]/40"
             />
 
-            <p className="text-xs leading-5 text-slate-300">
+            <p className="text-xs text-[#a7a8bd]">
               Moment is a support tool, not therapy or crisis care. Your entries are private to your account and protected by your sign-in.
             </p>
 
-            <MomentButton type="submit" className="w-full sm:w-auto">
+            <MomentButton type="submit" className="mt-2 w-full sm:w-auto">
               Save and continue
             </MomentButton>
           </form>

@@ -4,7 +4,7 @@ export function MomentTextarea({ className = "", ...props }: TextareaHTMLAttribu
   return (
     <textarea
       {...props}
-      className={`w-full rounded-xl border border-white/15 bg-[#10172e] px-3 py-2 text-sm text-white outline-none placeholder:text-slate-400 focus:border-violet-200 ${className}`}
+      className={`w-full rounded-xl border border-white/15 bg-[#202a40] px-3 py-2 text-sm text-[#f8f1e7] outline-none placeholder:text-[#a7a8bd] focus:border-[#c4b5fd] focus:ring-2 focus:ring-[#c4b5fd]/40 ${className}`}
     />
   );
 }

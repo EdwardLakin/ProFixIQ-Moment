@@ -1,25 +1,9 @@
 import Link from "next/link";
-
-export default function HomePage() {
-  return (
-    <main className="moment-glow min-h-screen px-6 py-10 text-[#f8f1e7]">
-      <section className="mx-auto flex max-w-5xl flex-col gap-10">
-        <p className="text-sm uppercase tracking-[0.28em] text-violet-200/70">Moment by ProFixIQ</p>
-        <div className="rounded-[2rem] border border-white/10 bg-white/[0.05] p-10 shadow-2xl shadow-violet-950/20 backdrop-blur-xl">
-          <h1 className="max-w-4xl text-4xl font-semibold tracking-tight md:text-6xl">A calmer way to restart when life feels too loud.</h1>
-          <p className="mt-6 max-w-3xl text-lg leading-8 text-slate-300">Small steps when everything feels too big. Moment is an AI operating system for overwhelmed minds.</p>
-          <div className="mt-8 flex flex-wrap gap-3"><Link href="/dashboard" className="rounded-full bg-violet-200 px-5 py-3 text-sm font-semibold text-slate-950">Open moment</Link><Link href="/sign-in" className="rounded-full border border-white/15 px-5 py-3 text-sm font-semibold text-white">Sign in</Link></div>
-        </div>
-        <div className="grid gap-4 md:grid-cols-2">
-          {[
-            "Emotional overload",
-            "School overwhelm",
-            "Executive dysfunction",
-            "Social pressure",
-            "Restart momentum",
-          ].map((item) => <article key={item} className="rounded-2xl border border-white/10 bg-white/[0.03] p-5 text-slate-200">{item}</article>)}
-        </div>
-      </section>
-    </main>
-  );
-}
+const modules = [
+  { title: "Central check-in surface", desc: "Start with what feels heavy, get a tiny next step.", href: "/dashboard" },
+  { title: "Math reset", desc: "Reduce overwhelm and re-enter problem solving.", href: "/math-reset" },
+  { title: "Drama pause", desc: "Pause escalation and choose clear boundaries.", href: "/drama-pause" },
+  { title: "Stuck mode", desc: "Turn avoidance into one specific action.", href: "/stuck" },
+  { title: "Parent insight, coming soon", desc: "Guardian-facing summaries are in progress.", href: "/parent" },
+];
+export default function HomePage() { return <main className="moment-glow min-h-screen px-6 py-10 text-[#f8f1e7]"><section className="mx-auto max-w-5xl space-y-8"><div className="rounded-[2rem] border border-white/10 bg-white/[0.05] p-10"><p className="text-sm uppercase tracking-[0.28em] text-violet-200/70">Moment by ProFixIQ</p><h1 className="mt-4 text-5xl font-semibold tracking-tight">Small steps when everything feels too big.</h1><p className="mt-4 max-w-2xl text-slate-300">A calm operating layer for overwhelmed moments. Private by default, practical by design.</p><div className="mt-8 flex gap-3"><Link href="/dashboard" className="rounded-full bg-violet-200 px-5 py-3 text-sm font-semibold text-slate-950">Open Moment</Link><Link href="/onboarding" className="rounded-full border border-white/15 px-5 py-3 text-sm">Start onboarding</Link></div></div><div className="grid gap-4 md:grid-cols-2">{modules.map((item)=><article key={item.title} className="rounded-2xl border border-white/10 bg-white/[0.03] p-5"><h2 className="font-semibold">{item.title}</h2><p className="mt-2 text-sm text-slate-300">{item.desc}</p><Link href={item.href} className="mt-3 inline-block text-sm text-violet-200">Open</Link></article>)}</div><article className="rounded-2xl border border-white/10 bg-white/[0.02] p-6 text-sm text-slate-300">Moment gives supportive coaching, not therapy, diagnosis, or crisis counseling. If someone may be in immediate danger, contact local emergency services right away.</article></section></main>; }

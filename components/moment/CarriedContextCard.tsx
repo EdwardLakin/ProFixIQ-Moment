@@ -20,7 +20,7 @@ export function CarriedContextCard({ searchParams }: Props) {
     return env.state.activeRecoveryContext;
   }, [env.state.activeRecoveryContext, searchParams]);
 
-  if (!carried?.summary) return null;
+  if (!carried?.summary) return <div className={`rounded-2xl border border-white/10 bg-white/[0.02] p-4 ${motionTokens.cardTransition}`}><p className="text-sm text-slate-300">No carried context yet. Start from what feels most present right now.</p></div>;
   return (
     <div className={`rounded-2xl border border-violet-300/25 bg-violet-500/10 p-4 ${motionTokens.cardTransition}`}>
       <p className="text-xs uppercase tracking-[0.16em] text-violet-200/80">Carried from check-in</p>

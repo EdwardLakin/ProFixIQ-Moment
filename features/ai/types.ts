@@ -38,3 +38,7 @@ export type MomentCheckInResponse = {
   supportiveNote: string;
   followUpActions: { label: string; href: string }[];
 };
+
+
+export type OrchestrationBrainContribution = { brainId: MomentBrainId; blocks: { type: string; text: string }[] };
+export type MultiBrainMergeEnvelope = { primary: MomentBrainId; supporting: MomentBrainId[]; contributions: OrchestrationBrainContribution[] };

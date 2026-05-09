@@ -42,8 +42,8 @@ export default async function OnboardingPage() {
         <MomentPageHeader eyebrow="Onboarding" title="Build your Moment baseline" subtitle="Private support for school stress, social pressure, and restart friction." />
         <MomentCard>
           <form action={completeOnboarding} className="space-y-4">
-            <input name="display_name" required placeholder="Display name" className="w-full rounded-xl bg-white/5 p-3" />
-            <select name="age_range" className="w-full rounded-xl bg-white/5 p-3">
+            <input name="display_name" required placeholder="Display name" className="w-full rounded-xl border border-white/10 bg-white/[0.08] p-3 text-white placeholder:text-slate-500 outline-none focus:border-violet-300/70" />
+            <select name="age_range" className="w-full rounded-xl border border-white/10 bg-white/[0.08] p-3 text-white placeholder:text-slate-500 outline-none focus:border-violet-300/70">
               <option value="under_13">Under 13</option>
               <option value="13_15">13-15</option>
               <option value="16_17">16-17</option>
@@ -67,9 +67,9 @@ export default async function OnboardingPage() {
                 </label>
               ))}
             </fieldset>
-            <input name="guardian_email" type="email" placeholder="Guardian email (optional)" className="w-full rounded-xl bg-white/5 p-3" />
+            <input name="guardian_email" type="email" placeholder="Guardian email (optional)" className="w-full rounded-xl border border-white/10 bg-white/[0.08] p-3 text-white placeholder:text-slate-500 outline-none focus:border-violet-300/70" />
             <p className="text-xs text-slate-400">Moment is a support tool, not therapy or crisis care. Your entries are private to your account and protected by your sign-in.</p>
-            <MomentButton type="submit">Save and continue</MomentButton>
+            <MomentButton type="submit" className="mt-2 w-full sm:w-auto">Save and continue</MomentButton>
           </form>
         </MomentCard>
       </section>

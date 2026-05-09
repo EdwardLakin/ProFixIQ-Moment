@@ -2,14 +2,14 @@
 
 import { useMemo, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { createBrowserClient } from "@/lib/supabase/browser";
+import { createSupabaseBrowserClient } from "@/lib/supabase/browser";
 
 type AuthMode = "sign-in" | "sign-up";
 
 export function SignInForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const supabase = useMemo(() => createBrowserClient(), []);
+  const supabase = useMemo(() => createSupabaseBrowserClient(), []);
   const next = searchParams.get("next") || "/onboarding";
 
   const [mode, setMode] = useState<AuthMode>("sign-in");

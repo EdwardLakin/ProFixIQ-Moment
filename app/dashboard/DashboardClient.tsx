@@ -12,6 +12,7 @@ import { MomentumRail } from "@/components/moment/momentum/MomentumRail";
 import type { MomentCheckInResponse, MomentRouteResult } from "@/features/ai/types";
 import { useMomentEnvironment } from "@/features/moment/context/hooks";
 import { getAdaptiveQuickActions } from "@/features/moment/orchestration/engine";
+import type { MomentGreetingOutput } from "@/features/moment/greeting/types";
 
 const chips = ["Overwhelmed", "Avoiding homework", "Math makes no sense", "Too many thoughts", "Friend drama", "Can’t start", "Shutting down", "Anxious", "Tired", "Embarrassed"];
 
@@ -60,7 +61,7 @@ const stateStyles = {
   },
 };
 
-export function DashboardClient() {
+export function DashboardClient({ greeting }: { greeting: MomentGreetingOutput }) {
   const [text, setText] = useState("");
   const [warnings, setWarnings] = useState<string[]>([]);
   const [selectedStates, setSelectedStates] = useState<string[]>([]);
@@ -98,8 +99,9 @@ export function DashboardClient() {
           <div className={`pointer-events-none absolute inset-0 bg-gradient-to-br ${styles.glow} opacity-70`} />
           <div className="relative">
             <p className="mb-3 text-xs uppercase tracking-[0.16em] text-violet-100/75">Main check-in</p>
-            <h2 className="text-3xl font-semibold tracking-tight sm:text-4xl">What feels hardest right now?</h2>
-            <MomentTextarea rows={4} value={text} onChange={(e) => setText(e.target.value)} placeholder="Say what feels heavy. You don’t need perfect words." />
+            <h2 className="text-3xl font-semibold tracking-tight sm:text-4xl">{greeting.headline}</h2>
+            <p className="mt-2 text-sm text-slate-200">{greeting.subtext}</p>
+            <MomentTextarea rows={4} value={text} onChange={(e) => setText(e.target.value)} placeholder={greeting.prompt} />
             <div className="mt-3 flex flex-wrap gap-2">{chips.map((chip) => <MomentStateChip key={chip} label={chip} selected={selectedStates.includes(chip)} onClick={() => setSelectedStates((curr) => curr.includes(chip) ? curr.filter((value) => value !== chip) : [...curr, chip])} />)}</div>
             <div className="mt-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
               <span className={`inline-flex w-fit rounded-full border px-3 py-1 text-xs font-medium ${styles.badge}`}>Current state: {visualState}</span>

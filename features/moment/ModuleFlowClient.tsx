@@ -17,6 +17,7 @@ type FieldConfig = { name: string; label: string; area?: boolean; chipOptions?: 
 
 export function ModuleFlowClient({ searchParams, apiPath, fields, title }: { searchParams?: { from?: string; contextId?: string; summary?: string }; apiPath: string; fields: FieldConfig[]; title: string }) {
   const [result, setResult] = useState<MomentCheckInResponse | null>(null);
+  const [warnings, setWarnings] = useState<string[]>([]);
   const [selectedStates, setSelectedStates] = useState<string[]>([]);
   const env = useMomentEnvironment();
   async function onSubmit(formData: FormData) {
@@ -25,8 +26,9 @@ export function ModuleFlowClient({ searchParams, apiPath, fields, title }: { sea
     if (typeof body.selectedStates === "string") body.selectedStates = body.selectedStates.split(",").map((value) => value.trim()).filter(Boolean);
     const res = await fetch(apiPath, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
     if (!res.ok) return;
-    const data = await res.json() as { response: MomentCheckInResponse };
+    const data = await res.json() as { response: MomentCheckInResponse; warnings?: string[] };
     setResult(data.response);
+    setWarnings(data.warnings ?? []);
     env.trackRoute("check-in", apiPath.replace("/api/ai", ""));
     env.setRecoveryContext(data.response.reflection, title);
     env.upsertLoop({ id: `${title}-${Date.now()}`, label: title, routePath: apiPath, tinyStep: data.response.tinyNextStep, updatedAt: new Date().toISOString() });
@@ -38,5 +40,5 @@ export function ModuleFlowClient({ searchParams, apiPath, fields, title }: { sea
       return <div key={field.name} className="space-y-2"><p className="text-sm text-slate-300">{field.label}</p><div className="flex flex-wrap gap-2">{field.chipOptions.map((chip) => <MomentStateChip key={chip} label={chip} selected={selectedStates.includes(chip)} onClick={() => setSelectedStates((curr) => curr.includes(chip) ? curr.filter((value) => value !== chip) : [...curr, chip])} />)}</div></div>;
     }
     return field.area ? <MomentTextarea key={field.name} name={field.name} required={field.name.includes("text")} placeholder={field.label} defaultValue={field.name.includes("text") ? (searchParams?.summary ?? "") : ""} /> : <MomentInput key={field.name} name={field.name} placeholder={field.label} />;
-  })}<MomentButton type="submit">Get guided reset</MomentButton></form></MomentCard>{result ? <MomentCard><div className="space-y-3">{result.blocks?.map((block, i) => block.type === "momentum_builder" ? <MomentumBuilderBlock key={i} text={block.text} /> : block.type === "route_transition" ? <RouteTransitionBlock key={i} text={block.text} /> : <RecoveryPromptBlock key={i} text={block.text} />)}</div><Link href="/dashboard" className="mt-4 inline-flex rounded-full border border-white/15 px-4 py-2 text-sm">Return to Moment</Link></MomentCard> : null}</div>;
+  })}<MomentButton type="submit">Get guided reset</MomentButton></form></MomentCard>{warnings.length > 0 ? <MomentCard><p className="text-sm text-amber-100">Moment saved your reset locally, but cloud sync had trouble. You can keep going.</p></MomentCard> : null}{result ? <MomentCard><div className="space-y-3">{result.blocks?.map((block, i) => block.type === "momentum_builder" ? <MomentumBuilderBlock key={i} text={block.text} /> : block.type === "route_transition" ? <RouteTransitionBlock key={i} text={block.text} /> : <RecoveryPromptBlock key={i} text={block.text} />)}</div><Link href="/dashboard" className="mt-4 inline-flex rounded-full border border-white/15 px-4 py-2 text-sm">Return to Moment</Link></MomentCard> : null}</div>;
 }

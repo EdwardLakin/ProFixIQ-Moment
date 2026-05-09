@@ -1,7 +1,6 @@
-import { CarriedContextCard } from "@/components/moment/CarriedContextCard";
-import { MomentCard } from "@/components/moment/MomentCard";
+import { MomentPageHeader } from "@/components/moment/MomentPageHeader";
 import { MomentShell } from "@/components/moment/MomentShell";
-
+import { ModuleFlowClient } from "@/features/moment/ModuleFlowClient";
 export default function MathResetPage({ searchParams }: { searchParams: { from?: string; contextId?: string; summary?: string } }) {
-  return <MomentShell><section className="mx-auto max-w-3xl space-y-4"><CarriedContextCard searchParams={searchParams} /><MomentCard><h1 className="text-2xl font-semibold">Math Reset</h1><p className="mt-2 text-slate-300">Routed from: {searchParams.from ?? "direct"}</p><p className="mt-4 text-slate-300">We will break the problem into understandable chunks without pressure.</p><p className="mt-3 text-sm text-slate-400">If context was carried, use it as your first problem example.</p></MomentCard></section></MomentShell>;
+  return <MomentShell><section className="mx-auto max-w-3xl"><MomentPageHeader eyebrow="Math Reset" title="Shrink the math pressure" subtitle="One clear move at a time. Not therapy or crisis care." /><ModuleFlowClient title="math-reset" searchParams={searchParams} apiPath="/api/ai/math-reset" fields={[{ name: "problem_text", label: "What math problem feels stuck?", area: true }, { name: "stress_level", label: "Stress level right now" }, { name: "test_context", label: "Quiz/test/homework context" }]} /></section></MomentShell>;
 }

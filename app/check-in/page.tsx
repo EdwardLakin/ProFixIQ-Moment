@@ -1,7 +1,6 @@
-import { CarriedContextCard } from "@/components/moment/CarriedContextCard";
-import { MomentCard } from "@/components/moment/MomentCard";
+import { MomentPageHeader } from "@/components/moment/MomentPageHeader";
 import { MomentShell } from "@/components/moment/MomentShell";
-
+import { ModuleFlowClient } from "@/features/moment/ModuleFlowClient";
 export default function CheckInPage({ searchParams }: { searchParams: { from?: string; contextId?: string; summary?: string } }) {
-  return <MomentShell><section className="mx-auto max-w-3xl space-y-4"><CarriedContextCard searchParams={searchParams} /><MomentCard><h1 className="text-2xl font-semibold">Check In</h1><p className="mt-2 text-slate-300">Routed from: {searchParams.from ?? "direct"}</p><p className="mt-4 text-slate-300">Use this mode when you need a calm reset and a tiny next step.</p></MomentCard></section></MomentShell>;
+  return <MomentShell><section className="mx-auto max-w-3xl"><MomentPageHeader eyebrow="Check-in" title="Name it, then reset" subtitle="Short guided check-in for heavy moments." /><ModuleFlowClient title="check-in" searchParams={searchParams} apiPath="/api/ai/check-in" fields={[{ name: "text", label: "What feels heaviest right now?", area: true }, { name: "selectedStates", label: "Optional states (comma-separated)" }]} /></section></MomentShell>;
 }

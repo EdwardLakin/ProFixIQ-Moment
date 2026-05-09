@@ -1,22 +1,22 @@
-import Link from "next/link";
+import { redirect } from "next/navigation";
+import { MomentPageHeader } from "@/components/moment/MomentPageHeader";
+import { MomentShell } from "@/components/moment/MomentShell";
+import { StuckClient } from "@/features/stuck/StuckClient";
+import { createSupabaseServerClient } from "@/lib/supabase/server";
 
-export default function Page() {
+export default async function StuckPage() {
+  const supabase = await createSupabaseServerClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) redirect("/sign-in");
+
+  const { data: sessions } = await supabase.from("moment_stuck_sessions").select("id,task_text,status").eq("user_id", user.id).order("created_at", { ascending: false }).limit(5);
+
   return (
-    <main className="min-h-screen bg-[#0b1020] px-6 py-8 text-[#f8f1e7]">
-      <section className="mx-auto max-w-5xl">
-        <Link href="/" className="text-sm text-violet-200/80">
-          ← Moment
-        </Link>
-        <div className="mt-6 rounded-[2rem] border border-white/10 bg-white/[0.04] p-6">
-          <p className="text-xs uppercase tracking-[0.24em] text-violet-200/60">
-            Moment workspace
-          </p>
-          <h1 className="mt-3 text-3xl font-semibold">Stuck</h1>
-          <p className="mt-3 max-w-2xl text-slate-300">
-            Placeholder route ready for the next vertical slice.
-          </p>
-        </div>
+    <MomentShell>
+      <section className="mx-auto max-w-3xl">
+        <MomentPageHeader eyebrow="I’m Stuck" title="Let’s find a gentle next step" subtitle="Support for getting unstuck. Not therapy or crisis care." />
+        <StuckClient sessions={sessions ?? []} />
       </section>
-    </main>
+    </MomentShell>
   );
 }

@@ -14,3 +14,15 @@
 ## Vercel deployment note
 
 Use the repository `package-lock.json` and run `npm ci` in CI/build pipelines to ensure the lockfile-resolved Tailwind/PostCSS toolchain is used consistently.
+
+## Manual UX smoke checklist
+
+- [ ] Landing styled
+- [ ] Onboarding works
+- [ ] Dashboard check-in submits
+- [ ] Routing badge appears
+- [ ] Module pages submit
+- [ ] API warning appears when persistence fails
+- [ ] Parent page explains privacy
+- [ ] Settings page loads
+- [ ] Mobile viewport usable

@@ -35,8 +35,12 @@ export type OperationalBlockType = "reflection" | "next_step" | "steps" | "suppo
 export type OperationalBlock = { type: OperationalBlockType; text: string; items?: string[] };
 
 export type MomentCheckInResponse = {
+  routeLabel: string;
+  routePath: string;
   reflection: string;
   tinyNextStep: string;
+  whyThisRoute: string;
+  continueLabel: string;
   steps: string[];
   supportiveNote: string;
   followUpActions: { label: string; href: string }[];

@@ -17,8 +17,12 @@ const defaultStuckRoute: MomentRouteResult = { primaryBrain: "stuck_decomposer",
 
 function normalizeLegacyResponse(result: LegacyStuckResult): MomentCheckInResponse {
   return {
+    routeLabel: "Stuck Restart",
+    routePath: "/stuck",
     reflection: result.summary,
     tinyNextStep: result.tiny_steps[0] ?? result.five_minute_restart,
+    whyThisRoute: "Moment detected task start friction.",
+    continueLabel: "Continue Stuck Restart",
     steps: result.tiny_steps,
     supportiveNote: result.encouragement,
     followUpActions: [{ label: "Return to Moment", href: "/dashboard" }],

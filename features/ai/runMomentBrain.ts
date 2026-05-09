@@ -5,8 +5,12 @@ import { getOpenAIKey } from "@/lib/env";
 
 export function normalizeMomentBrainOutput(input: Partial<MomentCheckInResponse>): MomentCheckInResponse {
   const safe: MomentCheckInResponse = {
+    routeLabel: input.routeLabel?.trim() || "Emotional Reset",
+    routePath: input.routePath?.trim() || "/check-in",
     reflection: input.reflection?.trim() || "You checked in. That matters.",
     tinyNextStep: input.tinyNextStep?.trim() || "Take one tiny step and re-check in.",
+    whyThisRoute: input.whyThisRoute?.trim() || "Moment chose this route from what you shared.",
+    continueLabel: input.continueLabel?.trim() || "Continue",
     steps: (input.steps ?? []).filter(Boolean).slice(0, 3),
     supportiveNote: input.supportiveNote?.trim() || "Keep it light and specific.",
     followUpActions: (input.followUpActions ?? []).slice(0, 3),
@@ -47,8 +51,12 @@ async function runOpenAI(primaryBrain: MomentBrainId, userText: string): Promise
             type: "object",
             additionalProperties: false,
             properties: {
+              routeLabel: { type: "string" },
+              routePath: { type: "string" },
               reflection: { type: "string" },
               tinyNextStep: { type: "string" },
+              whyThisRoute: { type: "string" },
+              continueLabel: { type: "string" },
               steps: { type: "array", items: { type: "string" }, maxItems: 3 },
               supportiveNote: { type: "string" },
               followUpActions: {
@@ -62,7 +70,7 @@ async function runOpenAI(primaryBrain: MomentBrainId, userText: string): Promise
                 },
               },
             },
-            required: ["reflection", "tinyNextStep", "steps", "supportiveNote", "followUpActions"],
+            required: ["routeLabel", "routePath", "reflection", "tinyNextStep", "whyThisRoute", "continueLabel", "steps", "supportiveNote", "followUpActions"],
           },
         },
       },

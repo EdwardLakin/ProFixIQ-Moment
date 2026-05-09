@@ -64,15 +64,15 @@ export function SignInForm() {
 
   return (
     <div className="mt-6 space-y-4">
-      <div className="grid grid-cols-2 gap-2 rounded-full bg-black/20 p-1 ring-1 ring-white/10">
+      <div className="grid grid-cols-2 gap-2 rounded-full bg-[#202a40] p-1 ring-1 ring-white/15">
         <button
           type="button"
           onClick={() => setMode("sign-in")}
           className={[
             "rounded-full px-4 py-2 text-sm font-semibold transition",
             mode === "sign-in"
-              ? "bg-violet-200 text-slate-950"
-              : "text-slate-300 hover:bg-white/10 hover:text-white",
+              ? "bg-[#c4b5fd] text-[#1a1730]"
+              : "text-[#d6d3e8] hover:bg-white/12 hover:text-[#f8f1e7]",
           ].join(" ")}
         >
           Sign in
@@ -83,8 +83,8 @@ export function SignInForm() {
           className={[
             "rounded-full px-4 py-2 text-sm font-semibold transition",
             mode === "sign-up"
-              ? "bg-violet-200 text-slate-950"
-              : "text-slate-300 hover:bg-white/10 hover:text-white",
+              ? "bg-[#c4b5fd] text-[#1a1730]"
+              : "text-[#d6d3e8] hover:bg-white/12 hover:text-[#f8f1e7]",
           ].join(" ")}
         >
           Create account
@@ -92,25 +92,25 @@ export function SignInForm() {
       </div>
 
       <label className="block">
-        <span className="text-sm font-medium text-slate-200">Email</span>
+        <span className="text-sm font-medium text-[#d6d3e8]">Email</span>
         <input
           value={email}
           onChange={(event) => setEmail(event.target.value)}
           type="email"
           autoComplete="email"
-          className="mt-2 w-full rounded-2xl border border-white/10 bg-white/[0.08] px-4 py-3 text-white outline-none placeholder:text-slate-500 focus:border-violet-300/70"
+          className="mt-2 w-full rounded-2xl border border-white/15 bg-[#202a40] px-4 py-3 text-[#f8f1e7] outline-none placeholder:text-[#a7a8bd] focus:border-[#c4b5fd] focus:ring-2 focus:ring-[#c4b5fd]/40"
           placeholder="you@example.com"
         />
       </label>
 
       <label className="block">
-        <span className="text-sm font-medium text-slate-200">Password</span>
+        <span className="text-sm font-medium text-[#d6d3e8]">Password</span>
         <input
           value={password}
           onChange={(event) => setPassword(event.target.value)}
           type="password"
           autoComplete={mode === "sign-up" ? "new-password" : "current-password"}
-          className="mt-2 w-full rounded-2xl border border-white/10 bg-white/[0.08] px-4 py-3 text-white outline-none placeholder:text-slate-500 focus:border-violet-300/70"
+          className="mt-2 w-full rounded-2xl border border-white/15 bg-[#202a40] px-4 py-3 text-[#f8f1e7] outline-none placeholder:text-[#a7a8bd] focus:border-[#c4b5fd] focus:ring-2 focus:ring-[#c4b5fd]/40"
           placeholder="Password"
         />
       </label>
@@ -122,7 +122,7 @@ export function SignInForm() {
       ) : null}
 
       {status ? (
-        <div className="rounded-2xl border border-violet-200/20 bg-violet-300/10 px-4 py-3 text-sm text-violet-100">
+        <div className="rounded-2xl border border-[#c4b5fd]/30 bg-[#c4b5fd]/10 px-4 py-3 text-sm text-[#f8f1e7]">
           {status}
         </div>
       ) : null}
@@ -131,7 +131,7 @@ export function SignInForm() {
         type="button"
         onClick={submit}
         disabled={isSubmitting}
-        className="w-full rounded-full bg-violet-200 px-5 py-3 text-sm font-bold text-slate-950 shadow-xl shadow-violet-950/30 transition hover:bg-violet-100 disabled:cursor-not-allowed disabled:opacity-60"
+        className="w-full rounded-full bg-[#c4b5fd] px-5 py-3 text-sm font-bold text-[#1a1730] shadow-xl shadow-[#0b1020]/40 transition hover:bg-[#ddd3ff] disabled:cursor-not-allowed disabled:bg-[#9f93c9] disabled:text-[#241f3a]"
       >
         {isSubmitting ? "Working…" : mode === "sign-up" ? "Create account" : "Sign in"}
       </button>

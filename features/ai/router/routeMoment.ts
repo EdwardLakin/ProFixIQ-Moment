@@ -9,15 +9,20 @@ function inferAudience(ageRange?: RouteMomentInput["ageRange"]): BrainAudience {
 }
 
 function hasAny(text: string, tokens: string[]) { return tokens.some((token) => text.includes(token)); }
+function toConfidence(score: number): "low" | "medium" | "high" {
+  if (score >= 0.85) return "high";
+  if (score >= 0.6) return "medium";
+  return "low";
+}
 
 export function routeMoment(input: RouteMomentInput): RouteMomentResult {
   const normalized = `${input.momentText} ${input.selectedSignals.join(" ")} ${input.profileContext ?? ""} ${(input.knownSupportNeeds ?? []).join(" ")}`.toLowerCase();
   const audience = inferAudience(input.ageRange);
 
   const severe = hasAny(normalized, ["suicide", "kill myself", "self harm", "hurt myself", "abuse"]);
-  if (severe) return { primaryBrainId: "safety_support_brain", supportingBrainIds: [], routeLabel: brainRegistry.safety_support_brain.label, routePath: "/check-in", confidence: 1, reason: "Severe safety signal detected. Provide safety support language first.", audience: "all", category: "safety" };
+  if (severe) return { primaryBrainId: "safety_support_brain", supportingBrainIds: [], routeLabel: brainRegistry.safety_support_brain.label, routePath: "/check-in", confidence: "high", reason: "Severe safety signal detected. Provide safety support language first.", audience: "all", category: "safety" };
 
-  const pick = (id: MomentBrainId, supporting: MomentBrainId[], confidence: number, reason: string): RouteMomentResult => ({ primaryBrainId: id, supportingBrainIds: supporting, routeLabel: brainRegistry[id].label, routePath: brainRegistry[id].routePath, confidence, reason, audience: brainRegistry[id].audience, category: brainRegistry[id].category });
+  const pick = (id: MomentBrainId, supporting: MomentBrainId[], confidence: number, reason: string): RouteMomentResult => ({ primaryBrainId: id, supportingBrainIds: supporting, routeLabel: brainRegistry[id].label, routePath: brainRegistry[id].routePath, confidence: toConfidence(confidence), reason, audience: brainRegistry[id].audience, category: brainRegistry[id].category });
 
   if (hasAny(normalized, ["money", "bills", "budget", "debt", "taxes"])) return pick("finance_clarity_brain", ["task_start_brain"], 0.95, "Money language detected. Route to educational clarity only, not financial advice.");
   if (hasAny(normalized, ["partner", "spouse", "dating", "breakup", "marriage"])) return pick("relationship_reflection_brain", ["emotional_reset_brain"], 0.93, "Relationship language detected. Keep boundaries and communication prep focus.");

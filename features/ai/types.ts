@@ -1,15 +1,5 @@
-export type MomentBrainId =
-  | "emotion_reflector"
-  | "stuck_decomposer"
-  | "math_reset_helper"
-  | "social_boundary_helper"
-  | "confidence_repair"
-  | "focus_reentry"
-  | "shutdown_recovery"
-  | "task_simplifier"
-  | "school_restart"
-  | "parent_summary_generator"
-  | "safety_classifier";
+import type { BrainAudience, BrainCategory, MomentBrainId } from "@/features/ai/brains/types";
+export type { MomentBrainId } from "@/features/ai/brains/types";
 
 export type MomentRouteConfidence = "low" | "medium" | "high";
 
@@ -24,11 +14,16 @@ export type MomentBrain = {
 };
 
 export type MomentRouteResult = {
-  primaryBrain: MomentBrainId;
-  supportingBrains: MomentBrainId[];
+  primaryBrainId: MomentBrainId;
+  supportingBrainIds: MomentBrainId[];
+  primaryBrain?: MomentBrainId;
+  supportingBrains?: MomentBrainId[];
+  routeLabel: string;
   routePath: string;
   reason: string;
   confidence: MomentRouteConfidence;
+  audience: BrainAudience | "all";
+  category: BrainCategory | "emotion" | "task";
 };
 
 export type OperationalBlockType = "reflection" | "next_step" | "steps" | "support" | "momentum_builder" | "route_transition" | "recovery_prompt";

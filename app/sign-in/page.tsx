@@ -1,17 +1,18 @@
-import { MomentCard } from "@/components/moment/MomentCard";
-import { MomentPageHeader } from "@/components/moment/MomentPageHeader";
-import { MomentShell } from "@/components/moment/MomentShell";
-import { SignInForm } from "@/app/sign-in/SignInForm";
+import { Suspense } from "react";
+import { SignInForm } from "./SignInForm";
 
 export default function SignInPage() {
   return (
-    <MomentShell>
-      <section className="mx-auto max-w-md">
-        <MomentPageHeader eyebrow="Moment" title="Sign in" subtitle="Sign in or create an account to continue." />
-        <MomentCard>
-          <SignInForm />
-        </MomentCard>
-      </section>
-    </MomentShell>
+    <Suspense
+      fallback={
+        <main className="min-h-screen bg-[#0b1020] px-6 py-10 text-[#f8f1e7]">
+          <div className="mx-auto max-w-md rounded-3xl bg-white/[0.05] p-6">
+            Loading sign in…
+          </div>
+        </main>
+      }
+    >
+      <SignInForm />
+    </Suspense>
   );
 }

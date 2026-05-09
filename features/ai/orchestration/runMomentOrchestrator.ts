@@ -26,17 +26,23 @@ const routeBlock: Record<string, OperationalBlock> = {
   school_overwhelm_brain: { type: "school_reset", text: "Pick one class and one 10-minute start task." },
   confidence_repair_brain: { type: "confidence_repair", text: "Write one recent win and one tiny proof-of-progress step." },
   life_admin_brain: { type: "life_admin_sort", text: "Sort tasks into now, later, and delegate if possible." },
+  grief_support_brain: { type: "emotional_presence", text: "That sounds really heavy. It makes sense this hurts, especially around meaningful dates." },
+  emotional_presence_brain: { type: "emotional_presence", text: "You do not need to force yourself to be okay right now." },
+  loneliness_support_brain: { type: "emotional_presence", text: "Feeling alone can ache in a deep way. You are not wrong for feeling this." },
+  overwhelm_grounding_brain: { type: "grounding", text: "Before solving anything, let your body settle: unclench your jaw, lower your shoulders, and take one slow breath." },
 };
 
 export function runMomentOrchestrator(input: RouteMomentInput): MomentOrchestratorResult {
   const route = routeMoment(input);
   const reflection = input.momentText?.trim() ? `You're carrying a lot right now: ${input.momentText.trim().slice(0, 140)}.` : "You're carrying a lot right now, and naming it is a solid first step.";
+  const emotionalPrimary = new Set(["grief_support_brain", "emotional_presence_brain", "loneliness_support_brain", "overwhelm_grounding_brain"]);
+  const isEmotional = emotionalPrimary.has(route.primaryBrainId);
   const blocks: OperationalBlock[] = [
     { type: "reflection", text: reflection },
-    { type: "tiny_step", text: "Do a 2-minute setup step: open notes, name one next action, and begin." },
-    { type: "route_transition", text: `Continue with ${route.routeLabel}.` },
+    isEmotional ? { type: "emotional_presence", text: "You don't have to solve this moment immediately." } : { type: "tiny_step", text: "Do a 2-minute setup step: open notes, name one next action, and begin." },
+    isEmotional ? { type: "gentle_next_step", text: "If it helps, we can stay with this feeling, do light grounding, or reflect on who/what you're missing." } : { type: "route_transition", text: `Continue with ${route.routeLabel}.` },
     routeBlock[route.primaryBrainId] ?? { type: "grounding", text: "Take one slow breath, unclench your shoulders, and choose one tiny action." },
   ];
 
-  return { route, response: { routeLabel: route.routeLabel, routePath: route.routePath, reflection, tinyNextStep: blocks[1].text, whyThisRoute: "Small actions lower overwhelm and build momentum.", continueLabel: `Continue with ${route.routeLabel}`, steps: [blocks[1].text], supportiveNote: "Small consistent steps create progress.", followUpActions: [{ label: `Open ${route.routeLabel}`, href: route.routePath }], blocks }, warnings: route.primaryBrainId === "safety_support_brain" ? ["High-severity safety signals detected."] : [] };
+  return { route, response: { routeLabel: route.routeLabel, routePath: route.routePath, reflection, tinyNextStep: blocks[1].text, whyThisRoute: isEmotional ? "Emotional acknowledgment comes first before any structure." : "Small actions lower overwhelm and build momentum.", continueLabel: isEmotional ? "Stay with this moment" : `Continue with ${route.routeLabel}`, steps: [blocks[1].text], supportiveNote: isEmotional ? "You can move slowly here." : "Small consistent steps create progress.", followUpActions: [{ label: isEmotional ? "Keep gentle support" : `Open ${route.routeLabel}`, href: route.routePath }], blocks }, warnings: route.primaryBrainId === "safety_support_brain" ? ["High-severity safety signals detected."] : [] };
 }

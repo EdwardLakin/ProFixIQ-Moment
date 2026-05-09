@@ -13,12 +13,16 @@ type LegacyStuckResult = { summary: string; likely_block: string; tiny_steps: st
 
 type StuckResponseEnvelope = { response: MomentCheckInResponse; route?: MomentRouteResult };
 
-const defaultStuckRoute: MomentRouteResult = { primaryBrainId: "task_start_brain", supportingBrainIds: [], routeLabel: "Task Start", routePath: "/stuck", reason: "Stuck reset requested.", confidence: "high", audience: "all", category: "task" };
+const defaultStuckRoute: MomentRouteResult = { primaryBrain: "stuck_decomposer", supportingBrains: [], routePath: "/stuck", reason: "Stuck reset requested.", confidence: "high" };
 
 function normalizeLegacyResponse(result: LegacyStuckResult): MomentCheckInResponse {
   return {
+    routeLabel: "Stuck Restart",
+    routePath: "/stuck",
     reflection: result.summary,
     tinyNextStep: result.tiny_steps[0] ?? result.five_minute_restart,
+    whyThisRoute: "Moment detected task start friction.",
+    continueLabel: "Continue Stuck Restart",
     steps: result.tiny_steps,
     supportiveNote: result.encouragement,
     followUpActions: [{ label: "Return to Moment", href: "/dashboard" }],

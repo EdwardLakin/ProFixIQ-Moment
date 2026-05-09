@@ -1,129 +1,62 @@
 "use client";
 
 import Link from "next/link";
-import { useMemo, useState } from "react";
+import { useState } from "react";
 import { MomentButton } from "@/components/moment/MomentButton";
 import { MomentCard } from "@/components/moment/MomentCard";
-import { MomentPromptCard } from "@/components/moment/MomentPromptCard";
-import { MomentResponseCard } from "@/components/moment/MomentResponseCard";
-import { MomentStateChip } from "@/components/moment/MomentStateChip";
 import { MomentTextarea } from "@/components/moment/MomentTextarea";
-import { MomentumRail } from "@/components/moment/momentum/MomentumRail";
 import type { MomentCheckInResponse, MomentRouteResult } from "@/features/ai/types";
-import { useMomentEnvironment } from "@/features/moment/context/hooks";
-import { getAdaptiveQuickActions } from "@/features/moment/orchestration/engine";
 import type { MomentGreetingOutput } from "@/features/moment/greeting/types";
 
-const chips = ["Work", "Money", "Relationship", "Home", "Decision", "School", "Math", "Social", "Stuck"];
-
-const stateMap = {
-  overwhelmed: ["Overwhelmed", "Too many thoughts", "Anxious", "Tired"],
-  stuck: ["Can’t start", "Avoiding homework", "Shutting down"],
-  math: ["Math makes no sense", "Avoiding homework"],
-  social: ["Friend drama", "Embarrassed"],
-};
-
-const stateStyles = {
-  default: {
-    shell: "border-white/10",
-    glow: "from-violet-400/12 to-sky-300/8",
-    badge: "border-violet-200/30 bg-violet-200/10 text-violet-100",
-    response: "border-violet-200/20",
-    rail: "Recovery + momentum",
-  },
-  overwhelmed: {
-    shell: "border-amber-300/20",
-    glow: "from-amber-300/16 to-rose-300/10",
-    badge: "border-amber-300/40 bg-amber-300/12 text-amber-100",
-    response: "border-amber-300/25",
-    rail: "Recovery + grounding",
-  },
-  stuck: {
-    shell: "border-slate-200/20",
-    glow: "from-slate-300/14 to-violet-300/10",
-    badge: "border-slate-200/35 bg-slate-200/10 text-slate-100",
-    response: "border-slate-200/25",
-    rail: "Recovery + restart",
-  },
-  math: {
-    shell: "border-sky-300/20",
-    glow: "from-sky-300/16 to-cyan-300/10",
-    badge: "border-sky-300/35 bg-sky-300/10 text-sky-100",
-    response: "border-sky-300/25",
-    rail: "Recovery + focus",
-  },
-  social: {
-    shell: "border-fuchsia-300/20",
-    glow: "from-fuchsia-300/15 to-rose-300/12",
-    badge: "border-fuchsia-300/35 bg-fuchsia-300/10 text-fuchsia-100",
-    response: "border-fuchsia-300/25",
-    rail: "Recovery + boundaries",
-  },
-};
+const supportChips = ["School feels overwhelming", "Starting is hard", "Math gets frustrating", "Friend drama pulls me in", "I shut down when confused", "I want calmer restarts", "I need help with boundaries", "I want tiny steps"];
 
 export function DashboardClient({ greeting }: { greeting: MomentGreetingOutput }) {
   const [text, setText] = useState("");
-  const [warnings, setWarnings] = useState<string[]>([]);
   const [selectedStates, setSelectedStates] = useState<string[]>([]);
   const [result, setResult] = useState<{ route: MomentRouteResult; response: MomentCheckInResponse } | null>(null);
-  const environment = useMomentEnvironment();
-
-  const visualState = useMemo(() => {
-    if (selectedStates.some((chip) => stateMap.math.includes(chip))) return "math";
-    if (selectedStates.some((chip) => stateMap.social.includes(chip))) return "social";
-    if (selectedStates.some((chip) => stateMap.stuck.includes(chip))) return "stuck";
-    if (selectedStates.some((chip) => stateMap.overwhelmed.includes(chip))) return "overwhelmed";
-    return "default";
-  }, [selectedStates]);
 
   async function submit() {
     const res = await fetch("/api/ai/check-in", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ text, selectedStates }) });
     if (!res.ok) return;
-    const data = await res.json() as { route: MomentRouteResult; response: MomentCheckInResponse; warnings?: string[] };
-    setWarnings(data.warnings ?? []);
+    const data = await res.json() as { route: MomentRouteResult; response: MomentCheckInResponse };
     setResult(data);
-    environment.trackRoute("dashboard", data.route.routePath);
-    environment.setRecoveryContext(data.response.reflection, "dashboard");
-    environment.upsertLoop({ id: data.route.primaryBrainId, label: data.route.reason, routePath: data.route.routePath, tinyStep: data.response.tinyNextStep, updatedAt: new Date().toISOString() });
-    if (selectedStates.includes("Shutting down")) environment.setEmotionalState("shutdown");
-    if (data.response.tinyNextStep) environment.setSuccessfulRestart();
   }
 
-  const quickActions = result ? getAdaptiveQuickActions(result.route.primaryBrainId, environment.state) : [];
-  const styles = stateStyles[visualState];
-
   return (
-    <div className="grid gap-6 lg:grid-cols-[1fr_320px]">
-      <div className="space-y-5">
-        <MomentPromptCard className={`relative overflow-hidden border ${styles.shell}`}>
-          <div className={`pointer-events-none absolute inset-0 bg-gradient-to-br ${styles.glow} opacity-70`} />
-          <div className="relative">
-            <p className="mb-3 text-xs uppercase tracking-[0.16em] text-violet-100/75">Main check-in</p>
-            <h2 className="text-3xl font-semibold tracking-tight sm:text-4xl">{greeting.headline}</h2>
-            <p className="mt-2 text-sm text-slate-200">{greeting.subtext}</p>
-            <MomentTextarea rows={4} value={text} onChange={(e) => setText(e.target.value)} placeholder={greeting.prompt} />
-            <div className="mt-3 flex flex-wrap gap-2">{chips.map((chip) => <MomentStateChip key={chip} label={chip} selected={selectedStates.includes(chip)} onClick={() => setSelectedStates((curr) => curr.includes(chip) ? curr.filter((value) => value !== chip) : [...curr, chip])} />)}</div>
-            <div className="mt-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-              <span className={`inline-flex w-fit rounded-full border px-3 py-1 text-xs font-medium ${styles.badge}`}>Current state: {visualState}</span>
-              <MomentButton onClick={submit} disabled={text.length < 3} className="w-full sm:w-auto">Help me reset</MomentButton>
-            </div>
-          </div>
-        </MomentPromptCard>
+    <div className="mx-auto max-w-4xl space-y-6">
+      <section className="rounded-[2rem] border border-white/10 bg-[radial-gradient(circle_at_14%_0%,rgba(244,200,255,0.14),transparent_38%),radial-gradient(circle_at_88%_0%,rgba(147,197,253,0.15),transparent_36%),linear-gradient(140deg,#1a1427,#111925_58%,#1a2238)] p-6 shadow-[0_45px_120px_-65px_rgba(232,121,249,0.8)] sm:p-8">
+        <p className="text-xs uppercase tracking-[0.2em] text-[#e8dbff]/75">{greeting.headline}</p>
+        <h2 className="mt-3 text-3xl font-semibold tracking-tight text-[#f7efe3] sm:text-4xl">Tell Moment what&apos;s going on right now.</h2>
+        <p className="mt-2 max-w-2xl text-sm text-[#d9d8e8]">Moment routes this internally and gives you one tiny next step.</p>
 
-        {warnings.length > 0 ? <MomentCard><p className="text-sm text-amber-100">Moment saved your reset locally, but cloud sync had trouble. You can keep going.</p></MomentCard> : null}
+        <MomentTextarea rows={6} value={text} onChange={(event) => setText(event.target.value)} placeholder="Write what this moment feels like. You can be messy and honest." />
 
-        {result ? <div className={`rounded-[1.6rem] border bg-white/[0.02] p-1.5 ${styles.response}`}><MomentResponseCard route={result.route} response={result.response} quickActions={quickActions} /></div> : null}
+        <div className="mt-4 flex flex-wrap gap-2">{supportChips.map((chip) => <button key={chip} type="button" onClick={() => setSelectedStates((curr) => curr.includes(chip) ? curr.filter((value) => value !== chip) : [...curr, chip])} className={`rounded-full px-3 py-1.5 text-xs transition ${selectedStates.includes(chip) ? "bg-[#d7ccff] text-[#271d3f]" : "bg-white/8 text-[#e5def2] ring-1 ring-white/15 hover:bg-white/14"}`}>{chip}</button>)}</div>
 
-        <MomentCard className="border-white/10 bg-white/[0.025]">
-          <h3 className="text-sm font-semibold uppercase tracking-[0.14em] text-violet-100/75">Need a specific reset?</h3>
-          <div className="mt-3 grid gap-2 sm:grid-cols-2">{[{ href: "/check-in", label: "Check in" }, { href: "/stuck", label: "Stuck" }, { href: "/math-reset", label: "Math reset" }, { href: "/drama-pause", label: "Drama pause" }].map((item) => <Link key={item.href} href={item.href} className="min-h-10 rounded-xl border border-white/10 px-3 py-2 text-sm text-slate-200 transition hover:bg-white/5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-100">{item.label}</Link>)}</div>
-        </MomentCard>
-      </div>
+        <div className="mt-5 flex items-center justify-end">
+          <MomentButton onClick={submit} disabled={text.length < 3}>Find my next step</MomentButton>
+        </div>
+      </section>
 
-      <div>
-        <p className={`mb-2 inline-flex rounded-full border px-3 py-1 text-[11px] uppercase tracking-[0.14em] ${styles.badge}`}>{styles.rail}</p>
-        <MomentumRail state={environment.state} />
-      </div>
+      {result ? (
+        <section className="rounded-[1.8rem] border border-white/10 bg-white/[0.04] p-6 shadow-[0_30px_80px_-55px_rgba(129,140,248,0.75)]">
+          <p className="text-xs uppercase tracking-[0.16em] text-violet-100/70">{result.response.whyThisRoute}</p>
+          <h3 className="mt-2 text-2xl font-semibold text-[#f8f1e7]">{result.response.routeLabel}</h3>
+          <p className="mt-3 text-[#dbd9e8]">{result.response.reflection}</p>
+          <p className="mt-3 rounded-2xl bg-black/20 p-3 text-sm text-[#f8f1e7] ring-1 ring-white/10">Tiny next step: {result.response.tinyNextStep}</p>
+          <Link href={result.response.routePath} className="mt-4 inline-flex rounded-full bg-white/10 px-4 py-2 text-sm text-violet-100 ring-1 ring-white/20 hover:bg-white/15">{result.response.continueLabel}</Link>
+        </section>
+      ) : null}
+
+      <MomentCard className="border-white/8 bg-white/[0.02]">
+        <p className="text-xs uppercase tracking-[0.18em] text-violet-100/70">Need something specific?</p>
+        <div className="mt-3 flex flex-wrap gap-3 text-sm text-[#d2cee5]">
+          <Link href="/check-in" className="hover:text-white">Check In</Link>
+          <Link href="/stuck" className="hover:text-white">Stuck Restart</Link>
+          <Link href="/math-reset" className="hover:text-white">Math Reset</Link>
+          <Link href="/drama-pause" className="hover:text-white">Boundary Pause</Link>
+        </div>
+      </MomentCard>
     </div>
   );
 }

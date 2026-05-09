@@ -7,7 +7,8 @@
     "build": "next build --webpack",
     "start": "next start",
     "lint": "next lint",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "smoke:router": "node --experimental-strip-types scripts/smoke-router.mjs"
   },
   "dependencies": {
     "@supabase/ssr": "latest",

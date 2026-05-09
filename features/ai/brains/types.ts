@@ -1,4 +1,5 @@
 export type BrainAudience = "teen" | "adult" | "all";
+export type AgeRange = "under_13" | "13_15" | "16_17" | "18_plus";
 
 export type BrainCategory = "school" | "math" | "social" | "task" | "emotion" | "confidence" | "work" | "money" | "relationship" | "household" | "life_admin" | "decision" | "safety";
 
@@ -8,6 +9,8 @@ export type MomentBrain = {
   id: MomentBrainId;
   label: string;
   audience: BrainAudience;
+  allowedAgeRanges?: AgeRange[];
+  disallowedSignals?: string[];
   category: BrainCategory;
   routePath: string;
   description: string;

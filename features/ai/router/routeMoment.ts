@@ -41,6 +41,19 @@ export function routeMoment(input: RouteMomentInput): RouteMomentResult {
   };
 
   if (minorAdultCoded) return pick("emotional_reset_brain", ["social_boundary_brain", "task_start_brain"], 0.9, "Minor used adult-coded terms. Route to all-safe boundary support.");
+  const griefTerms = ["grief", "grieving", "died", "death", "passed away", "funeral", "loss", "bereaved", "anniversary", "mother's day", "fathers day", "father's day", "miss him", "miss her", "miss them", "can't stop crying", "cannot stop crying"];
+  const lonelinessTerms = ["lonely", "alone", "isolated", "no one", "disconnected"];
+  const sadnessTerms = ["sad", "hurts", "heartbroken", "emotional pain", "i'm in pain", "crying"];
+  const overwhelmTerms = ["overwhelmed", "flooded", "spiraling", "shutdown", "can't breathe", "cant focus"];
+
+  if (hasAny(normalized, griefTerms) && hasAny(normalized, ["homework", "school", "class", "test", "deadline", "work"])) {
+    return pick("grief_support_brain", ["emotional_presence_brain", "overwhelm_grounding_brain", "school_overwhelm_brain"], 0.97, "Hybrid grief + execution moment detected. Emotional support first, then gentle structure.");
+  }
+  if (hasAny(normalized, griefTerms)) return pick("grief_support_brain", ["emotional_presence_brain", "overwhelm_grounding_brain"], 0.98, "Grief/loss or anniversary language detected.");
+  if (hasAny(normalized, lonelinessTerms)) return pick("loneliness_support_brain", ["emotional_presence_brain"], 0.93, "Loneliness language detected.");
+  if (hasAny(normalized, sadnessTerms)) return pick("emotional_presence_brain", ["overwhelm_grounding_brain"], 0.9, "Emotional pain language detected.");
+  if (hasAny(normalized, overwhelmTerms)) return pick("overwhelm_grounding_brain", ["emotional_presence_brain"], 0.88, "Emotional overwhelm signal detected.");
+
   if (hasAny(normalized, ["money", "bills", "budget", "debt", "taxes"])) return pick("finance_clarity_brain", ["task_start_brain"], 0.95, "Money language detected.");
   if (hasAny(normalized, ["partner", "spouse", "dating", "breakup", "marriage"])) return pick("relationship_reflection_brain", ["emotional_reset_brain"], 0.93, "Relationship language detected.");
   if (hasAny(normalized, ["work", "boss", "job", "burnout", "deadline"])) return pick("work_stress_brain", ["task_start_brain"], 0.92, "Work stress language detected.");

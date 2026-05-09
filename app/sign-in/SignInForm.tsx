@@ -72,7 +72,7 @@ export function SignInForm() {
             "rounded-full px-4 py-2 text-sm font-semibold transition",
             mode === "sign-in"
               ? "bg-[#c4b5fd] text-[#1a1730]"
-              : "text-[#d6d3e8] hover:bg-white/12 hover:text-[#f8f1e7]",
+              : "text-[#d6d3e8] hover:bg-white/10 hover:text-[#f8f1e7]",
           ].join(" ")}
         >
           Sign in
@@ -84,7 +84,7 @@ export function SignInForm() {
             "rounded-full px-4 py-2 text-sm font-semibold transition",
             mode === "sign-up"
               ? "bg-[#c4b5fd] text-[#1a1730]"
-              : "text-[#d6d3e8] hover:bg-white/12 hover:text-[#f8f1e7]",
+              : "text-[#d6d3e8] hover:bg-white/10 hover:text-[#f8f1e7]",
           ].join(" ")}
         >
           Create account
@@ -92,7 +92,7 @@ export function SignInForm() {
       </div>
 
       <label className="block">
-        <span className="text-sm font-medium text-[#d6d3e8]">Email</span>
+        <span className="text-sm font-medium text-[#ece8f6]">Email</span>
         <input
           value={email}
           onChange={(event) => setEmail(event.target.value)}
@@ -104,7 +104,7 @@ export function SignInForm() {
       </label>
 
       <label className="block">
-        <span className="text-sm font-medium text-[#d6d3e8]">Password</span>
+        <span className="text-sm font-medium text-[#ece8f6]">Password</span>
         <input
           value={password}
           onChange={(event) => setPassword(event.target.value)}

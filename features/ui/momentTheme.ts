@@ -11,3 +11,9 @@ export const momentTheme = {
   danger: "#ff8f8f",
   success: "#9ce7bf",
 } as const;
+
+export const motionTokens = {
+  cardTransition: "transition duration-200 ease-out motion-reduce:transition-none motion-safe:opacity-100 motion-safe:translate-y-0",
+  blurTransition: "transition-[filter] duration-200 motion-reduce:transition-none motion-safe:blur-0",
+  translateTransition: "transition-transform duration-200 ease-out motion-reduce:transition-none",
+} as const;

@@ -31,14 +31,17 @@ export type MomentRouteResult = {
   confidence: MomentRouteConfidence;
 };
 
+export type OperationalBlockType = "reflection" | "next_step" | "steps" | "support" | "momentum_builder" | "route_transition" | "recovery_prompt";
+export type OperationalBlock = { type: OperationalBlockType; text: string; items?: string[] };
+
 export type MomentCheckInResponse = {
   reflection: string;
   tinyNextStep: string;
   steps: string[];
   supportiveNote: string;
   followUpActions: { label: string; href: string }[];
+  blocks?: OperationalBlock[];
 };
 
-
-export type OrchestrationBrainContribution = { brainId: MomentBrainId; blocks: { type: string; text: string }[] };
+export type OrchestrationBrainContribution = { brainId: MomentBrainId; blocks: OperationalBlock[] };
 export type MultiBrainMergeEnvelope = { primary: MomentBrainId; supporting: MomentBrainId[]; contributions: OrchestrationBrainContribution[] };

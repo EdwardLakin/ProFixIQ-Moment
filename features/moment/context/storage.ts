@@ -1,4 +1,5 @@
 import type { MomentEnvironmentState } from "@/features/moment/context/types";
+import { syncEnvironmentState } from "@/features/moment/context/syncAdapter";
 
 const STORAGE_KEY = "moment.environment.v1";
 
@@ -21,4 +22,9 @@ export function readEnvironmentState(): MomentEnvironmentState {
 export function writeEnvironmentState(state: MomentEnvironmentState) {
   if (typeof window === "undefined") return;
   window.localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+  void syncEnvironmentState(state).then((result) => {
+    if (result.status === "synced" && result.merged) {
+      window.localStorage.setItem(STORAGE_KEY, JSON.stringify(result.merged));
+    }
+  });
 }

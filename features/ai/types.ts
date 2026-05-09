@@ -26,7 +26,7 @@ export type MomentRouteResult = {
   category: BrainCategory | "emotion" | "task";
 };
 
-export type OperationalBlockType = "reflection" | "next_step" | "steps" | "support" | "momentum_builder" | "route_transition" | "recovery_prompt";
+export type OperationalBlockType = "reflection" | "tiny_step" | "route_transition" | "grounding" | "boundary_prompt" | "decision_frame" | "money_clarity" | "work_reset" | "relationship_reflection" | "school_reset" | "confidence_repair" | "life_admin_sort" | "momentum_builder" | "recovery_prompt" | "next_step" | "steps" | "support";
 export type OperationalBlock = { type: OperationalBlockType; text: string; items?: string[] };
 
 export type MomentCheckInResponse = {

@@ -1,13 +1,16 @@
-@tailwind base;
-@tailwind components;
-@tailwind utilities;
-
 :root {
   color-scheme: dark;
 }
 
+* {
+  box-sizing: border-box;
+}
+
 body {
-  @apply bg-[#0b1020] text-[#f8f1e7];
+  margin: 0;
+  font-family: Inter, "SF Pro Text", "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  background: #0b1020;
+  color: #f8f1e7;
 }
 
 .moment-glow {

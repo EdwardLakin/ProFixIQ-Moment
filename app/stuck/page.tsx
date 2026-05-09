@@ -4,7 +4,7 @@ import { MomentShell } from "@/components/moment/MomentShell";
 import { StuckClient } from "@/features/stuck/StuckClient";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 
-export default async function StuckPage() {
+export default async function StuckPage({ searchParams }: { searchParams: { from?: string; contextId?: string; summary?: string } }) {
   const supabase = await createSupabaseServerClient();
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) redirect("/sign-in");
@@ -15,7 +15,7 @@ export default async function StuckPage() {
     <MomentShell>
       <section className="mx-auto max-w-3xl">
         <MomentPageHeader eyebrow="I’m Stuck" title="Let’s find a gentle next step" subtitle="Support for getting unstuck. Not therapy or crisis care." />
-        <StuckClient sessions={sessions ?? []} />
+        <StuckClient sessions={sessions ?? []} searchParams={searchParams} />
       </section>
     </MomentShell>
   );

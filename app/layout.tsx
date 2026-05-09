@@ -1,22 +1,21 @@
-import type { Metadata } from 'next'
-import { Inter } from 'next/font/google'
-import './globals.css'
-
-const inter = Inter({ subsets: ['latin'] })
+import type { Metadata } from "next";
+import "./globals.css";
 
 export const metadata: Metadata = {
-  title: 'ProFixIQ Moment',
-  description: 'AI executive-function operating system for ADHD/anxiety/school overwhelm',
-}
+  title: "ProFixIQ Moment",
+  description: "AI executive-function operating system for ADHD/anxiety/school overwhelm",
+};
 
 export default function RootLayout({
   children,
 }: {
-  children: React.ReactNode
+  children: React.ReactNode;
 }) {
   return (
     <html lang="en">
-      <body className={inter.className}>{children}</body>
+      {/* Using a system font stack for build reliability. Hosted fonts can be restored
+          after deployment/network behavior is stable across environments. */}
+      <body>{children}</body>
     </html>
-  )
+  );
 }

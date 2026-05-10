@@ -7,6 +7,7 @@ import { detectSupportRisk } from "@/features/safety";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { extractMemoryArtifacts } from "@/features/moment/memory/extractMemoryArtifacts";
 import { persistMomentMemory } from "@/features/moment/memory/persistMomentMemory";
+import { readMomentMemory } from "@/features/moment/memory/readMomentMemory";
 
 const schema = z.object({
   text: z.string().min(3),
@@ -86,5 +87,6 @@ export async function POST(request: Request) {
   });
   if (!entryId) warnings.push("Failed to persist memory entry.");
 
-  return NextResponse.json({ route: result.route, response: { ...result.response, continuitySummary, continuityCue, continuationOptions: ["continue", "pause", "start_fresh"] }, warnings: [...result.warnings, ...warnings] });
+  const memorySnapshot = await readMomentMemory(supabase, user.id);
+  return NextResponse.json({ route: result.route, response: { ...result.response, continuitySummary, continuityCue, continuationOptions: ["continue", "pause", "start_fresh"] }, warnings: [...result.warnings, ...warnings], memorySnapshot });
 }

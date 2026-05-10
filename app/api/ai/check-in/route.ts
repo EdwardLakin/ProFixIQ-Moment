@@ -5,6 +5,8 @@ import { buildThreadUpsert, continuityCueFromThread, inferSupportStyle, summariz
 import type { MomentThread } from "@/features/moment/continuity/types";
 import { detectSupportRisk } from "@/features/safety";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { extractMemoryArtifacts } from "@/features/moment/memory/extractMemoryArtifacts";
+import { persistMomentMemory } from "@/features/moment/memory/persistMomentMemory";
 
 const schema = z.object({
   text: z.string().min(3),
@@ -60,11 +62,29 @@ export async function POST(request: Request) {
     threadId: parsed.data.conversationState?.threadId,
   });
   const confidenceValue = result.route.confidence === "high" ? 0.95 : result.route.confidence === "medium" ? 0.75 : 0.5;
-  const { error: routeError } = await supabase.from("moment_routes").insert({ user_id: user.id, primary_brain_id: result.route.primaryBrainId, supporting_brain_ids: result.route.supportingBrainIds, category: result.route.category, audience: result.route.audience, input_summary: summarizeInput(parsed.data.text), route_reason: result.route.reason, confidence: confidenceValue });
+  const { data: routeData, error: routeError } = await supabase.from("moment_routes").insert({ user_id: user.id, primary_brain_id: result.route.primaryBrainId, supporting_brain_ids: result.route.supportingBrainIds, category: result.route.category, audience: result.route.audience, input_summary: summarizeInput(parsed.data.text), route_reason: result.route.reason, confidence: confidenceValue }).select("id").single();
   const upsertPayload = buildThreadUpsert(parsed.data.text, result.route, user.id, inferSupportStyle(parsed.data.conversationState?.inferredSupportStyle));
-  const { error: threadError } = await supabase.from("moment_threads").insert(upsertPayload);
+  const { data: threadData, error: threadError } = await supabase.from("moment_threads").insert(upsertPayload).select("id").single();
   if (threadError) warnings.push(`Failed to persist thread continuity: ${threadError.message}`);
   if (routeError) warnings.push(`Failed to log route event: ${routeError.message}`);
+
+  const artifacts = extractMemoryArtifacts({
+    userText: parsed.data.text,
+    selectedStates: parsed.data.selectedStates,
+    route: result.route,
+    response: result.response,
+    supportStyle: parsed.data.conversationState?.inferredSupportStyle,
+    riskSeverity: risk.severity,
+    ageRange: parsed.data.ageRange,
+  });
+  const entryId = await persistMomentMemory({
+    supabase,
+    userId: user.id,
+    threadId: threadData?.id ?? null,
+    routeId: routeData?.id ?? null,
+    artifacts,
+  });
+  if (!entryId) warnings.push("Failed to persist memory entry.");
 
   return NextResponse.json({ route: result.route, response: { ...result.response, continuitySummary, continuityCue, continuationOptions: ["continue", "pause", "start_fresh"] }, warnings: [...result.warnings, ...warnings] });
 }

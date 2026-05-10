@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { requireMomentFeature } from "@/lib/entitlements";
 
 const schema = z.object({
   action: z.enum(["accept_suggestion", "dismiss_suggestion", "hide_tiny_win", "pause_thread", "resume_thread", "archive_goal", "pause_goal", "resume_goal", "mark_goal_progress", "mark_goal_struggling"]),
@@ -12,6 +13,11 @@ export async function POST(request: Request) {
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   const parsed = schema.safeParse(await request.json());
+
+  if (["archive_goal", "pause_goal", "resume_goal", "mark_goal_progress", "mark_goal_struggling"].includes(parsed.success ? parsed.data.action : "")) {
+    const gated = await requireMomentFeature("goals");
+    if (!gated.ok) return NextResponse.json(gated.response, { status: gated.status });
+  }
   if (!parsed.success) return NextResponse.json({ error: "Invalid input" }, { status: 400 });
   const { action, id } = parsed.data;
 

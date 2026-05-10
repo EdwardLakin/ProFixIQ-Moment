@@ -6,7 +6,7 @@
     "dev": "next dev",
     "build": "next build --webpack",
     "start": "next start",
-    "lint": "next lint",
+    "lint": "eslint .",
     "typecheck": "tsc --noEmit",
     "smoke:router": "node --experimental-strip-types scripts/smoke-router.mjs",
     "smoke:user-flow": "node scripts/smoke-user-flow.mjs"

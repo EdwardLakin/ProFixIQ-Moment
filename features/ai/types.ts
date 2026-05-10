@@ -1,4 +1,5 @@
 import { OPERATIONAL_BLOCK_TYPES } from "@/features/ai/contracts";
+import type { MomentToolId } from "@/features/moment/tools/contracts";
 import type { BrainAudience, BrainCategory, MomentBrainId } from "@/features/ai/brains/types";
 export type { MomentBrainId } from "@/features/ai/brains/types";
 
@@ -41,6 +42,7 @@ export type MomentCheckInResponse = {
   supportiveNote: string;
   followUpActions: { label: string; href: string }[];
   blocks?: OperationalBlock[];
+  supportTools?: { id: MomentToolId; label: string; description: string }[];
 };
 
 export type OrchestrationBrainContribution = { brainId: MomentBrainId; blocks: OperationalBlock[] };

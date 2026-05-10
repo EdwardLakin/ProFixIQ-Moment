@@ -3,11 +3,11 @@ export const AGE_RANGES = ["under_13", "13_15", "16_17", "18_plus"] as const;
 
 export const BRAIN_CATEGORIES = ["school", "math", "social", "task", "emotion", "confidence", "work", "money", "relationship", "household", "life_admin", "decision", "safety", "grief", "loneliness", "overwhelm"] as const;
 
-export const MOMENT_BRAIN_IDS = ["school_overwhelm_brain", "math_reset_brain", "social_boundary_brain", "task_start_brain", "emotional_reset_brain", "confidence_repair_brain", "work_stress_brain", "finance_clarity_brain", "relationship_reflection_brain", "household_overload_brain", "life_admin_brain", "decision_reset_brain", "safety_support_brain", "grief_support_brain", "emotional_presence_brain", "loneliness_support_brain", "overwhelm_grounding_brain"] as const;
+export const MOMENT_BRAIN_IDS = ["school_overwhelm_brain", "tutor_brain", "social_boundary_brain", "task_start_brain", "emotional_reset_brain", "confidence_repair_brain", "work_stress_brain", "finance_clarity_brain", "relationship_reflection_brain", "household_overload_brain", "life_admin_brain", "decision_reset_brain", "safety_support_brain", "grief_support_brain", "emotional_presence_brain", "loneliness_support_brain", "overwhelm_grounding_brain"] as const;
 
 export const ROUTE_LABELS = {
   school_overwhelm_brain: "School overwhelm",
-  math_reset_brain: "Math reset",
+  tutor_brain: "Tutor support",
   social_boundary_brain: "Social boundary",
   task_start_brain: "Task start",
   emotional_reset_brain: "Emotional reset",

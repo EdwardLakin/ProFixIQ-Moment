@@ -16,7 +16,7 @@ const decide = (ageRange, text) => {
   if (teen && /(finances|partner|marriage|taxes|workplace|dating)/.test(normalized)) return 'emotional_reset_brain';
   if (/(money|bills|budget|debt|taxes)/.test(normalized)) return 'finance_clarity_brain';
   if (/(partner|spouse|dating|breakup|marriage|boundary)/.test(normalized)) return 'relationship_reflection_brain';
-  if (/(math|homework|class|test|teacher)/.test(normalized)) return normalized.includes('math') ? 'math_reset_brain' : 'school_overwhelm_brain';
+  if (/(math|homework|class|test|teacher)/.test(normalized)) return normalized.includes('math') ? 'tutor_brain' : 'school_overwhelm_brain';
   if (/\bboss\b|\bjob\b|\bburnout\b|\bdeadline\b|\bworkplace\b/.test(normalized)) return 'work_stress_brain';
   if (/(friend|drama|group chat|rumor|social)/.test(normalized)) return 'social_boundary_brain';
   if (/(start|stuck|avoid|procrast)/.test(normalized)) return 'task_start_brain';
@@ -30,7 +30,7 @@ const cases = [
   ['18_plus', 'I am panicking about bills and debt', ['finance_clarity_brain']],
   ['18_plus', 'I need a boundary with my partner after a fight', ['relationship_reflection_brain']],
   ['16_17', 'class and homework are too much and I cannot keep up', ['school_overwhelm_brain','overwhelm_grounding_brain']],
-  ['13_15', 'math homework is making me spiral', ['math_reset_brain']],
+  ['13_15', 'math homework is making me spiral', ['tutor_brain']],
   ['18_plus', "I'm overwhelmed and can't start anything", ['overwhelm_grounding_brain','task_start_brain']],
   ['18_plus', "I don't know, it's everything at once and mixed", ['emotional_reset_brain']],
   ['13_15', 'I am stressed about taxes and my marriage', ['emotional_reset_brain'], ['finance_clarity_brain','relationship_reflection_brain']],

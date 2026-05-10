@@ -3,8 +3,11 @@ import { z } from "zod";
 import { normalizeMomentBrainOutput, runMomentBrain } from "@/features/ai/runMomentBrain";
 import { detectSupportRisk } from "@/features/safety";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { requireMomentFeature } from "@/lib/entitlements";
 const schema = z.object({ problem_text: z.string().min(3), stress_level: z.string().optional().default(""), test_context: z.string().optional().default("") });
 export async function POST(request: Request) {
+ const access = await requireMomentFeature("ai_deep_support");
+ if (!access.ok) return NextResponse.json(access.response, { status: access.status });
  const supabase = await createSupabaseServerClient(); const { data: { user } } = await supabase.auth.getUser(); if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
  const parsed = schema.safeParse(await request.json()); if (!parsed.success) return NextResponse.json({ error: "Invalid input" }, { status: 400 });
  const joined = `${parsed.data.problem_text} ${parsed.data.stress_level} ${parsed.data.test_context}`; const risk = detectSupportRisk(joined);

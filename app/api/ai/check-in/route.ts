@@ -8,6 +8,8 @@ import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { extractMemoryArtifacts } from "@/features/moment/memory/extractMemoryArtifacts";
 import { persistMomentMemory } from "@/features/moment/memory/persistMomentMemory";
 import { readMomentMemory } from "@/features/moment/memory/readMomentMemory";
+import { buildUpgradeRequiredResponse, canUseMomentFeature, FREE_MOMENT_LIMIT, getMomentUsageSnapshot } from "@/lib/entitlements";
+import { getCurrentMomentPlan } from "@/lib/subscriptions";
 
 const schema = z.object({
   text: z.string().min(3),
@@ -106,6 +108,13 @@ export async function POST(request: Request) {
   const supabase = await createSupabaseServerClient();
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const subscription = await getCurrentMomentPlan(user.id);
+  const usage = await getMomentUsageSnapshot(user.id, subscription.plan);
+  if (!canUseMomentFeature(subscription.plan, "ai_basic_reflection")) return NextResponse.json(buildUpgradeRequiredResponse("ai_basic_reflection"), { status: 403 });
+  if (!canUseMomentFeature(subscription.plan, "unlimited_moments") && usage.usedMoments >= FREE_MOMENT_LIMIT) {
+    return NextResponse.json({ ...buildUpgradeRequiredResponse("unlimited_moments"), message: `Free includes up to ${FREE_MOMENT_LIMIT} moments. Upgrade to keep creating new moments.` }, { status: 403 });
+  }
+
   const parsed = schema.safeParse(await request.json());
   if (!parsed.success) return NextResponse.json({ error: "Invalid input" }, { status: 400 });
 

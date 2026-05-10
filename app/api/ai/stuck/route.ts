@@ -4,11 +4,14 @@ import { normalizeMomentBrainOutput, runMomentBrain } from "@/features/ai/runMom
 import { detectSupportRisk } from "@/features/safety";
 import type { MomentRouteResult } from "@/features/ai/types";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { requireMomentFeature } from "@/lib/entitlements";
 
 const stuckSchema = z.object({ task_text: z.string().min(3), hardest_part: z.string().optional().default(""), emotional_state: z.string().optional().default("") });
 const route: MomentRouteResult = { primaryBrainId: "task_start_brain", supportingBrainIds: [], primaryBrain: "task_start_brain", supportingBrains: [], routeLabel: "Task Start", routePath: "/stuck", reason: "Stuck reset requested.", confidence: "high", audience: "all", category: "task" };
 
 export async function POST(request: Request) {
+  const access = await requireMomentFeature("ai_deep_support");
+  if (!access.ok) return NextResponse.json(access.response, { status: access.status });
   const supabase = await createSupabaseServerClient();
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });

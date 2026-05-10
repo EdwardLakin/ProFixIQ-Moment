@@ -74,6 +74,22 @@ function deriveSupportStyle(memorySnapshot: Awaited<ReturnType<typeof readMoment
   return "calm_reflective";
 }
 
+
+function ensureResponseShape(response: ReturnType<typeof runMomentOrchestrator>["response"]) {
+  const reflection = typeof response.reflection === "string" && response.reflection.trim().length > 0
+    ? response.reflection
+    : "Thanks for sharing this. We can keep this gentle.";
+  const tinyNextStep = typeof response.tinyNextStep === "string" && response.tinyNextStep.trim().length > 0
+    ? response.tinyNextStep
+    : "One slow breath is enough for now.";
+  return {
+    ...response,
+    reflection,
+    tinyNextStep,
+    steps: Array.isArray(response.steps) && response.steps.length > 0 ? response.steps.filter((s) => typeof s === "string" && s.trim().length > 0) : [tinyNextStep],
+  };
+}
+
 function createJournalArcSummary(memorySnapshot: Awaited<ReturnType<typeof readMomentMemory>>) {
   const joined = memorySnapshot.entries.map((entry) => `${entry.inputSummary} ${entry.emotionalState ?? ""}`).join(" ").toLowerCase();
   if (/(work|deadline|burnout)/.test(joined)) return "Arc lately: work pressure has been recurring, and slower restarts seem to help.";
@@ -124,6 +140,7 @@ export async function POST(request: Request) {
     threadId: parsed.data.conversationState?.threadId,
   });
   const confidenceValue = result.route.confidence === "high" ? 0.95 : result.route.confidence === "medium" ? 0.75 : 0.5;
+  const safeResponse = ensureResponseShape(result.response);
   const { data: routeData, error: routeError } = await supabase.from("moment_routes").insert({ user_id: user.id, primary_brain_id: result.route.primaryBrainId, supporting_brain_ids: result.route.supportingBrainIds, category: result.route.category, audience: result.route.audience, input_summary: summarizeInput(parsed.data.text), route_reason: result.route.reason, confidence: confidenceValue }).select("id").single();
   const continuation = findThreadContinuation(parsed.data.text, typedThreads, result.route.primaryBrainId);
   const upsertPayload = buildThreadUpsert(parsed.data.text, result.route, user.id, inferSupportStyle(parsed.data.conversationState?.inferredSupportStyle), continuation?.thread.id);
@@ -139,19 +156,24 @@ export async function POST(request: Request) {
     userText: parsed.data.text,
     selectedStates: parsed.data.selectedStates,
     route: result.route,
-    response: result.response,
+    response: safeResponse,
     supportStyle: parsed.data.conversationState?.inferredSupportStyle,
     riskSeverity: safety.risk.severity,
     ageRange: parsed.data.ageRange,
   });
-  const entryId = await persistMomentMemory({
+  let entryId: string | null = null;
+  try {
+    entryId = await persistMomentMemory({
     supabase,
     userId: user.id,
     threadId: threadData?.id ?? null,
     routeId: routeData?.id ?? null,
     artifacts,
   });
-  if (!entryId) warnings.push("Failed to persist memory entry.");
+  } catch {
+    entryId = null;
+  }
+  if (!entryId) warnings.push("We saved your support response, but memory sync is delayed.");
 
   const detectedPattern = detectPattern(parsed.data.text);
   if (detectedPattern) {
@@ -163,7 +185,7 @@ export async function POST(request: Request) {
     }
   }
 
-  const memorySnapshot = await readMomentMemory(supabase, user.id);
+  const memorySnapshot = await readMomentMemory(supabase, user.id).catch(() => ({ entries: [], threads: [], goals: [], tinyWins: [], suggestions: [], supportPatterns: [], supportEffectivenessNotes: [] }));
   const now = new Date();
   const rhythmHint = detectEmotionalRhythmHint(parsed.data.text, now);
   const seasonalCue = detectSeasonalCue(parsed.data.text, now);
@@ -172,11 +194,11 @@ export async function POST(request: Request) {
   const journalArcSummary = createJournalArcSummary(memorySnapshot);
   const unresolvedCount = memorySnapshot.threads.filter((thread) => thread.status === "active").length;
   const gentlePresence = unresolvedCount >= 3 || /(exhausted|drained|can.t do this|too much)/i.test(parsed.data.text);
-  const adaptedSteps = gentlePresence ? result.response.steps.slice(0, 1) : result.response.steps;
+  const adaptedSteps = gentlePresence ? safeResponse.steps.slice(0, 1) : safeResponse.steps;
   return NextResponse.json({
     route: result.route,
     response: {
-      ...result.response,
+      ...safeResponse,
       steps: adaptedSteps,
       continuitySummary,
       continuityCue,

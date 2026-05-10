@@ -96,14 +96,14 @@ function phraseFor(profile: PacingProfile, style: NonNullable<RouteMomentInput["
       pace: ["We can move slowly and keep this soft.", "No rush to make this tidy today."],
       continuity: ["This feels connected to what has been heavy lately.", "This seems linked to a pattern you’ve been carrying for a while."],
       direction: ["If helpful, we can stay with memory, grounding, or quiet reflection.", "If you want, we can hold this gently before choosing any next move."],
-      tinyStep: ["If it helps, place a hand on your chest and take one slower breath.", "A small step could be naming what you miss most in one sentence."],
+      tinyStep: ["If it helps, place a hand on your chest and take one slower breath.", "If and only if it feels okay, name one thing you miss in a short sentence."],
     },
     burnout: {
       acknowledgments: ["You sound stretched thin.", "This is a lot to hold while already depleted."],
       pace: ["Let’s ground first, then simplify.", "First we lower pressure, then we sort."],
       continuity: ["This kind of pressure has shown up before.", "You’ve been trying to approach this with more gentleness."],
-      direction: ["After grounding, we can narrow to one must-do.", "Then we can strip this down to the minimum for today."],
-      tinyStep: ["Loosen your jaw and shoulders before deciding anything.", "Pick one task to protect and let the rest wait for now."],
+      direction: ["After one breath, we can narrow to one humane priority.", "Then we can cut this to the minimum that protects your energy today."],
+      tinyStep: ["Loosen your jaw and shoulders before deciding anything.", "Choose one task to protect, and let the rest be later."],
     },
     overwhelm: {
       acknowledgments: ["This sounds like too many demands at once.", "Your system is carrying more than it can process right now."],
@@ -123,8 +123,8 @@ function phraseFor(profile: PacingProfile, style: NonNullable<RouteMomentInput["
       acknowledgments: ["This relationship tension sounds draining.", "It makes sense this conflict is taking up so much space."],
       pace: ["Reflection first, boundaries second.", "We can pause before deciding what to say."],
       continuity: ["This seems connected to earlier boundary pressure.", "You’ve been trying to handle this more clearly over time."],
-      direction: ["Once grounded, we can draft one calm boundary line.", "Then we can shape one respectful next message."],
-      tinyStep: ["Write the feeling first, not the response.", "Try one boundary sentence that protects your energy."],
+      direction: ["Once grounded, we can draft one calm boundary line.", "Then we can shape one respectful boundary line."],
+      tinyStep: ["Write the feeling first, not the response.", "Try one boundary sentence that protects your energy, without over-explaining."],
     },
     default: {
       acknowledgments: ["I hear a lot of load in this moment.", "Thanks for naming what this feels like."],

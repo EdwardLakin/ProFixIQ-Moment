@@ -1,9 +1,9 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { runMomentOrchestrator } from "@/features/ai/orchestration/runMomentOrchestrator";
-import { buildThreadUpsert, continuityCueFromThread, inferSupportStyle, summarizeContinuity } from "@/features/moment/continuity/engine";
+import { buildThreadUpsert, continuityCueFromThread, findThreadContinuation, inferSupportStyle, summarizeContinuity } from "@/features/moment/continuity/engine";
 import type { MomentThread } from "@/features/moment/continuity/types";
-import { detectSupportRisk } from "@/features/safety";
+import { applyRouteSafetyFilters, escalationCopy, resolveAudiencePolicy } from "@/features/moment/policy";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { extractMemoryArtifacts } from "@/features/moment/memory/extractMemoryArtifacts";
 import { persistMomentMemory } from "@/features/moment/memory/persistMomentMemory";
@@ -52,9 +52,10 @@ export async function POST(request: Request) {
     .order("last_activity_at", { ascending: false })
     .limit(6);
 
-  const risk = detectSupportRisk(`${parsed.data.text} ${parsed.data.selectedStates.join(" ")}`);
-  if (risk.severity === "high") {
-    const safe = { routeLabel: "Emotional Reset", routePath: "/check-in", reflection: "I’m really glad you checked in. This sounds serious and you deserve immediate support.", tinyNextStep: "Reach out to a trusted adult right now.", whyThisRoute: "Moment detected language that needs immediate trusted-human support.", continueLabel: "Open Emotional Reset", steps: ["Tell a parent, guardian, school counselor, or another trusted adult exactly what is happening.", "If there is immediate danger, contact local emergency services now."], supportiveNote: "You matter, and you do not need to hold this alone.", followUpActions: [{ label: "Open Check In", href: "/check-in?from=safety" }] };
+  const policy = resolveAudiencePolicy(parsed.data.ageRange);
+  const safety = applyRouteSafetyFilters(`${parsed.data.text} ${parsed.data.selectedStates.join(" ")}`);
+  if (safety.deny) {
+    const safe = { routeLabel: "Emotional Reset", routePath: "/check-in", reflection: "I’m really glad you checked in. This sounds serious and you deserve immediate support.", tinyNextStep: escalationCopy(policy.isMinor), whyThisRoute: "Moment detected language that needs immediate trusted-human support.", continueLabel: "Open Emotional Reset", steps: ["Tell a parent, guardian, school counselor, or another trusted adult exactly what is happening.", "If there is immediate danger, contact local emergency services now."], supportiveNote: "You matter, and you do not need to hold this alone.", followUpActions: [{ label: "Open Check In", href: "/check-in?from=safety" }] };
     return NextResponse.json({ route: { primaryBrainId: "safety_support_brain", supportingBrainIds: [], routeLabel: "Emotional Reset", routePath: "/check-in", reason: "High-risk language detected.", confidence: "high", audience: "all", category: "emotion" }, response: safe, warnings });
   }
 
@@ -74,8 +75,13 @@ export async function POST(request: Request) {
   });
   const confidenceValue = result.route.confidence === "high" ? 0.95 : result.route.confidence === "medium" ? 0.75 : 0.5;
   const { data: routeData, error: routeError } = await supabase.from("moment_routes").insert({ user_id: user.id, primary_brain_id: result.route.primaryBrainId, supporting_brain_ids: result.route.supportingBrainIds, category: result.route.category, audience: result.route.audience, input_summary: summarizeInput(parsed.data.text), route_reason: result.route.reason, confidence: confidenceValue }).select("id").single();
-  const upsertPayload = buildThreadUpsert(parsed.data.text, result.route, user.id, inferSupportStyle(parsed.data.conversationState?.inferredSupportStyle));
-  const { data: threadData, error: threadError } = await supabase.from("moment_threads").insert(upsertPayload).select("id").single();
+  const continuation = findThreadContinuation(parsed.data.text, typedThreads, result.route.primaryBrainId);
+  const upsertPayload = buildThreadUpsert(parsed.data.text, result.route, user.id, inferSupportStyle(parsed.data.conversationState?.inferredSupportStyle), continuation?.thread.id);
+  const threadWrite = continuation?.thread.id
+    ? await supabase.from("moment_threads").update(upsertPayload).eq("id", continuation.thread.id).select("id").single()
+    : await supabase.from("moment_threads").insert(upsertPayload).select("id").single();
+  const threadData = threadWrite.data;
+  const threadError = threadWrite.error;
   if (threadError) warnings.push(`Failed to persist thread continuity: ${threadError.message}`);
   if (routeError) warnings.push(`Failed to log route event: ${routeError.message}`);
 
@@ -85,7 +91,7 @@ export async function POST(request: Request) {
     route: result.route,
     response: result.response,
     supportStyle: parsed.data.conversationState?.inferredSupportStyle,
-    riskSeverity: risk.severity,
+    riskSeverity: safety.risk.severity,
     ageRange: parsed.data.ageRange,
   });
   const entryId = await persistMomentMemory({

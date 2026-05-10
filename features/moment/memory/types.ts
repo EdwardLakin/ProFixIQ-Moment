@@ -44,7 +44,7 @@ export type ExtractMemoryArtifactsInput = {
 
 export type MomentMemorySnapshot = {
   entries: Array<{ id: string; inputSummary: string; emotionalState: string | null; tinyNextStep: string | null; createdAt: string }>;
-  threads: Array<{ id: string; title: string; summary: string; status: "active" | "paused"; lastActivityAt: string }>;
+  threads: Array<{ id: string; title: string; summary: string; status: "active" | "paused" | "quiet" | "resolved" | "archived"; lastActivityAt: string }>;
   goals: Array<{ id: string; title: string; detail: string | null; status: GoalStatus; updatedAt: string }>;
   tinyWins: Array<{ id: string; winNote: string; status: TinyWinStatus; createdAt: string }>;
   suggestions: Array<{ id: string; suggestionText: string; status: SuggestionStatus; createdAt: string }>;

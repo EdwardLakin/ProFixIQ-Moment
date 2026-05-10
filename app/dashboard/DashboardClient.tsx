@@ -17,9 +17,9 @@ import { ThreadContinuationCard } from "./components/ThreadContinuationCard";
 import { SupportFocusCard } from "./components/SupportFocusCard";
 
 type SupportStyle = "calm_reflective" | "gentle_grounding" | "structured_reset" | "action_forward";
-const knownBrainIds: MomentBrainId[] = ["school_overwhelm_brain","math_reset_brain","social_boundary_brain","task_start_brain","emotional_reset_brain","confidence_repair_brain","work_stress_brain","finance_clarity_brain","relationship_reflection_brain","household_overload_brain","life_admin_brain","decision_reset_brain","safety_support_brain"];
+const knownBrainIds: MomentBrainId[] = ["school_overwhelm_brain","math_reset_brain","social_boundary_brain","task_start_brain","emotional_reset_brain","confidence_repair_brain","work_stress_brain","finance_clarity_brain","relationship_reflection_brain","household_overload_brain","life_admin_brain","decision_reset_brain","safety_support_brain","grief_support_brain","emotional_presence_brain","loneliness_support_brain","overwhelm_grounding_brain"];
 const knownAudiences: BrainAudience[] = ["teen","adult","all"];
-const knownCategories: BrainCategory[] = ["school","math","social","task","emotion","confidence","work","money","relationship","household","life_admin","decision","safety"];
+const knownCategories: BrainCategory[] = ["school","math","social","task","emotion","confidence","work","money","relationship","household","life_admin","decision","safety","grief","loneliness","overwhelm"];
 const safeLabel=(id:string)=>id.replace(/_brain$/,"").split("_").map((c)=>c[0].toUpperCase()+c.slice(1)).join(" ");
 function toSafeRoute(raw: unknown): MomentRouteResult | null { if (!raw || typeof raw !== "object") return null; const route = raw as Record<string, unknown>; const id = typeof route.primaryBrainId === "string" ? route.primaryBrainId : null; if (!id || !knownBrainIds.includes(id as MomentBrainId)) return null; return { primaryBrainId:id as MomentBrainId,supportingBrainIds:[],routeLabel:typeof route.routeLabel==="string"?route.routeLabel:safeLabel(id),routePath:typeof route.routePath==="string"?route.routePath:"/check-in",reason:typeof route.reason==="string"?route.reason:"Moment selected support.",confidence:"medium",audience:knownAudiences.includes(route.audience as BrainAudience)?route.audience as BrainAudience:"all",category:knownCategories.includes(route.category as BrainCategory)?route.category as BrainCategory:"emotion"}; }
 function toSafeBlocks(blocks: unknown, reflection: string, tinyNextStep: string): OperationalBlock[] { return Array.isArray(blocks) ? blocks.filter((b): b is Record<string, unknown> => !!b && typeof b === "object").map((b)=>({ type: typeof b.type === "string" ? b.type : "support", text: typeof b.text === "string" ? b.text : "" })).filter((b)=>b.text.length>0) as OperationalBlock[] : [{ type:"reflection", text:reflection},{type:"tiny_step",text:tinyNextStep}];}
@@ -46,7 +46,7 @@ export function DashboardClient({ greeting, memory, plan, usage }: { greeting: M
     const res=await fetch('/api/ai/check-in',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({text,selectedStates:[],conversationState:{threadId,selectedEmotionalContext:[],inferredSupportStyle:supportStyle}})});
     if(!res.ok){
       if (res.status === 402) {
-        setInlineError("You’ve used your free Moments for this month. You can still view your journal and saved support. Upgrade when you’re ready to continue with new Moments.");
+        setInlineError("You’ve reached your monthly Moment limit. You can still view your journal and saved support until your limit resets.");
         return;
       }
       setInlineError("Couldn’t save that check-in right now. Your words are still here—try again in a moment.");
@@ -72,9 +72,9 @@ export function DashboardClient({ greeting, memory, plan, usage }: { greeting: M
   return <div className="mx-auto max-w-4xl space-y-5 py-4">
     <section className="rounded-2xl border border-white/10 bg-white/[0.03] p-4 text-sm text-slate-200">
       <p className="font-medium uppercase text-violet-100">Plan: {plan}</p>
-      <p className="mt-1">{usage.momentLimit === null ? "Unlimited Moments on your plan." : `${usage.usedMoments}/${usage.momentLimit} free Moments used this month.`}</p>
-      {usage.momentLimit !== null ? <p className="text-xs text-slate-300">{usage.remainingMoments === 0 ? "You can still view your journal and saved support this month." : `${usage.remainingMoments} free Moments left this month.`}</p> : null}
-      <Link href="/settings?tab=billing" className="mt-2 inline-block text-violet-200 underline">Manage or upgrade plan</Link>
+      <p className="mt-1">{usage.momentLimit === null ? "Moments are available whenever you need them." : `${usage.usedMoments}/${usage.momentLimit} Moments used this month.`}</p>
+      {usage.momentLimit !== null ? <p className="text-xs text-slate-300">{usage.remainingMoments === 0 ? "You’ve reached your monthly Moment limit. You can still view your journal and saved support this month." : `${usage.remainingMoments} Moments left this month.`}</p> : null}
+      <Link href="/settings?tab=billing" className="mt-2 inline-block text-violet-200 underline">Manage plan</Link>
     </section>
     <GreetingSurface headline={greeting.headline} opening={personalizedOpening} text={text} onText={setText} />
     <IntakeComposer onSubmit={submit} disabled={text.length < 3 || isSubmitting} savedNote={savedNote} />

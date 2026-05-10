@@ -8,7 +8,7 @@ import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { extractMemoryArtifacts } from "@/features/moment/memory/extractMemoryArtifacts";
 import { persistMomentMemory } from "@/features/moment/memory/persistMomentMemory";
 import { readMomentMemory } from "@/features/moment/memory/readMomentMemory";
-import { FREE_MOMENT_LIMIT, getMomentUsageSnapshot } from "@/lib/entitlements";
+import { getMomentUsageSnapshot } from "@/lib/entitlements";
 import { buildTrustSignal, deriveSupportQualityFlags, summarizeTrace } from "@/features/moment/orchestration/observability";
 import { getCurrentMomentPlan } from "@/lib/subscriptions";
 import { normalizeAgeRange } from "@/lib/momentAudience";
@@ -138,10 +138,10 @@ export async function POST(request: Request) {
 
   const subscription = await getCurrentMomentPlan(user.id);
   const usage = await getMomentUsageSnapshot(user.id, subscription.plan);
-  if (usage.momentLimit !== null && usage.usedMoments >= FREE_MOMENT_LIMIT) {
+  if (usage.momentLimit !== null && usage.usedMoments >= usage.momentLimit) {
     return NextResponse.json({
       code: "moment_limit_reached",
-      message: "You’ve used your free Moments for this month. You can still view your journal and saved support. Upgrade when you’re ready to continue with new Moments.",
+      message: "You’ve reached your monthly Moment limit. You can still view your journal and saved support until your limit resets.",
       usedMoments: usage.usedMoments,
       momentLimit: usage.momentLimit,
       remainingMoments: usage.remainingMoments,

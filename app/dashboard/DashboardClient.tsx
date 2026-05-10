@@ -93,7 +93,9 @@ function toSafeResponse(raw: unknown, route: MomentRouteResult): MomentCheckInRe
   };
 }
 
-export function DashboardClient({ greeting }: { greeting: MomentGreetingOutput }) {
+type DashboardMemory = { activeGoalsCount: number; latestTinyWin: string | null; latestSuggestion: string | null; recentThreadCue: string | null; };
+
+export function DashboardClient({ greeting, memory }: { greeting: MomentGreetingOutput; memory: DashboardMemory }) {
   const [text, setText] = useState("");
   const [selectedStates, setSelectedStates] = useState<string[]>([]);
   const [result, setResult] = useState<{ route: MomentRouteResult; response: MomentCheckInResponse } | null>(null);
@@ -195,6 +197,17 @@ export function DashboardClient({ greeting }: { greeting: MomentGreetingOutput }
           <Link href={result.response.routePath || "/check-in"} className="mt-4 inline-flex rounded-full bg-white/10 px-4 py-2 text-sm text-violet-100 ring-1 ring-white/20 hover:bg-white/15">{result.response.continueLabel}</Link>
         </section>
       ) : null}
+
+
+      <MomentCard className="border-white/8 bg-white/[0.02]">
+        <p className="text-xs uppercase tracking-[0.18em] text-violet-100/70">Memory · recent patterns</p>
+        <div className="mt-3 space-y-2 text-sm text-[#d2cee5]">
+          <p>Active goals: <span className="text-[#f8f1e7]">{memory.activeGoalsCount}</span></p>
+          <p>Latest tiny win: <span className="text-[#f8f1e7]">{memory.latestTinyWin ?? "Not yet recorded"}</span></p>
+          <p>Latest suggestion: <span className="text-[#f8f1e7]">{memory.latestSuggestion ?? "No current suggestions"}</span></p>
+          {memory.recentThreadCue ? <p className="text-xs text-violet-100/75">Recent thread cue: {memory.recentThreadCue}</p> : null}
+        </div>
+      </MomentCard>
 
       <MomentCard className="border-white/8 bg-white/[0.02]">
         <p className="text-xs uppercase tracking-[0.18em] text-violet-100/70">Current moment pathways</p>

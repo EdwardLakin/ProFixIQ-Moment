@@ -30,10 +30,23 @@ async function updateProfile(formData: FormData) {
   if (error) throw new Error(`Could not update profile: ${error.message}`);
 }
 
+
+async function updateSuggestionStatus(formData: FormData) {
+  "use server";
+  const user = await requireAuthenticatedUser("/settings");
+  const supabase = await createSupabaseServerClient();
+  const id = String(formData.get("suggestion_id") ?? "");
+  const status = String(formData.get("status") ?? "archived");
+  if (!id || !(status === "dismissed" || status === "archived")) return;
+  await supabase.from("moment_suggestions").update({ status }).eq("id", id).eq("user_id", user.id);
+}
+
 export default async function SettingsPage() {
   const user = await requireAuthenticatedUser("/settings");
   const supabase = await createSupabaseServerClient();
   const { data: profile } = await supabase.from("moment_profiles").select("display_name,age_range,birthday_month,birthday_day,focus_areas,support_goals").eq("user_id", user.id).maybeSingle();
+  const { data: goals } = await supabase.from("moment_goals").select("id,title,status").eq("user_id", user.id).eq("status", "active").order("updated_at", { ascending: false }).limit(6);
+  const { data: suggestions } = await supabase.from("moment_suggestions").select("id,suggestion_text,status").eq("user_id", user.id).in("status", ["suggested", "accepted"]).order("updated_at", { ascending: false }).limit(6);
 
   return (
     <MomentAppShell title="Settings" subtitle="Simple profile details you can adjust anytime.">
@@ -49,6 +62,32 @@ export default async function SettingsPage() {
             <label className="text-sm text-slate-300 sm:col-span-2">Support goals (comma-separated)<input name="support_goals" defaultValue={(profile?.support_goals ?? []).join(", ")} className="mt-1 w-full rounded-xl border border-white/15 bg-[#202a40] p-3 text-[#f8f1e7]" /></label>
             <div className="sm:col-span-2"><MomentButton type="submit">Save profile</MomentButton></div>
           </form>
+        </article>
+
+        <article className="rounded-3xl border border-white/10 bg-white/[0.03] p-5 md:col-span-2">
+          <h2 className="text-lg font-medium">Memory</h2>
+          <p className="mt-1 text-sm text-slate-300">Pattern-level notes from your recent support flow.</p>
+          <div className="mt-4 grid gap-3 sm:grid-cols-2">
+            <div>
+              <h3 className="text-sm font-medium text-slate-200">Active goals</h3>
+              <ul className="mt-2 space-y-2 text-sm text-slate-300">{(goals ?? []).map((goal) => <li key={goal.id} className="rounded-xl border border-white/10 bg-white/[0.02] px-3 py-2">{goal.title}</li>)}{(goals ?? []).length === 0 ? <li>No active goals yet.</li> : null}</ul>
+            </div>
+            <div>
+              <h3 className="text-sm font-medium text-slate-200">Suggestions</h3>
+              <ul className="mt-2 space-y-2 text-sm text-slate-300">
+                {(suggestions ?? []).map((suggestion) => (
+                  <li key={suggestion.id} className="rounded-xl border border-white/10 bg-white/[0.02] px-3 py-2">
+                    <p>{suggestion.suggestion_text}</p>
+                    <div className="mt-2 flex gap-2">
+                      <form action={updateSuggestionStatus}><input type="hidden" name="suggestion_id" value={suggestion.id} /><input type="hidden" name="status" value="dismissed" /><MomentButton type="submit">Dismiss</MomentButton></form>
+                      <form action={updateSuggestionStatus}><input type="hidden" name="suggestion_id" value={suggestion.id} /><input type="hidden" name="status" value="archived" /><MomentButton type="submit">Archive</MomentButton></form>
+                    </div>
+                  </li>
+                ))}
+                {(suggestions ?? []).length === 0 ? <li>No active suggestions.</li> : null}
+              </ul>
+            </div>
+          </div>
         </article>
       </section>
     </MomentAppShell>

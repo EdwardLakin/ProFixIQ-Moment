@@ -11,6 +11,7 @@ import { readMomentMemory } from "@/features/moment/memory/readMomentMemory";
 import { FREE_MOMENT_LIMIT, getMomentUsageSnapshot } from "@/lib/entitlements";
 import { buildTrustSignal, deriveSupportQualityFlags, summarizeTrace } from "@/features/moment/orchestration/observability";
 import { getCurrentMomentPlan } from "@/lib/subscriptions";
+import { normalizeAgeRange } from "@/lib/momentAudience";
 
 const schema = z.object({
   text: z.string().min(3),
@@ -126,7 +127,9 @@ export async function POST(request: Request) {
   if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   const parsed = schema.safeParse(await request.json());
   if (!parsed.success) return NextResponse.json({ error: "Invalid input" }, { status: 400 });
-  const policy = resolveAudiencePolicy(parsed.data.ageRange);
+  const { data: profile } = await supabase.from("moment_profiles").select("age_range").eq("user_id", user.id).maybeSingle();
+  const trustedAgeRange = normalizeAgeRange(profile?.age_range);
+  const policy = resolveAudiencePolicy(trustedAgeRange);
   const safety = applyRouteSafetyFilters(`${parsed.data.text} ${parsed.data.selectedStates.join(" ")}`);
   if (safety.deny) {
     const safe = { routeLabel: "Emotional Reset", routePath: "/check-in", reflection: "I’m really glad you checked in. This sounds serious and you deserve immediate support.", tinyNextStep: escalationCopy(policy.isMinor), whyThisRoute: "Moment detected language that needs immediate trusted-human support.", continueLabel: "Open Emotional Reset", steps: ["Tell a parent, guardian, school counselor, or another trusted adult exactly what is happening.", "If there is immediate danger, contact local emergency services now."], supportiveNote: "You matter, and you do not need to hold this alone.", followUpActions: [{ label: "Open Check In", href: "/check-in?from=safety" }] };
@@ -166,7 +169,7 @@ export async function POST(request: Request) {
   result = runMomentOrchestrator({
     momentText: parsed.data.text,
     selectedSignals: [...parsed.data.selectedStates, ...followUpAnswers],
-    ageRange: parsed.data.ageRange,
+    ageRange: trustedAgeRange,
     supportStyle: parsed.data.conversationState?.inferredSupportStyle,
     followUpHistory: parsed.data.conversationState?.unresolvedClarification?.followUpHistory ?? [],
     threadId: parsed.data.conversationState?.threadId,
@@ -195,7 +198,7 @@ export async function POST(request: Request) {
     response: safeResponse,
     supportStyle: parsed.data.conversationState?.inferredSupportStyle,
     riskSeverity: safety.risk.severity,
-    ageRange: parsed.data.ageRange,
+    ageRange: trustedAgeRange,
   });
   let entryId: string | null = null;
   try {

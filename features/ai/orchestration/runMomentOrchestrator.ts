@@ -5,187 +5,21 @@ import type { MomentRouteResult, OperationalBlock } from "@/features/ai/types";
 type PacingProfile = "grief" | "burnout" | "overwhelm" | "shutdown" | "conflict" | "default";
 type ResponseDepth = "light" | "heavy" | "overwhelmed";
 
-type PhraseBank = {
-  acknowledgments: string[];
-  pace: string[];
-  continuity: string[];
-  direction: string[];
-  tinyStep: string[];
-};
+type PhraseBank = { acknowledgments: string[]; pace: string[]; continuity: string[]; direction: string[]; tinyStep: string[] };
 
 export type MomentOrchestratorResult = {
+  trace: { pacingProfile: PacingProfile; responseDepth: ResponseDepth; supportFatigueReduction: boolean; clarificationUsed: boolean };
   route: MomentRouteResult;
-  response: {
-    routeLabel: string;
-    routePath: string;
-    reflection: string;
-    tinyNextStep: string;
-    whyThisRoute: string;
-    continueLabel: string;
-    steps: string[];
-    supportiveNote: string;
-    followUpActions: { label: string; href: string }[];
-    blocks: OperationalBlock[];
-  };
+  response: { routeLabel: string; routePath: string; reflection: string; tinyNextStep: string; whyThisRoute: string; continueLabel: string; steps: string[]; supportiveNote: string; followUpActions: { label: string; href: string }[]; blocks: OperationalBlock[] };
   warnings: string[];
 };
-
-const supportLabels: Record<string, string> = {
-  finance_clarity_brain: "Finance pressure",
-  work_stress_brain: "Trying to stay afloat at work",
-  relationship_reflection_brain: "Relationship strain",
-  school_overwhelm_brain: "School overwhelm",
-  confidence_repair_brain: "Confidence dip",
-  life_admin_brain: "Daily life load",
-  grief_support_brain: "Carrying grief",
-  emotional_presence_brain: "Emotional weight",
-  loneliness_support_brain: "Feeling alone",
-  overwhelm_grounding_brain: "Feeling overwhelmed",
-};
-
-const routeBlock: Record<string, OperationalBlock> = {
-  finance_clarity_brain: { type: "money_clarity", text: "When you’re ready, we can sort bills by due date and urgency so the pressure is less foggy." },
-  work_stress_brain: { type: "work_reset", text: "We can name one must-do, one can-wait, and one boundary line for today." },
-  relationship_reflection_brain: { type: "relationship_reflection", text: "Start with one feeling, one boundary, and one respectful request." },
-  school_overwhelm_brain: { type: "school_reset", text: "Choose one class and one short start task. Nothing beyond that yet." },
-  confidence_repair_brain: { type: "confidence_repair", text: "Name one recent win and one tiny proof step to rebuild trust in yourself." },
-  life_admin_brain: { type: "life_admin_sort", text: "Sort tasks into now, later, and not-today to lower load." },
-  grief_support_brain: { type: "emotional_presence", text: "This pain matters. We can keep this gentle and unhurried." },
-  emotional_presence_brain: { type: "emotional_presence", text: "You don’t need to force clarity right now." },
-  loneliness_support_brain: { type: "emotional_presence", text: "Feeling alone can ache deeply; we can stay with that without rushing fixes." },
-  overwhelm_grounding_brain: { type: "grounding", text: "Before planning anything, let your body settle with one slow exhale and softer shoulders." },
-};
-
-function getPacingProfile(input: RouteMomentInput, route: MomentRouteResult): PacingProfile {
-  const text = `${input.momentText} ${input.selectedSignals.join(" ")}`.toLowerCase();
-  if (route.primaryBrainId === "grief_support_brain" || text.includes("grief") || text.includes("loss")) return "grief";
-  if (route.primaryBrainId === "work_stress_brain" || text.includes("burnout") || text.includes("exhausted")) return "burnout";
-  if (route.primaryBrainId === "overwhelm_grounding_brain" || text.includes("overwhelm")) return "overwhelm";
-  if (text.includes("shutdown") || text.includes("numb")) return "shutdown";
-  if (route.primaryBrainId === "relationship_reflection_brain" || text.includes("conflict") || text.includes("argument")) return "conflict";
-  return "default";
-}
-
-function uniqueLines(lines: string[]) {
-  const seen = new Set<string>();
-  return lines.filter((line) => {
-    const key = line.trim().toLowerCase();
-    if (!key || seen.has(key)) return false;
-    seen.add(key);
-    return true;
-  });
-}
-
-function getResponseDepth(input: RouteMomentInput, profile: PacingProfile): ResponseDepth {
-  const normalized = `${input.momentText} ${input.selectedSignals.join(" ")} ${(input.knownSupportNeeds ?? []).join(" ")}`.toLowerCase();
-  if (profile === "grief" || profile === "shutdown" || normalized.includes("can't do") || normalized.includes("cannot do")) return "heavy";
-  if (profile === "overwhelm" || normalized.includes("exhaust") || normalized.includes("numb") || normalized.includes("spiral")) return "overwhelmed";
-  return "light";
-}
-
-function shouldReducePrompting(input: RouteMomentInput, profile: PacingProfile, depth: ResponseDepth) {
-  const followUps = input.followUpHistory?.length ?? 0;
-  const repeats = input.recentRouteHistory?.slice(-4).filter((brainId) => brainId === input.recentRouteHistory?.[input.recentRouteHistory.length - 1]).length ?? 0;
-  return depth !== "light" || profile === "grief" || profile === "shutdown" || followUps >= 3 || repeats >= 3;
-}
-
-function phraseFor(profile: PacingProfile, style: NonNullable<RouteMomentInput["supportStyle"]>): PhraseBank {
-  const byProfile: Record<PacingProfile, PhraseBank> = {
-    grief: {
-      acknowledgments: ["This carries a lot of weight, and it makes sense it hurts.", "I can hear how tender this is for you right now."],
-      pace: ["We can move slowly and keep this soft.", "No rush to make this tidy today."],
-      continuity: ["This feels connected to what has been heavy lately.", "This seems linked to a pattern you’ve been carrying for a while."],
-      direction: ["If helpful, we can stay with memory, grounding, or quiet reflection.", "If you want, we can hold this gently before choosing any next move."],
-      tinyStep: ["If it helps, place a hand on your chest and take one slower breath.", "If and only if it feels okay, name one thing you miss in a short sentence."],
-    },
-    burnout: {
-      acknowledgments: ["You sound stretched thin.", "This is a lot to hold while already depleted."],
-      pace: ["Let’s ground first, then simplify.", "First we lower pressure, then we sort."],
-      continuity: ["This kind of pressure has shown up before.", "You’ve been trying to approach this with more gentleness."],
-      direction: ["After one breath, we can narrow to one humane priority.", "Then we can cut this to the minimum that protects your energy today."],
-      tinyStep: ["Loosen your jaw and shoulders before deciding anything.", "Choose one task to protect, and let the rest be later."],
-    },
-    overwhelm: {
-      acknowledgments: ["This sounds like too many demands at once.", "Your system is carrying more than it can process right now."],
-      pace: ["Let’s reduce complexity first.", "We’ll keep choices very small."],
-      continuity: ["This echoes the overload you’ve described before.", "This feels connected to earlier overwhelm moments."],
-      direction: ["We can sort this into one emotional lane at a time.", "We can choose calm-first support before any plan."],
-      tinyStep: ["Name the heaviest category in two words.", "Choose between grounding or one short list—just one."],
-    },
-    shutdown: {
-      acknowledgments: ["It makes sense your system wants to shut down.", "This sounds like a low-battery moment."],
-      pace: ["Let’s keep this very low effort.", "No big choices right now."],
-      continuity: ["You’ve had moments like this where less helped more.", "This feels like a familiar shutdown curve."],
-      direction: ["We can use a reduced-choice path.", "We’ll keep language and options simple."],
-      tinyStep: ["Pick one: sip water, sit back, or one slow breath.", "Do one body reset, then stop if needed."],
-    },
-    conflict: {
-      acknowledgments: ["This relationship tension sounds draining.", "It makes sense this conflict is taking up so much space."],
-      pace: ["Reflection first, boundaries second.", "We can pause before deciding what to say."],
-      continuity: ["This seems connected to earlier boundary pressure.", "You’ve been trying to handle this more clearly over time."],
-      direction: ["Once grounded, we can draft one calm boundary line.", "Then we can shape one respectful boundary line."],
-      tinyStep: ["Write the feeling first, not the response.", "Try one boundary sentence that protects your energy, without over-explaining."],
-    },
-    default: {
-      acknowledgments: ["I hear a lot of load in this moment.", "Thanks for naming what this feels like."],
-      pace: [style === "gentle_grounding" ? "We can stay gentle and paced." : "We can keep this clear and low-pressure."],
-      continuity: ["This feels related to what’s been hard lately.", "There’s a thread here from earlier moments."],
-      direction: ["If useful, we can choose support first and structure second.", "If you want, we can find one supportive direction next."],
-      tinyStep: ["A small next move is enough for now.", "One short step is plenty right now."],
-    },
-  };
-  return byProfile[profile];
-}
-
-export function runMomentOrchestrator(input: RouteMomentInput): MomentOrchestratorResult {
-  const route = routeMoment(input);
-  const style = input.supportStyle ?? "calm_reflective";
-  const profile = getPacingProfile(input, route);
-  const depth = getResponseDepth(input, profile);
-  const reducePrompting = shouldReducePrompting(input, profile, depth);
-  const bank = phraseFor(profile, style);
-
-  const reflection = depth === "light" ? `${bank.acknowledgments[0]} ${bank.pace[0]}` : bank.acknowledgments[0];
-  const continuity = bank.continuity[input.followUpHistory && input.followUpHistory.length > 0 ? 0 : 1];
-  const tinyStep = profile === "grief" ? bank.tinyStep[0] : bank.tinyStep[1] ?? bank.tinyStep[0];
-  const unresolvedSoftener = (input.recentRouteHistory?.length ?? 0) > 2 ? "This feels familiar, and you do not need to start from scratch." : "";
-  const quietDirection = reducePrompting ? "We can keep this quiet for a moment." : bank.direction[0];
-
-  const blocks = uniqueLines([
-    reflection,
-    unresolvedSoftener || continuity,
-    quietDirection,
-    reducePrompting ? "If you want a next step, we can choose one simple thing." : tinyStep,
-    (routeBlock[route.primaryBrainId] ?? { type: "grounding", text: "Take one slower breath and choose one small next action." }).text,
-  ]).map<OperationalBlock>((text, index) => {
-    if (index === 0) return { type: "reflection", text };
-    if (index === 1) return { type: "emotional_presence", text };
-    if (index === 2) return { type: "support", text };
-    if (index === 3) return { type: "gentle_next_step", text };
-    return { type: "route_transition", text };
-  });
-
-  const routeLabel = supportLabels[route.primaryBrainId] ?? route.routeLabel;
-
-  return {
-    route,
-    response: {
-      routeLabel,
-      routePath: route.routePath,
-      reflection,
-      tinyNextStep: tinyStep,
-      whyThisRoute: `${continuity} ${bank.direction[1]}`,
-      continueLabel: profile === "grief" || reducePrompting ? "Stay here a bit" : `Continue with ${routeLabel}`,
-      steps: depth === "overwhelmed" ? blocks.slice(2, 4).map((block) => block.text) : blocks.slice(2, 5).map((block) => block.text),
-      supportiveNote: reducePrompting ? "No pressure to do more right now." : bank.pace[1],
-      followUpActions: reducePrompting
-        ? [{ label: "Quiet reflection", href: "/check-in" }]
-        : [
-            { label: profile === "shutdown" ? "Keep it gentle" : `Open ${routeLabel}`, href: route.routePath },
-            { label: "Quiet reflection", href: "/check-in" },
-          ],
-      blocks,
-    },
-    warnings: route.primaryBrainId === "safety_support_brain" ? ["High-severity safety signals detected."] : [],
-  };
-}
+const supportLabels: Record<string, string> = { finance_clarity_brain: "Finance pressure", work_stress_brain: "Trying to stay afloat at work", relationship_reflection_brain: "Relationship strain", school_overwhelm_brain: "School overwhelm", confidence_repair_brain: "Confidence dip", life_admin_brain: "Daily life load", grief_support_brain: "Carrying grief", emotional_presence_brain: "Emotional weight", loneliness_support_brain: "Feeling alone", overwhelm_grounding_brain: "Feeling overwhelmed" };
+const routeBlock: Record<string, OperationalBlock> = { finance_clarity_brain: { type: "money_clarity", text: "When you’re ready, we can sort bills by due date and urgency so the pressure is less foggy." }, work_stress_brain: { type: "work_reset", text: "We can name one must-do, one can-wait, and one boundary line for today." }, relationship_reflection_brain: { type: "relationship_reflection", text: "Start with one feeling, one boundary, and one respectful request." }, school_overwhelm_brain: { type: "school_reset", text: "Choose one class and one short start task. Nothing beyond that yet." }, confidence_repair_brain: { type: "confidence_repair", text: "Name one recent win and one tiny proof step to rebuild trust in yourself." }, life_admin_brain: { type: "life_admin_sort", text: "Sort tasks into now, later, and not-today to lower load." }, grief_support_brain: { type: "emotional_presence", text: "This pain matters. We can keep this gentle and unhurried." }, emotional_presence_brain: { type: "emotional_presence", text: "You don’t need to force clarity right now." }, loneliness_support_brain: { type: "emotional_presence", text: "Feeling alone can ache deeply; we can stay with that without rushing fixes." }, overwhelm_grounding_brain: { type: "grounding", text: "Before planning anything, let your body settle with one slow exhale and softer shoulders." } };
+const hasAny = (text: string, needles: string[]) => needles.some((n) => text.includes(n));
+function getPacingProfile(input: RouteMomentInput, route: MomentRouteResult): PacingProfile { const text = `${input.momentText} ${input.selectedSignals.join(" ")}`.toLowerCase(); if (route.primaryBrainId === "grief_support_brain" || text.includes("grief") || text.includes("loss")) return "grief"; if (route.primaryBrainId === "work_stress_brain" || text.includes("burnout") || text.includes("exhausted")) return "burnout"; if (route.primaryBrainId === "overwhelm_grounding_brain" || text.includes("overwhelm")) return "overwhelm"; if (text.includes("shutdown") || text.includes("numb")) return "shutdown"; if (route.primaryBrainId === "relationship_reflection_brain" || text.includes("conflict") || text.includes("argument")) return "conflict"; return "default"; }
+function uniqueLines(lines: string[]) { const seen = new Set<string>(); return lines.filter((line) => { const key = line.trim().toLowerCase(); if (!key || seen.has(key)) return false; seen.add(key); return true; }); }
+function getResponseDepth(input: RouteMomentInput, profile: PacingProfile): ResponseDepth { const normalized = `${input.momentText} ${input.selectedSignals.join(" ")} ${(input.knownSupportNeeds ?? []).join(" ")}`.toLowerCase(); if (profile === "grief" || profile === "shutdown" || normalized.includes("can't do") || normalized.includes("cannot do")) return "heavy"; if (profile === "overwhelm" || normalized.includes("exhaust") || normalized.includes("numb") || normalized.includes("spiral")) return "overwhelmed"; return "light"; }
+function shouldReducePrompting(input: RouteMomentInput, profile: PacingProfile, depth: ResponseDepth) { const followUps = input.followUpHistory?.length ?? 0; const repeats = input.recentRouteHistory?.slice(-4).filter((brainId) => brainId === input.recentRouteHistory?.[input.recentRouteHistory.length - 1]).length ?? 0; return depth !== "light" || profile === "grief" || profile === "shutdown" || followUps >= 3 || repeats >= 3; }
+function phraseFor(profile: PacingProfile, style: NonNullable<RouteMomentInput["supportStyle"]>): PhraseBank { const byProfile: Record<PacingProfile, PhraseBank> = { grief: { acknowledgments: ["This carries a lot of weight, and it makes sense it hurts.", "I can hear how tender this is for you right now."], pace: ["We can move slowly and keep this soft.", "No rush to make this tidy today."], continuity: ["This feels connected to what has been heavy lately.", "This seems linked to a pattern you’ve been carrying for a while."], direction: ["If helpful, we can stay with memory, grounding, or quiet reflection.", "If you want, we can hold this gently before choosing any next move."], tinyStep: ["If it helps, place a hand on your chest and take one slower breath.", "If and only if it feels okay, name one thing you miss in a short sentence."] }, burnout: { acknowledgments: ["You sound stretched thin.", "This is a lot to hold while already depleted."], pace: ["Let’s ground first, then simplify.", "First we lower pressure, then we sort."], continuity: ["This kind of pressure has shown up before.", "You’ve been trying to approach this with more gentleness."], direction: ["After one breath, we can narrow to one humane priority.", "Then we can cut this to the minimum that protects your energy today."], tinyStep: ["Loosen your jaw and shoulders before deciding anything.", "Choose one task to protect, and let the rest be later."] }, overwhelm: { acknowledgments: ["This sounds like too many demands at once.", "Your system is carrying more than it can process right now."], pace: ["Let’s reduce complexity first.", "We’ll keep choices very small."], continuity: ["This echoes the overload you’ve described before.", "This feels connected to earlier overwhelm moments."], direction: ["We can sort this into one emotional lane at a time.", "We can choose calm-first support before any plan."], tinyStep: ["Name the heaviest category in two words.", "Choose between grounding or one short list—just one."] }, shutdown: { acknowledgments: ["It makes sense your system wants to shut down.", "This sounds like a low-battery moment."], pace: ["Let’s keep this very low effort.", "No big choices right now."], continuity: ["You’ve had moments like this where less helped more.", "This feels like a familiar shutdown curve."], direction: ["We can use a reduced-choice path.", "We’ll keep language and options simple."], tinyStep: ["Pick one: sip water, sit back, or one slow breath.", "Do one body reset, then stop if needed."] }, conflict: { acknowledgments: ["This relationship tension sounds draining.", "It makes sense this conflict is taking up so much space."], pace: ["Reflection first, boundaries second.", "We can pause before deciding what to say."], continuity: ["This seems connected to earlier boundary pressure.", "You’ve been trying to handle this more clearly over time."], direction: ["Once grounded, we can draft one calm boundary line.", "Then we can shape one respectful boundary line."], tinyStep: ["Write the feeling first, not the response.", "Try one boundary sentence that protects your energy, without over-explaining."] }, default: { acknowledgments: ["I hear a lot of load in this moment.", "Thanks for naming what this feels like."], pace: [style === "gentle_grounding" ? "We can stay gentle and paced." : "We can keep this clear and low-pressure."], continuity: ["This feels related to what’s been hard lately.", "There’s a thread here from earlier moments."], direction: ["If useful, we can choose support first and structure second.", "If you want, we can find one supportive direction next."], tinyStep: ["A small next move is enough for now.", "One short step is plenty right now."] } }; return byProfile[profile]; }
+export function runMomentOrchestrator(input: RouteMomentInput): MomentOrchestratorResult { const route = routeMoment(input); const style = input.supportStyle ?? "calm_reflective"; const profile = getPacingProfile(input, route); const depth = getResponseDepth(input, profile); const reducePrompting = shouldReducePrompting(input, profile, depth); const bank = phraseFor(profile, style); const reflection = depth === "light" ? `${bank.acknowledgments[0]} ${bank.pace[0]}` : bank.acknowledgments[0]; const clarificationUsed = (input.followUpHistory?.length ?? 0) > 0; const continuity = bank.continuity[clarificationUsed ? 0 : 1]; const tinyStep = profile === "grief" ? bank.tinyStep[0] : bank.tinyStep[1] ?? bank.tinyStep[0]; const unresolvedSoftener = (input.recentRouteHistory?.length ?? 0) > 2 ? "This feels familiar, and you do not need to start from scratch." : ""; const quietDirection = reducePrompting ? "We can keep this quiet for a moment." : bank.direction[0]; const normalized = input.momentText.toLowerCase(); const softLowConfidence = route.confidence === "low" || hasAny(normalized, ["not sure", "i don't know", "mixed", "everything"]) ? "This sounds like there may be pressure from a few directions." : "";
+const blocks = uniqueLines([softLowConfidence || reflection, unresolvedSoftener || continuity, quietDirection, reducePrompting ? "If you want a next step, we can choose one simple thing." : tinyStep, (routeBlock[route.primaryBrainId] ?? { type: "grounding", text: "Take one slower breath and choose one small next action." }).text]).map<OperationalBlock>((text, index) => index === 0 ? { type: "reflection", text } : index === 1 ? { type: "emotional_presence", text } : index === 2 ? { type: "support", text } : index === 3 ? { type: "gentle_next_step", text } : { type: "route_transition", text }); const routeLabel = supportLabels[route.primaryBrainId] ?? route.routeLabel; return { trace: { pacingProfile: profile, responseDepth: depth, supportFatigueReduction: reducePrompting, clarificationUsed }, route, response: { routeLabel, routePath: route.routePath, reflection: softLowConfidence || reflection, tinyNextStep: tinyStep, whyThisRoute: `${continuity} ${bank.direction[1]}`, continueLabel: profile === "grief" || reducePrompting ? "Stay here a bit" : `Continue with ${routeLabel}`, steps: depth === "overwhelmed" ? blocks.slice(2, 4).map((block) => block.text) : blocks.slice(2, 5).map((block) => block.text), supportiveNote: reducePrompting ? "No pressure to do more right now." : bank.pace[1], followUpActions: reducePrompting ? [{ label: "Quiet reflection", href: "/check-in" }] : [{ label: profile === "shutdown" ? "Keep it gentle" : `Open ${routeLabel}`, href: route.routePath }, { label: "Quiet reflection", href: "/check-in" }], blocks }, warnings: route.primaryBrainId === "safety_support_brain" ? ["High-severity safety signals detected."] : [] }; }

@@ -1,3 +1,4 @@
+import { SupportFeedbackInline } from "./SupportFeedbackInline";
 import { MomentCard } from "@/components/moment/MomentCard";
 import type { CheckInResult } from "./types";
 
@@ -11,6 +12,7 @@ export function SupportStream({ result }: { result: CheckInResult | null }) {
     recoveryTrajectoryCue?: string | null;
     journalArcSummary?: string | null;
     supportTimingMode?: "normal" | "gentle_presence";
+    trustSignal?: string | null;
   };
   return (
     <MomentCard>
@@ -31,6 +33,8 @@ export function SupportStream({ result }: { result: CheckInResult | null }) {
           ))}
         </div>
       </details>
+      <p className="mt-3 text-xs text-[#cabfdf]">{responseMeta.trustSignal ?? "Nothing here has to be solved immediately."}</p>
+      <SupportFeedbackInline />
     </MomentCard>
   );
 }

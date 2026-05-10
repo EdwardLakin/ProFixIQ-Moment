@@ -3,7 +3,6 @@
 import { useMemo, useState } from "react";
 import Link from "next/link";
 import type { MomentPlan } from "@/lib/plans";
-import { canUseMomentFeature } from "@/lib/moment-entitlements";
 import type { MomentCheckInResponse, MomentRouteResult, OperationalBlock } from "@/features/ai/types";
 import type { BrainAudience, BrainCategory, MomentBrainId } from "@/features/ai/brains/types";
 import type { MomentGreetingOutput } from "@/features/moment/greeting/types";
@@ -39,16 +38,20 @@ export function DashboardClient({ greeting, memory, plan, usage }: { greeting: M
   const [supportStyle]=useState<SupportStyle>("calm_reflective");
   const [threadId]=useState(`thread_${Date.now().toString(36)}`);
   const personalizedOpening=useMemo(()=> memoryState.threads[0]?.summary ? `This seems connected to ${memoryState.threads[0].summary.toLowerCase()}.` : "We can take this one breath at a time.",[memoryState]);
-  const canUseDeepSupport = canUseMomentFeature(plan, "ai_deep_support");
-  const canUseGoals = canUseMomentFeature(plan, "goals");
-  const canUsePatternInsights = canUseMomentFeature(plan, "pattern_insights");
   async function submit(){
     setInlineError(null);
     setSavedNote(null);
     setIsSubmitting(true);
     try {
     const res=await fetch('/api/ai/check-in',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({text,selectedStates:[],conversationState:{threadId,selectedEmotionalContext:[],inferredSupportStyle:supportStyle}})});
-    if(!res.ok){ setInlineError("Couldn’t save that check-in right now. Your words are still here—try again in a moment."); return; }
+    if(!res.ok){
+      if (res.status === 402) {
+        setInlineError("You’ve used your free Moments for this month. You can still view your journal and saved support. Upgrade when you’re ready to continue with new Moments.");
+        return;
+      }
+      setInlineError("Couldn’t save that check-in right now. Your words are still here—try again in a moment.");
+      return;
+    }
     const data=await res.json();
     const route=toSafeRoute(data.route);
     if(!route){ setInlineError("We had trouble shaping support, but we can still stay with this gently."); return; }
@@ -69,8 +72,8 @@ export function DashboardClient({ greeting, memory, plan, usage }: { greeting: M
   return <div className="mx-auto max-w-4xl space-y-5 py-4">
     <section className="rounded-2xl border border-white/10 bg-white/[0.03] p-4 text-sm text-slate-200">
       <p className="font-medium uppercase text-violet-100">Plan: {plan}</p>
-      <p className="mt-1">{usage.momentLimit === null ? "Unlimited moments on your plan." : `${usage.usedMoments}/${usage.momentLimit} moments used on Free.`}</p>
-      {usage.momentLimit !== null ? <p className="text-xs text-slate-300">{usage.remainingMoments} moments left before upgrade is required.</p> : null}
+      <p className="mt-1">{usage.momentLimit === null ? "Unlimited Moments on your plan." : `${usage.usedMoments}/${usage.momentLimit} free Moments used this month.`}</p>
+      {usage.momentLimit !== null ? <p className="text-xs text-slate-300">{usage.remainingMoments === 0 ? "You can still view your journal and saved support this month." : `${usage.remainingMoments} free Moments left this month.`}</p> : null}
       <Link href="/settings?tab=billing" className="mt-2 inline-block text-violet-200 underline">Manage or upgrade plan</Link>
     </section>
     <GreetingSurface headline={greeting.headline} opening={personalizedOpening} text={text} onText={setText} />
@@ -78,13 +81,9 @@ export function DashboardClient({ greeting, memory, plan, usage }: { greeting: M
     {inlineError ? <p className="rounded-xl border border-rose-300/35 bg-rose-500/10 px-3 py-2 text-sm text-rose-100">{inlineError}</p> : null}
     <ClarificationFlow prompt={continuityCue} />
     <ContinuityPanel summary={continuitySummary} cue={continuityCue} />
-    {canUsePatternInsights ? (
-      <SupportFocusCard focus={memoryState.supportPatterns[0]?.supportFocus ?? "We’re learning what steadies you."} helped={memoryState.supportEffectivenessNotes[0]?.outcomeNote ?? "No pattern yet."} />
-    ) : (
-      <div className="rounded-xl border border-white/10 bg-white/[0.02] p-3 text-sm text-slate-300">Pattern insights unlock on Plus. <Link className="underline text-violet-200" href="/settings?tab=billing&plan=plus">Upgrade</Link></div>
-    )}
-    {canUseDeepSupport ? <ThreadContinuationCard thread={memoryState.threads[0]?.summary ?? "Nothing to carry forward yet."} /> : <div className="rounded-xl border border-white/10 bg-white/[0.02] p-3 text-sm text-slate-300">Deep support continuity unlocks on Plus. <Link className="underline text-violet-200" href="/settings?tab=billing&plan=plus">Upgrade</Link></div>}
-    {canUseGoals ? <TinyWinsPanel win={memoryState.tinyWins[0]?.winNote ?? "No tiny wins captured yet."} /> : <div className="rounded-xl border border-white/10 bg-white/[0.02] p-3 text-sm text-slate-300">Goal tracking and tiny wins unlock on Plus. <Link className="underline text-violet-200" href="/settings?tab=billing&plan=plus">Upgrade</Link></div>}
+    <SupportFocusCard focus={memoryState.supportPatterns[0]?.supportFocus ?? "As you check in over time, we’ll gently reflect patterns that may support you."} helped={memoryState.supportEffectivenessNotes[0]?.outcomeNote ?? "No pattern notes yet—each check-in helps us personalize your support."} />
+    <ThreadContinuationCard thread={memoryState.threads[0]?.summary ?? "No active thread yet. When you revisit a topic, we’ll hold continuity here."} />
+    <TinyWinsPanel win={memoryState.tinyWins[0]?.winNote ?? "No tiny win captured yet. Small progress still counts and can be saved here."} />
     <SupportStream result={result} />
   </div>;
 }

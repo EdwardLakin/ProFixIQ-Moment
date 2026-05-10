@@ -8,7 +8,7 @@ import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { extractMemoryArtifacts } from "@/features/moment/memory/extractMemoryArtifacts";
 import { persistMomentMemory } from "@/features/moment/memory/persistMomentMemory";
 import { readMomentMemory } from "@/features/moment/memory/readMomentMemory";
-import { buildUpgradeRequiredResponse, canUseMomentFeature, FREE_MOMENT_LIMIT, getMomentUsageSnapshot } from "@/lib/entitlements";
+import { FREE_MOMENT_LIMIT, getMomentUsageSnapshot } from "@/lib/entitlements";
 import { buildTrustSignal, deriveSupportQualityFlags, summarizeTrace } from "@/features/moment/orchestration/observability";
 import { getCurrentMomentPlan } from "@/lib/subscriptions";
 
@@ -124,15 +124,26 @@ export async function POST(request: Request) {
   const supabase = await createSupabaseServerClient();
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  const subscription = await getCurrentMomentPlan(user.id);
-  const usage = await getMomentUsageSnapshot(user.id, subscription.plan);
-  if (!canUseMomentFeature(subscription.plan, "ai_basic_reflection")) return NextResponse.json(buildUpgradeRequiredResponse("ai_basic_reflection"), { status: 403 });
-  if (!canUseMomentFeature(subscription.plan, "unlimited_moments") && usage.usedMoments >= FREE_MOMENT_LIMIT) {
-    return NextResponse.json({ ...buildUpgradeRequiredResponse("unlimited_moments"), message: `Free includes up to ${FREE_MOMENT_LIMIT} moments. Upgrade to keep creating new moments.` }, { status: 403 });
-  }
-
   const parsed = schema.safeParse(await request.json());
   if (!parsed.success) return NextResponse.json({ error: "Invalid input" }, { status: 400 });
+  const policy = resolveAudiencePolicy(parsed.data.ageRange);
+  const safety = applyRouteSafetyFilters(`${parsed.data.text} ${parsed.data.selectedStates.join(" ")}`);
+  if (safety.deny) {
+    const safe = { routeLabel: "Emotional Reset", routePath: "/check-in", reflection: "I’m really glad you checked in. This sounds serious and you deserve immediate support.", tinyNextStep: escalationCopy(policy.isMinor), whyThisRoute: "Moment detected language that needs immediate trusted-human support.", continueLabel: "Open Emotional Reset", steps: ["Tell a parent, guardian, school counselor, or another trusted adult exactly what is happening.", "If there is immediate danger, contact local emergency services now."], supportiveNote: "You matter, and you do not need to hold this alone.", followUpActions: [{ label: "Open Check In", href: "/check-in?from=safety" }] };
+    return NextResponse.json({ route: { primaryBrainId: "safety_support_brain", supportingBrainIds: [], routeLabel: "Emotional Reset", routePath: "/check-in", reason: "High-risk language detected.", confidence: "high", audience: "all", category: "emotion" }, response: safe, warnings });
+  }
+
+  const subscription = await getCurrentMomentPlan(user.id);
+  const usage = await getMomentUsageSnapshot(user.id, subscription.plan);
+  if (usage.momentLimit !== null && usage.usedMoments >= FREE_MOMENT_LIMIT) {
+    return NextResponse.json({
+      code: "moment_limit_reached",
+      message: "You’ve used your free Moments for this month. You can still view your journal and saved support. Upgrade when you’re ready to continue with new Moments.",
+      usedMoments: usage.usedMoments,
+      momentLimit: usage.momentLimit,
+      remainingMoments: usage.remainingMoments,
+    }, { status: 402 });
+  }
 
 
   const { data: activeThreads } = await supabase
@@ -143,12 +154,6 @@ export async function POST(request: Request) {
     .order("last_activity_at", { ascending: false })
     .limit(6);
 
-  const policy = resolveAudiencePolicy(parsed.data.ageRange);
-  const safety = applyRouteSafetyFilters(`${parsed.data.text} ${parsed.data.selectedStates.join(" ")}`);
-  if (safety.deny) {
-    const safe = { routeLabel: "Emotional Reset", routePath: "/check-in", reflection: "I’m really glad you checked in. This sounds serious and you deserve immediate support.", tinyNextStep: escalationCopy(policy.isMinor), whyThisRoute: "Moment detected language that needs immediate trusted-human support.", continueLabel: "Open Emotional Reset", steps: ["Tell a parent, guardian, school counselor, or another trusted adult exactly what is happening.", "If there is immediate danger, contact local emergency services now."], supportiveNote: "You matter, and you do not need to hold this alone.", followUpActions: [{ label: "Open Check In", href: "/check-in?from=safety" }] };
-    return NextResponse.json({ route: { primaryBrainId: "safety_support_brain", supportingBrainIds: [], routeLabel: "Emotional Reset", routePath: "/check-in", reason: "High-risk language detected.", confidence: "high", audience: "all", category: "emotion" }, response: safe, warnings });
-  }
 
   const followUpAnswers = parsed.data.conversationState?.unresolvedClarification?.followUpHistory.map((entry) => entry.choiceLabel) ?? [];
   const typedThreads = (activeThreads ?? []) as MomentThread[];

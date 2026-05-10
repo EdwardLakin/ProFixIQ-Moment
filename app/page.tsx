@@ -75,10 +75,10 @@ export default async function HomePage() {
                   Open Moment
                 </Link>
                 <Link
-                  href="/onboarding"
+                  href="/pricing"
                   className="moment-btn-secondary"
                 >
-                  Start onboarding
+                  Choose plan
                 </Link>
                 <InstallAppButton />
               </div>
@@ -130,9 +130,9 @@ export default async function HomePage() {
             <p className="text-sm text-violet-200">Pro</p><h3 className="mt-1 text-2xl font-semibold">$19<span className="text-sm text-slate-300">/month</span></h3><p className="mt-2 text-sm text-slate-300">Everything in Plus plus advanced insights and exportable summaries.</p>
           </article>
           <div className="md:col-span-3 flex flex-wrap gap-3">
-                <Link href={user ? "/onboarding" : "/sign-in?next=/onboarding"} className="moment-btn-secondary">Start free</Link>
-                <Link href={user ? "/settings?tab=billing&plan=plus" : "/sign-in?next=/settings%3Ftab%3Dbilling%26plan%3Dplus"} className="moment-btn-primary">Start Plus</Link>
-                <Link href={user ? "/settings?tab=billing&plan=pro" : "/sign-in?next=/settings%3Ftab%3Dbilling%26plan%3Dpro"} className="moment-btn-secondary">Start Pro</Link>
+                <Link href={user ? "/pricing" : "/sign-in?next=/pricing"} className="moment-btn-secondary">Start free</Link>
+                <Link href={user ? "/pricing" : "/sign-in?next=/pricing"} className="moment-btn-primary">Start Plus</Link>
+                <Link href={user ? "/pricing" : "/sign-in?next=/pricing"} className="moment-btn-secondary">Start Pro</Link>
           </div>
         </section>
 

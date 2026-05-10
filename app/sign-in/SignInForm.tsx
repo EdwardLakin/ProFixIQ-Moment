@@ -10,7 +10,11 @@ export function SignInForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const supabase = useMemo(() => createSupabaseBrowserClient(), []);
-  const next = searchParams.get("next") || "/";
+  const requestedNext = searchParams.get("next") || "/";
+  const signupNext = requestedNext === "/" || requestedNext === "/dashboard" || requestedNext === "/onboarding" || requestedNext.startsWith("/settings")
+    ? "/pricing"
+    : requestedNext;
+  const signinNext = requestedNext;
 
   const [mode, setMode] = useState<AuthMode>("sign-in");
   const [email, setEmail] = useState("");
@@ -38,7 +42,7 @@ export function SignInForm() {
             email: normalizedEmail,
             password,
             options: {
-              emailRedirectTo: `${window.location.origin}/auth/callback?next=${encodeURIComponent(next)}`,
+              emailRedirectTo: `${window.location.origin}/auth/callback?next=${encodeURIComponent(signupNext)}`,
             },
           })
         : await supabase.auth.signInWithPassword({
@@ -58,7 +62,7 @@ export function SignInForm() {
       return;
     }
 
-    router.replace(next);
+    router.replace(mode === "sign-up" ? signupNext : signinNext);
     router.refresh();
   }
 

@@ -51,7 +51,7 @@ export default async function OnboardingPage() {
   }
   return (
     <MomentShell>
-      <GlobalBackButton fallbackHref="/dashboard" />
+      <GlobalBackButton fallbackHref="/pricing" />
       <section className="mx-auto max-w-3xl">
         <MomentPageHeader eyebrow="Your first Moment" title="Tell Moment a little about you" subtitle="You don’t need perfect answers. This helps Moment greet you gently and route support in a way that feels useful." />
         <MomentCard className="border-white/20 bg-[#1a2438]">

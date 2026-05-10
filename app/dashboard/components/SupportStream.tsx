@@ -5,19 +5,16 @@ import type { CheckInResult } from "./types";
 export function SupportStream({ result }: { result: CheckInResult | null }) {
   if (!result) return null;
 
+  const firstStep = result.response.steps[0];
+
   return (
-    <MomentCard className="p-6 sm:p-7">
-      <p className="text-sm text-[#f5edff]">{result.response.reflection}</p>
-      <p className="mt-4 text-sm text-[#ece3ff]">{result.response.tinyNextStep}</p>
-      <details className="mt-5 text-sm text-[#d6caef]">
-        <summary>{result.response.continueLabel || "If you want, continue"}</summary>
-        <div className="mt-3 space-y-3">
-          {result.response.steps.slice(0, 1).map((step) => (
-            <p key={step}>{step}</p>
-          ))}
-        </div>
-      </details>
-      <p className="mt-4 text-xs text-[#cabfdf]">No pressure to fix everything right now.</p>
+    <MomentCard className="p-5 sm:p-6">
+      <div className="space-y-3">
+        <p className="text-sm leading-6 text-[#f5edff]">{result.response.reflection}</p>
+        <p className="text-sm leading-6 text-[#ece3ff]">{result.response.tinyNextStep}</p>
+        {firstStep ? <p className="text-sm leading-6 text-[#ddd0f3]">{firstStep}</p> : null}
+      </div>
+      <p className="mt-4 text-xs text-[#cabfdf]">No pressure to do this perfectly. You can pause anytime.</p>
       <SupportFeedbackInline />
     </MomentCard>
   );

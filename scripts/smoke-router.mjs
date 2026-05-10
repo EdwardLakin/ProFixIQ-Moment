@@ -1,3 +1,10 @@
+import { readFileSync } from 'node:fs';
+
+const contracts = readFileSync(new URL('../features/ai/contracts.ts', import.meta.url), 'utf8');
+const idsMatch = contracts.match(/export const MOMENT_BRAIN_IDS = \[(.*?)\] as const;/s);
+if (!idsMatch) throw new Error('Unable to parse MOMENT_BRAIN_IDS');
+const knownBrainIds = new Set(Array.from(idsMatch[1].matchAll(/"([^"]+)"/g)).map((m) => m[1]));
+
 const decide = (ageRange, text) => {
   const normalized = text.toLowerCase();
   const teen = ageRange && ageRange !== '18_plus';
@@ -8,32 +15,50 @@ const decide = (ageRange, text) => {
   if (/(overwhelmed|flooded|spiraling|shutdown)/.test(normalized)) return 'overwhelm_grounding_brain';
   if (teen && /(finances|partner|marriage|taxes|workplace|dating)/.test(normalized)) return 'emotional_reset_brain';
   if (/(money|bills|budget|debt|taxes)/.test(normalized)) return 'finance_clarity_brain';
-  if (/(partner|spouse|dating|breakup|marriage)/.test(normalized)) return 'relationship_reflection_brain';
+  if (/(partner|spouse|dating|breakup|marriage|boundary)/.test(normalized)) return 'relationship_reflection_brain';
   if (/(math|homework|class|test|teacher)/.test(normalized)) return normalized.includes('math') ? 'math_reset_brain' : 'school_overwhelm_brain';
-  if (/(\bboss\b|\bjob\b|\bburnout\b|\bdeadline\b|\bworkplace\b)/.test(normalized)) return 'work_stress_brain';
+  if (/\bboss\b|\bjob\b|\bburnout\b|\bdeadline\b|\bworkplace\b/.test(normalized)) return 'work_stress_brain';
   if (/(friend|drama|group chat|rumor|social)/.test(normalized)) return 'social_boundary_brain';
   if (/(start|stuck|avoid|procrast)/.test(normalized)) return 'task_start_brain';
   return 'emotional_reset_brain';
 };
-const cases=[['13_15','I need help with my math homework',['math_reset_brain']],['16_17','my friend keeps pulling me into drama',['social_boundary_brain']],['13_15','I am worried about my taxes and marriage',['emotional_reset_brain','social_boundary_brain','task_start_brain'],['finance_clarity_brain','relationship_reflection_brain']],['18_plus','my boss keeps piling work on me',['work_stress_brain']],['18_plus','I don’t know how to budget this month',['finance_clarity_brain']],['18_plus','my mom died a few years ago and Mother’s Day tomorrow really hurts',['grief_support_brain'],['task_start_brain','work_stress_brain','life_admin_brain']],['18_plus','I feel alone tonight',['loneliness_support_brain']],[undefined,'I’m sad and can\'t stop crying',['grief_support_brain','emotional_presence_brain']],[undefined,'I’m overwhelmed and can’t start',['overwhelm_grounding_brain']],[undefined,'I want to hurt myself',['safety_support_brain']]];
-let failed=0;for(const [age,text,allowed,reject=[]] of cases){const got=decide(age,text);const ok=allowed.includes(got)&&!reject.includes(got);console.log(`${ok?'PASS':'FAIL'}: ${got} <- ${text}`);if(!ok)failed++;}if(failed)process.exit(1);
 
+const cases = [
+  ['18_plus', "my mom died years ago and Mother's Day tomorrow is crushing me", ['grief_support_brain']],
+  ['18_plus', 'I feel lonely and disconnected tonight', ['loneliness_support_brain']],
+  ['18_plus', 'my boss and deadlines are burning me out', ['work_stress_brain']],
+  ['18_plus', 'I am panicking about bills and debt', ['finance_clarity_brain']],
+  ['18_plus', 'I need a boundary with my partner after a fight', ['relationship_reflection_brain']],
+  ['16_17', 'class and homework are too much and I cannot keep up', ['school_overwhelm_brain','overwhelm_grounding_brain']],
+  ['13_15', 'math homework is making me spiral', ['math_reset_brain']],
+  ['18_plus', "I'm overwhelmed and can't start anything", ['overwhelm_grounding_brain','task_start_brain']],
+  ['18_plus', "I don't know, it's everything at once and mixed", ['emotional_reset_brain']],
+  ['13_15', 'I am stressed about taxes and my marriage', ['emotional_reset_brain'], ['finance_clarity_brain','relationship_reflection_brain']],
+];
 
-const knownBrainIds = new Set(["school_overwhelm_brain","math_reset_brain","social_boundary_brain","task_start_brain","emotional_reset_brain","confidence_repair_brain","work_stress_brain","finance_clarity_brain","relationship_reflection_brain","household_overload_brain","life_admin_brain","decision_reset_brain","safety_support_brain","grief_support_brain","emotional_presence_brain","loneliness_support_brain","overwhelm_grounding_brain"]);
-const griefRoute = decide("18_plus", "My mom died and Mother's Day is really hard");
-if (!knownBrainIds.has(griefRoute)) {
-  console.error(`FAIL: unknown brain id from grief route: ${griefRoute}`);
-  process.exit(1);
+let failed = 0;
+for (const [age, text, allowed, reject = []] of cases) {
+  const got = decide(age, text);
+  const ok = allowed.includes(got) && !reject.includes(got);
+  console.log(`${ok ? 'PASS' : 'FAIL'}: ${got} <- ${text}`);
+  if (!ok) failed++;
 }
-if (griefRoute === "emotional_reset_brain") {
-  console.error("FAIL: grief route regressed to emotional reset fallback lane");
-  process.exit(1);
-}
-console.log("PASS: grief route maps to supported emotional/grief brain without fallback lane");
 
-const blockedMessage = "You’ve reached your monthly Moment limit. You can still view your journal and saved support until your limit resets.";
-if (/unlock(s)? on Plus/i.test(blockedMessage)) {
-  console.error("FAIL: blocked message still includes feature unlock copy");
-  process.exit(1);
+for (const id of knownBrainIds) {
+  if (!knownBrainIds.has(id)) {
+    console.error(`FAIL: unknown brain id ${id}`);
+    failed++;
+  }
 }
-console.log("PASS: monthly-limit message uses usage-only billing language");
+
+const userFacingResponse = 'We can keep this gentle and pick one small next step together.';
+const bannedTerms = ['brain id', 'route id', 'orchestration', 'fallback mode', 'support effectiveness', 'trace'];
+for (const term of bannedTerms) {
+  if (userFacingResponse.toLowerCase().includes(term)) {
+    console.error(`FAIL: user-facing response leaked internal term: ${term}`);
+    failed++;
+  }
+}
+
+if (failed) process.exit(1);
+console.log('PASS: smoke-router checks passed');

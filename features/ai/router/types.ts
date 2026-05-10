@@ -10,6 +10,9 @@ export type RouteMomentInput = {
   profileContext?: string;
   knownSupportNeeds?: string[];
   recentRouteHistory?: MomentBrainId[];
+  supportStyle?: "calm_reflective" | "gentle_grounding" | "structured_reset" | "action_forward";
+  followUpHistory?: { promptId: string; choiceId: string; choiceLabel: string }[];
+  threadId?: string;
 };
 
 export type RouteMomentResult = {

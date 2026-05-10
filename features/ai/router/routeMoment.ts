@@ -22,7 +22,7 @@ function hasAny(text: string, tokens: string[]) { return tokens.some((token) => 
 function toConfidence(score: number): "low" | "medium" | "high" { return score >= 0.85 ? "high" : score >= 0.6 ? "medium" : "low"; }
 
 export function routeMoment(input: RouteMomentInput): RouteMomentResult {
-  const normalized = `${input.momentText} ${input.selectedSignals.join(" ")} ${input.profileContext ?? ""} ${(input.knownSupportNeeds ?? []).join(" ")}`.toLowerCase();
+  const normalized = `${input.momentText} ${input.selectedSignals.join(" ")} ${input.profileContext ?? ""} ${(input.knownSupportNeeds ?? []).join(" ")} ${(input.followUpHistory ?? []).map((item) => item.choiceLabel).join(" ")}`.toLowerCase();
   const audience = inferAudienceFromAgeRange(input.ageRange);
 
   const severe = hasAny(normalized, ["suicide", "kill myself", "self harm", "hurt myself", "abuse"]);
@@ -54,13 +54,14 @@ export function routeMoment(input: RouteMomentInput): RouteMomentResult {
   if (hasAny(normalized, sadnessTerms)) return pick("emotional_presence_brain", ["overwhelm_grounding_brain"], 0.9, "Emotional pain language detected.");
   if (hasAny(normalized, overwhelmTerms)) return pick("overwhelm_grounding_brain", ["emotional_presence_brain"], 0.88, "Emotional overwhelm signal detected.");
 
-  if (hasAny(normalized, ["money", "bills", "budget", "debt", "taxes"])) return pick("finance_clarity_brain", ["task_start_brain"], 0.95, "Money language detected.");
+  if (hasAny(normalized, ["money", "bills", "budget", "debt", "taxes"])) return pick("finance_clarity_brain", hasAny(normalized, ["work", "job"]) ? ["work_stress_brain", "overwhelm_grounding_brain"] : ["task_start_brain"], 0.95, "Money language detected.");
   if (hasAny(normalized, ["partner", "spouse", "dating", "breakup", "marriage"])) return pick("relationship_reflection_brain", ["emotional_reset_brain"], 0.93, "Relationship language detected.");
-  if (hasAny(normalized, ["work", "boss", "job", "burnout", "deadline"])) return pick("work_stress_brain", ["task_start_brain"], 0.92, "Work stress language detected.");
+  if (hasAny(normalized, ["work", "boss", "job", "burnout", "deadline"])) return pick("work_stress_brain", hasAny(normalized, ["bills", "money", "debt"]) ? ["finance_clarity_brain", "overwhelm_grounding_brain"] : ["task_start_brain"], 0.94, "Work stress language detected.");
   if (hasAny(normalized, ["math", "homework", "class", "test", "teacher"])) return pick(hasAny(normalized, ["math"]) ? "math_reset_brain" : "school_overwhelm_brain", ["task_start_brain"], 0.92, "School or math language detected.");
   if (hasAny(normalized, ["friend", "drama", "group chat", "rumor", "social"])) return pick("social_boundary_brain", ["emotional_reset_brain"], 0.9, "Social boundary language detected.");
   if (audience === "adult" && hasAny(normalized, ["errands", "forms", "appointments", "paperwork", "bills"])) return pick("life_admin_brain", ["household_overload_brain"], 0.84, "Adult life-admin language detected.");
   if (hasAny(normalized, ["start", "stuck", "avoid", "procrast"])) return pick("task_start_brain", ["emotional_reset_brain"], 0.86, "Start-friction signals detected.");
 
+  if (hasAny(normalized, ["just everything", "emotional overwhelm", "mental exhaustion"])) return pick("overwhelm_grounding_brain", ["emotional_presence_brain"], 0.82, "Clarification pointed to overwhelm patterns.");
   return pick("emotional_reset_brain", ["task_start_brain"], 0.65, "Ambiguous input: start with emotional reset.");
 }

@@ -1,6 +1,6 @@
 import { redirect } from "next/navigation";
 import { requireInternalReviewer } from "@/lib/internalReviewAuth";
-import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 
 type SafeTraceMetadata = {
   routedBrain?: string;
@@ -34,7 +34,7 @@ export default async function InternalReviewPage() {
   const reviewer = await requireInternalReviewer();
   if (!reviewer.authorized) redirect("/dashboard");
 
-  const supabase = await createSupabaseServerClient();
+  const supabase = createSupabaseAdminClient();
   const events = await supabase.from("moment_orchestration_events").select("created_at,trace_summary,trace_metadata").order("created_at", { ascending: false }).limit(40);
   const feedback = await supabase.from("moment_support_feedback").select("created_at,signal,pacing_mismatch,overprompting_signal").order("created_at", { ascending: false }).limit(40);
 

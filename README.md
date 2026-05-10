@@ -26,3 +26,16 @@ Use the repository `package-lock.json` and run `npm ci` in CI/build pipelines to
 - [ ] Parent page explains privacy
 - [ ] Settings page loads
 - [ ] Mobile viewport usable
+
+## Stripe subscription environment variables
+
+Set these variables in local and deployment environments:
+
+- `SUPABASE_SERVICE_ROLE_KEY`
+- `NEXT_PUBLIC_APP_URL`
+- `STRIPE_SECRET_KEY`
+- `STRIPE_WEBHOOK_SECRET`
+- `STRIPE_PLUS_PRICE_ID`
+- `STRIPE_PRO_PRICE_ID`
+
+Webhook endpoint: `/api/stripe/webhook`

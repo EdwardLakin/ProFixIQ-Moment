@@ -36,15 +36,15 @@ export function getMomentGreeting(input: MomentGreetingInput): MomentGreetingOut
     return {
       headline: `Hi ${name}, it’s been a few days.`,
       subtext: "How have the last few days felt?",
-      prompt: "You can start with just one thing that has felt loud.",
+      prompt: "If it helps, begin with the part that has been hardest to carry.",
       tone: "returning",
     };
   }
 
   return {
-    headline: `Hi ${name}, what feels loud today?`,
-    subtext: "You don’t have to solve everything. Start with what’s taking up the most space.",
-    prompt: input.recentContext ? "Pick up where you left off, or start fresh." : "Start with one sentence about what feels heaviest.",
+    headline: `Hi ${name}, what is asking for care today?`,
+    subtext: "No need to sort it all at once — we can start gently.",
+    prompt: input.recentContext ? "We can continue gently from last time, or begin fresh." : "A single sentence is enough to begin.",
     tone: "daily",
   };
 }

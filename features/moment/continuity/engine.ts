@@ -20,10 +20,23 @@ function summarizeMoment(text: string) {
   return text.trim().replace(/\s+/g, " ").slice(0, 180);
 }
 
+function humanThreadTitle(route: MomentRouteResult) {
+  const labels: Record<string, string> = {
+    relationship_reflection_brain: "Relationship pressure",
+    work_stress_brain: "Work stress",
+    overwhelm_grounding_brain: "Feeling overwhelmed",
+    finance_clarity_brain: "Money pressure",
+    grief_support_brain: "Grief around important moments",
+    school_overwhelm_brain: "School pressure",
+    life_admin_brain: "Life admin load",
+  };
+  return labels[route.primaryBrainId] ?? route.routeLabel;
+}
+
 export function summarizeContinuity(text: string, threads: MomentThread[]): string | null {
   const best = findThreadContinuation(text, threads, "emotional_reset_brain");
   if (!best) return null;
-  return `This feels connected to ${best.thread.title.toLowerCase()}. You have been trying to approach this differently.`;
+  return `This feels connected to ${best.thread.title.toLowerCase()}. You’ve been trying to approach this with care.`;
 }
 
 export function continuityCueFromThread(thread: MomentThread, incomingText: string): ContinuityCue | null {
@@ -31,7 +44,7 @@ export function continuityCueFromThread(thread: MomentThread, incomingText: stri
   if (score < 0.25) return null;
   return {
     threadId: thread.id,
-    prompt: "Last time grounding helped before action. Want to continue where we left off?",
+    prompt: "Want to continue gently from where you left off?",
     confidence: score > 0.42 ? "medium" : "low",
   };
 }
@@ -55,7 +68,7 @@ export function buildThreadUpsert(text: string, route: MomentRouteResult, userId
   return {
     id: existingThreadId,
     user_id: userId,
-    title: route.routeLabel,
+    title: humanThreadTitle(route),
     summary: summarizeMoment(text),
     primary_brain_id: route.primaryBrainId,
     support_style: supportStyle,

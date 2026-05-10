@@ -79,6 +79,22 @@ function deriveSupportStyle(memorySnapshot: Awaited<ReturnType<typeof readMoment
   return "calm_reflective";
 }
 
+function deriveToolMemory(memorySnapshot: Awaited<ReturnType<typeof readMomentMemory>>) {
+  const notes = memorySnapshot.supportEffectivenessNotes;
+  const recentlyDismissed = notes
+    .filter((note) => /too much|not helpful|skip|dismiss|not now/i.test(note.outcomeNote))
+    .slice(0, 2)
+    .map(() => "first_problem_together");
+  const recentlyHelpful = notes
+    .filter((note) => /helped|better|easier|less overwhelming/i.test(note.outcomeNote))
+    .slice(0, 3)
+    .map(() => "first_problem_together");
+  return {
+    dismissed: [...new Set(recentlyDismissed)],
+    helpful: [...new Set(recentlyHelpful)],
+  };
+}
+
 
 function ensureResponseShape(response: ReturnType<typeof runMomentOrchestrator>["response"]) {
   const reflection = typeof response.reflection === "string" && response.reflection.trim().length > 0
@@ -269,16 +285,21 @@ export async function POST(request: Request) {
   const gentlePresence = unresolvedCount >= 3 || /(exhausted|drained|can.t do this|too much)/i.test(parsed.data.text);
   const loopSignals = detectLoopSignals({ text: parsed.data.text, selectedStates: parsed.data.selectedStates, followUpAnswers, memoryThreads: memorySnapshot.threads, warnings, responseText: `${safeResponse.reflection} ${safeResponse.tinyNextStep} ${safeResponse.steps.join(" ")}` });
   const shouldSlowDown = gentlePresence || loopSignals.length > 0;
-  const emotionalLoad = result.route.primaryBrainId === "grief_support_brain" ? "grief" : result.route.primaryBrainId === "loneliness_support_brain" ? "lonely" : gentlePresence ? "heavy" : "medium";
-  const supportTools = recommendMomentTools({
+  const emotionalLoad = result.route.primaryBrainId === "grief_support_brain"
+    ? "grief"
+    : result.route.primaryBrainId === "loneliness_support_brain"
+      ? "lonely"
+      : (gentlePresence || /overloaded|flooded|too much|shutdown|spiral/i.test(parsed.data.text))
+        ? "heavy"
+        : "medium";
+  const suppressedForPacing = result.route.primaryBrainId === "grief_support_brain"
+    || (result.route.primaryBrainId === "tutor_brain" && shouldSlowDown);
+  const supportTools = suppressedForPacing ? [] : recommendMomentTools({
     route: result.route.primaryBrainId,
     inputText: parsed.data.text,
     ageRange: trustedAgeRange,
     emotionalLoad,
-    memorySnapshot: {
-      dismissed: memorySnapshot.supportEffectivenessNotes.filter((n) => /skip the sorting tool|too much/i.test(n.outcomeNote)).map(() => "pressure_sort"),
-      helpful: memorySnapshot.supportEffectivenessNotes.filter((n) => /helped|better/i.test(n.outcomeNote)).map(() => "first_problem_together"),
-    },
+    memorySnapshot: deriveToolMemory(memorySnapshot),
   });
   const adaptedSteps = shouldSlowDown ? safeResponse.steps.slice(0, 1) : safeResponse.steps;
   const qualityFlags = deriveSupportQualityFlags({

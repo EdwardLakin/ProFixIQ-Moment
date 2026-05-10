@@ -32,6 +32,56 @@ function detectPattern(text: string): { key: string; summary: string; focus: str
   return null;
 }
 
+function detectEmotionalRhythmHint(text: string, now: Date) {
+  const normalized = text.toLowerCase();
+  const day = now.getUTCDay();
+  const hour = now.getUTCHours();
+  if (/(math|homework|exam|study)/.test(normalized) && hour >= 20) return "Night study pressure can feel sharper.";
+  if (/(alone|lonely|isolated)/.test(normalized) && (day === 0 || day === 6)) return "Weekends can sometimes feel heavier socially.";
+  if (/(work|deadline|meetings|burnout)/.test(normalized) && day === 1 && hour <= 15) return "Monday work pressure can stack quickly.";
+  if (/(conflict|fight|argument|drama)/.test(normalized)) return "After conflict, shutdown can show up as protection.";
+  return null;
+}
+
+function detectSeasonalCue(text: string, now: Date) {
+  const normalized = text.toLowerCase();
+  const month = now.getUTCMonth() + 1;
+  const day = now.getUTCDate();
+  const isWeekend = now.getUTCDay() === 0 || now.getUTCDay() === 6;
+  const tags: string[] = [];
+  if (isWeekend) tags.push("weekend");
+  if (month === 5 && day >= 1 && day <= 15) tags.push("Mother’s Day season");
+  if (/(birthday|anniversary|holiday)/.test(normalized)) tags.push("important date");
+  if (/(exam|final|midterm)/.test(normalized)) tags.push("exam period");
+  if (/(monday|work week|school week)/.test(normalized)) tags.push("start-of-week pressure");
+  return tags.length ? `Context note: ${tags.join(", ")} may be part of how this is landing.` : null;
+}
+
+function buildRecoveryTrajectoryCue(text: string, routeId: string) {
+  const normalized = text.toLowerCase();
+  if (routeId === "grief_support_brain") return "You’ve been approaching this grief in small returns, even when it still feels tender.";
+  if (routeId === "work_stress_brain") return "You’ve been trying to make work pressure more survivable, not perfect.";
+  if (routeId === "school_overwhelm_brain") return "You’ve been coming back to school pressure in steadier, smaller passes.";
+  if (/(boundary|conflict|relationship)/.test(normalized)) return "You’ve been trying to hold clearer boundaries with less self-abandoning.";
+  return "You’ve been showing a quieter kind of follow-through by checking back in.";
+}
+
+function deriveSupportStyle(memorySnapshot: Awaited<ReturnType<typeof readMomentMemory>>) {
+  const recent = memorySnapshot.supportEffectivenessNotes.slice(0, 4).map((item) => item.supportStyle);
+  if (recent.filter((style) => style === "gentle_grounding").length >= 2) return "gentle_grounding";
+  if (recent.filter((style) => style === "structured_reset").length >= 2) return "structured_reset";
+  if (recent.filter((style) => style === "action_forward").length >= 2) return "action_forward";
+  return "calm_reflective";
+}
+
+function createJournalArcSummary(memorySnapshot: Awaited<ReturnType<typeof readMomentMemory>>) {
+  const joined = memorySnapshot.entries.map((entry) => `${entry.inputSummary} ${entry.emotionalState ?? ""}`).join(" ").toLowerCase();
+  if (/(work|deadline|burnout)/.test(joined)) return "Arc lately: work pressure has been recurring, and slower restarts seem to help.";
+  if (/(school|exam|class|homework)/.test(joined)) return "Arc lately: school pressure has been showing up; tiny starts appear more workable than big pushes.";
+  if (/(grief|loss|miss)/.test(joined)) return "Arc lately: you’ve been carrying grief in waves, with gentler check-ins seeming more sustainable.";
+  if (/(overwhelm|shutdown|stuck)/.test(joined)) return "Arc lately: overwhelm loops appear, and grounding-first support tends to land better.";
+  return "Arc lately: you’ve been returning to what matters, and small continuity seems to help.";
+}
 
 export async function POST(request: Request) {
   const warnings: string[] = [];
@@ -114,5 +164,31 @@ export async function POST(request: Request) {
   }
 
   const memorySnapshot = await readMomentMemory(supabase, user.id);
-  return NextResponse.json({ route: result.route, response: { ...result.response, continuitySummary, continuityCue, continuationOptions: ["continue", "pause", "start_fresh"] }, warnings: [...result.warnings, ...warnings], memorySnapshot });
+  const now = new Date();
+  const rhythmHint = detectEmotionalRhythmHint(parsed.data.text, now);
+  const seasonalCue = detectSeasonalCue(parsed.data.text, now);
+  const styleHint = deriveSupportStyle(memorySnapshot);
+  const trajectoryCue = buildRecoveryTrajectoryCue(parsed.data.text, result.route.primaryBrainId);
+  const journalArcSummary = createJournalArcSummary(memorySnapshot);
+  const unresolvedCount = memorySnapshot.threads.filter((thread) => thread.status === "active").length;
+  const gentlePresence = unresolvedCount >= 3 || /(exhausted|drained|can.t do this|too much)/i.test(parsed.data.text);
+  const adaptedSteps = gentlePresence ? result.response.steps.slice(0, 1) : result.response.steps;
+  return NextResponse.json({
+    route: result.route,
+    response: {
+      ...result.response,
+      steps: adaptedSteps,
+      continuitySummary,
+      continuityCue,
+      continuationOptions: ["continue", "pause", "start_fresh"],
+      emotionalRhythmHint: rhythmHint ? `Soft pattern cue (low confidence): ${rhythmHint}` : null,
+      seasonalContextCue: seasonalCue,
+      supportStyleAdaptationCue: `Support pacing is leaning ${styleHint.replace("_", " ")} right now.`,
+      recoveryTrajectoryCue: trajectoryCue,
+      journalArcSummary,
+      supportTimingMode: gentlePresence ? "gentle_presence" : "normal",
+    },
+    warnings: [...result.warnings, ...warnings],
+    memorySnapshot,
+  });
 }

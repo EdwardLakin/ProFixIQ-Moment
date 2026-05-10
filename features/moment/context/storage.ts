@@ -6,6 +6,15 @@ const STORAGE_KEY = "moment.environment.v1";
 export const defaultEnvironmentState: MomentEnvironmentState = {
   recentRoutePatterns: [],
   unresolvedLoops: [],
+  emotionalRhythmHints: [],
+  supportTimingState: { mode: "normal" },
+  futureSignals: {
+    emotionalSeasonAwareness: true,
+    supportExhaustionAwareness: true,
+    adaptiveContinuationPacing: true,
+    longTermSupportMemory: true,
+    supportStylePersistence: true,
+  },
 };
 
 export function readEnvironmentState(): MomentEnvironmentState {

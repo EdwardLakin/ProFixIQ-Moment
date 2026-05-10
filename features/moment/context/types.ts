@@ -27,4 +27,22 @@ export type MomentEnvironmentState = {
   unresolvedLoops: UnresolvedLoop[];
   lastSuccessfulRestart?: string;
   activeRecoveryContext?: RecoveryContext;
+  emotionalRhythmHints?: Array<{
+    key: string;
+    cue: string;
+    confidence: "low";
+    supportShift: string;
+    updatedAt: string;
+  }>;
+  supportTimingState?: {
+    mode: "normal" | "gentle_presence";
+    reason?: string;
+  };
+  futureSignals?: {
+    emotionalSeasonAwareness: boolean;
+    supportExhaustionAwareness: boolean;
+    adaptiveContinuationPacing: boolean;
+    longTermSupportMemory: boolean;
+    supportStylePersistence: boolean;
+  };
 };

@@ -4,15 +4,27 @@ import type { MomentBrainId, MomentCheckInResponse, OperationalBlock } from "@/f
 import { getOpenAIKey } from "@/lib/env";
 
 export function normalizeMomentBrainOutput(input: Partial<MomentCheckInResponse>): MomentCheckInResponse {
+  const reflectionFallbacks = [
+    "You checked in. That matters.",
+    "I’m glad you brought this here.",
+    "Thanks for saying this out loud.",
+  ];
+  const noteFallbacks = [
+    "Keep it light and specific.",
+    "We can keep this small and gentle.",
+    "No need to solve everything right now.",
+  ];
+  const reflectionFallback = reflectionFallbacks[Math.floor(Math.random() * reflectionFallbacks.length)];
+  const noteFallback = noteFallbacks[Math.floor(Math.random() * noteFallbacks.length)];
   const safe: MomentCheckInResponse = {
     routeLabel: input.routeLabel?.trim() || "Emotional Reset",
     routePath: input.routePath?.trim() || "/check-in",
-    reflection: input.reflection?.trim() || "You checked in. That matters.",
+    reflection: input.reflection?.trim() || reflectionFallback,
     tinyNextStep: input.tinyNextStep?.trim() || "Take one tiny step and re-check in.",
     whyThisRoute: input.whyThisRoute?.trim() || "Moment chose this route from what you shared.",
     continueLabel: input.continueLabel?.trim() || "Continue",
     steps: (input.steps ?? []).filter(Boolean).slice(0, 3),
-    supportiveNote: input.supportiveNote?.trim() || "Keep it light and specific.",
+    supportiveNote: input.supportiveNote?.trim() || noteFallback,
     followUpActions: (input.followUpActions ?? []).slice(0, 3),
   };
 

@@ -8,59 +8,34 @@ import { OnboardingForm } from "./OnboardingForm";
 
 async function completeOnboarding(_: { error: string | null }, formData: FormData) {
   "use server";
-
   const user = await requireAuthenticatedUser("/onboarding");
   const supabase = await createSupabaseServerClient();
-
   const displayName = String(formData.get("display_name") ?? "").trim();
   const ageRange = String(formData.get("age_range") ?? "18_plus");
   const guardianEmail = String(formData.get("guardian_email") ?? "").trim();
   const supportGoals = formData.getAll("support_goals").map(String);
-  const birthdayMonthRaw = String(formData.get("birthday_month") ?? "").trim();
-  const birthdayDayRaw = String(formData.get("birthday_day") ?? "").trim();
-  const initialJournalEntry = String(formData.get("initial_journal_entry") ?? "").trim();
-  const knownSupportNeeds = String(formData.get("known_support_needs") ?? "").trim();
 
-  const birthdayMonth = birthdayMonthRaw ? Number.parseInt(birthdayMonthRaw, 10) : null;
-  const birthdayDay = birthdayDayRaw ? Number.parseInt(birthdayDayRaw, 10) : null;
+  const { error: profileError } = await supabase.from("moment_profiles").upsert({
+    user_id: user.id,
+    display_name: displayName,
+    age_range: ageRange,
+    focus_areas: supportGoals,
+    support_goals: supportGoals,
+    onboarding_complete: true,
+  }, { onConflict: "user_id" });
 
-  const { error: profileError } = await supabase.from("moment_profiles").upsert(
-    {
-      user_id: user.id,
-      display_name: displayName,
-      age_range: ageRange,
-      focus_areas: supportGoals,
-      support_goals: supportGoals,
-      birthday_month: Number.isInteger(birthdayMonth) ? birthdayMonth : null,
-      birthday_day: Number.isInteger(birthdayDay) ? birthdayDay : null,
-      preferences: {
-        initial_journal_entry: initialJournalEntry,
-        known_support_needs: knownSupportNeeds,
-      },
-      onboarding_complete: true,
-    },
-    { onConflict: "user_id" }
-  );
-
-  if (profileError) {
-    return { error: `Could not save onboarding profile: ${profileError.message}` };
-  }
+  if (profileError) return { error: `Could not save onboarding profile: ${profileError.message}` };
 
   if (guardianEmail) {
-    const { error: guardianError } = await supabase.from("moment_guardian_links").upsert(
-      {
-        student_user_id: user.id,
-        guardian_email: guardianEmail,
-        status: "pending",
-        summary_access: true,
-        raw_session_access: false,
-      },
-      { onConflict: "student_user_id,guardian_email" }
-    );
+    const { error: guardianError } = await supabase.from("moment_guardian_links").upsert({
+      student_user_id: user.id,
+      guardian_email: guardianEmail,
+      status: "pending",
+      summary_access: true,
+      raw_session_access: false,
+    }, { onConflict: "student_user_id,guardian_email" });
 
-    if (guardianError) {
-      return { error: `Could not save guardian invite: ${guardianError.message}` };
-    }
+    if (guardianError) return { error: `Could not save guardian invite: ${guardianError.message}` };
   }
 
   redirect("/dashboard");
@@ -68,16 +43,10 @@ async function completeOnboarding(_: { error: string | null }, formData: FormDat
 
 export default async function OnboardingPage() {
   await requireAuthenticatedUser("/onboarding");
-
   return (
     <MomentShell>
       <section className="mx-auto max-w-3xl">
-        <MomentPageHeader
-          eyebrow="Your first Moment"
-          title="Tell Moment a little about you"
-          subtitle="You don’t need perfect answers. This helps Moment greet you gently and route support in a way that feels useful."
-        />
-
+        <MomentPageHeader eyebrow="Your first Moment" title="Tell Moment a little about you" subtitle="You don’t need perfect answers. This helps Moment greet you gently and route support in a way that feels useful." />
         <MomentCard className="border-white/20 bg-[#1a2438]">
           <OnboardingForm action={completeOnboarding} />
         </MomentCard>

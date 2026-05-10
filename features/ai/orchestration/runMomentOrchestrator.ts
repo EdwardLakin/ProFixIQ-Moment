@@ -3,6 +3,7 @@ import type { RouteMomentInput } from "@/features/ai/router/types";
 import type { MomentRouteResult, OperationalBlock } from "@/features/ai/types";
 
 type PacingProfile = "grief" | "burnout" | "overwhelm" | "shutdown" | "conflict" | "default";
+type ResponseDepth = "light" | "heavy" | "overwhelmed";
 
 type PhraseBank = {
   acknowledgments: string[];
@@ -31,14 +32,14 @@ export type MomentOrchestratorResult = {
 
 const supportLabels: Record<string, string> = {
   finance_clarity_brain: "Finance pressure",
-  work_stress_brain: "Work stress",
-  relationship_reflection_brain: "Relationship pressure",
+  work_stress_brain: "Trying to stay afloat at work",
+  relationship_reflection_brain: "Relationship strain",
   school_overwhelm_brain: "School overwhelm",
   confidence_repair_brain: "Confidence dip",
-  life_admin_brain: "Life admin load",
-  grief_support_brain: "Grief support",
-  emotional_presence_brain: "Emotional load",
-  loneliness_support_brain: "Loneliness",
+  life_admin_brain: "Daily life load",
+  grief_support_brain: "Carrying grief",
+  emotional_presence_brain: "Emotional weight",
+  loneliness_support_brain: "Feeling alone",
   overwhelm_grounding_brain: "Feeling overwhelmed",
 };
 
@@ -73,6 +74,19 @@ function uniqueLines(lines: string[]) {
     seen.add(key);
     return true;
   });
+}
+
+function getResponseDepth(input: RouteMomentInput, profile: PacingProfile): ResponseDepth {
+  const normalized = `${input.momentText} ${input.selectedSignals.join(" ")} ${(input.knownSupportNeeds ?? []).join(" ")}`.toLowerCase();
+  if (profile === "grief" || profile === "shutdown" || normalized.includes("can't do") || normalized.includes("cannot do")) return "heavy";
+  if (profile === "overwhelm" || normalized.includes("exhaust") || normalized.includes("numb") || normalized.includes("spiral")) return "overwhelmed";
+  return "light";
+}
+
+function shouldReducePrompting(input: RouteMomentInput, profile: PacingProfile, depth: ResponseDepth) {
+  const followUps = input.followUpHistory?.length ?? 0;
+  const repeats = input.recentRouteHistory?.slice(-4).filter((brainId) => brainId === input.recentRouteHistory?.[input.recentRouteHistory.length - 1]).length ?? 0;
+  return depth !== "light" || profile === "grief" || profile === "shutdown" || followUps >= 3 || repeats >= 3;
 }
 
 function phraseFor(profile: PacingProfile, style: NonNullable<RouteMomentInput["supportStyle"]>): PhraseBank {
@@ -127,17 +141,21 @@ export function runMomentOrchestrator(input: RouteMomentInput): MomentOrchestrat
   const route = routeMoment(input);
   const style = input.supportStyle ?? "calm_reflective";
   const profile = getPacingProfile(input, route);
+  const depth = getResponseDepth(input, profile);
+  const reducePrompting = shouldReducePrompting(input, profile, depth);
   const bank = phraseFor(profile, style);
 
-  const reflection = `${bank.acknowledgments[0]} ${bank.pace[0]}`;
+  const reflection = depth === "light" ? `${bank.acknowledgments[0]} ${bank.pace[0]}` : bank.acknowledgments[0];
   const continuity = bank.continuity[input.followUpHistory && input.followUpHistory.length > 0 ? 0 : 1];
   const tinyStep = profile === "grief" ? bank.tinyStep[0] : bank.tinyStep[1] ?? bank.tinyStep[0];
+  const unresolvedSoftener = (input.recentRouteHistory?.length ?? 0) > 2 ? "This feels familiar, and you do not need to start from scratch." : "";
+  const quietDirection = reducePrompting ? "We can keep this quiet for a moment." : bank.direction[0];
 
   const blocks = uniqueLines([
     reflection,
-    continuity,
-    bank.direction[0],
-    tinyStep,
+    unresolvedSoftener || continuity,
+    quietDirection,
+    reducePrompting ? "If you want a next step, we can choose one simple thing." : tinyStep,
     (routeBlock[route.primaryBrainId] ?? { type: "grounding", text: "Take one slower breath and choose one small next action." }).text,
   ]).map<OperationalBlock>((text, index) => {
     if (index === 0) return { type: "reflection", text };
@@ -157,13 +175,15 @@ export function runMomentOrchestrator(input: RouteMomentInput): MomentOrchestrat
       reflection,
       tinyNextStep: tinyStep,
       whyThisRoute: `${continuity} ${bank.direction[1]}`,
-      continueLabel: profile === "grief" ? "Continue gently" : `Continue with ${routeLabel}`,
-      steps: blocks.slice(2, 5).map((block) => block.text),
-      supportiveNote: bank.pace[1],
-      followUpActions: [
-        { label: profile === "shutdown" ? "Keep it gentle" : `Open ${routeLabel}`, href: route.routePath },
-        { label: "Quiet reflection", href: "/check-in" },
-      ],
+      continueLabel: profile === "grief" || reducePrompting ? "Stay here a bit" : `Continue with ${routeLabel}`,
+      steps: depth === "overwhelmed" ? blocks.slice(2, 4).map((block) => block.text) : blocks.slice(2, 5).map((block) => block.text),
+      supportiveNote: reducePrompting ? "No pressure to do more right now." : bank.pace[1],
+      followUpActions: reducePrompting
+        ? [{ label: "Quiet reflection", href: "/check-in" }]
+        : [
+            { label: profile === "shutdown" ? "Keep it gentle" : `Open ${routeLabel}`, href: route.routePath },
+            { label: "Quiet reflection", href: "/check-in" },
+          ],
       blocks,
     },
     warnings: route.primaryBrainId === "safety_support_brain" ? ["High-severity safety signals detected."] : [],

@@ -1,3 +1,4 @@
+import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { InstallAppButton } from "@/components/pwa/InstallAppButton";
 import Link from "next/link";
 
@@ -34,7 +35,9 @@ const routes = [
 
 const trustBadges = ["Private by default", "Not therapy", "Tiny next steps"];
 
-export default function HomePage() {
+export default async function HomePage() {
+  const supabase = await createSupabaseServerClient();
+  const { data: { user } } = await supabase.auth.getUser();
   return (
     <main className="moment-glow relative min-h-screen overflow-hidden px-5 py-8 text-[#f8f1e7] sm:px-6 sm:py-10">
       <div className="pointer-events-none absolute inset-0">
@@ -114,6 +117,24 @@ export default function HomePage() {
             </article>
           </div>
         </div>
+
+
+        <section className="grid gap-4 md:grid-cols-3">
+          <article className="rounded-3xl border border-white/10 bg-white/[0.03] p-5">
+            <p className="text-sm text-violet-200">Free</p><h3 className="mt-1 text-2xl font-semibold">$0<span className="text-sm text-slate-300">/month</span></h3><p className="mt-2 text-sm text-slate-300">Basic reflection and moment tracking. Limited AI support.</p>
+          </article>
+          <article className="rounded-3xl border border-violet-200/45 bg-[radial-gradient(circle_at_10%_10%,rgba(196,181,253,0.3),transparent_45%),rgba(255,255,255,0.07)] p-5 shadow-[0_20px_60px_-35px_rgba(167,139,250,1)]">
+            <p className="text-sm text-violet-100">Plus · Recommended</p><h3 className="mt-1 text-2xl font-semibold">$9<span className="text-sm text-slate-200">/month</span></h3><p className="mt-2 text-sm text-slate-200">Unlimited moments, deeper AI support, goals, and pattern insights.</p>
+          </article>
+          <article className="rounded-3xl border border-white/10 bg-white/[0.03] p-5">
+            <p className="text-sm text-violet-200">Pro</p><h3 className="mt-1 text-2xl font-semibold">$19<span className="text-sm text-slate-300">/month</span></h3><p className="mt-2 text-sm text-slate-300">Everything in Plus plus advanced insights and exportable summaries.</p>
+          </article>
+          <div className="md:col-span-3 flex flex-wrap gap-3">
+                <Link href={user ? "/onboarding" : "/sign-in?next=/onboarding"} className="moment-btn-secondary">Start free</Link>
+                <Link href={user ? "/settings?tab=billing&plan=plus" : "/sign-in?next=/settings%3Ftab%3Dbilling%26plan%3Dplus"} className="moment-btn-primary">Start Plus</Link>
+                <Link href={user ? "/settings?tab=billing&plan=pro" : "/sign-in?next=/settings%3Ftab%3Dbilling%26plan%3Dpro"} className="moment-btn-secondary">Start Pro</Link>
+          </div>
+        </section>
 
         <section className="space-y-4">
           <h2 className="text-sm font-semibold tracking-[0.06em] text-violet-100/72">When Moment routes the need</h2>

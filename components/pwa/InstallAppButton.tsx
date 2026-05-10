@@ -11,6 +11,7 @@ export function InstallAppButton() {
   const [deferredPrompt, setDeferredPrompt] = useState<BeforeInstallPromptEvent | null>(null);
   const [isIos, setIsIos] = useState(false);
   const [isStandalone, setIsStandalone] = useState(false);
+  const [showInstructions, setShowInstructions] = useState(false);
 
   useEffect(() => {
     const ios = /iphone|ipad|ipod/i.test(window.navigator.userAgent);
@@ -34,7 +35,12 @@ export function InstallAppButton() {
   const canPromptInstall = useMemo(() => Boolean(deferredPrompt) && !isStandalone, [deferredPrompt, isStandalone]);
 
   const handleInstallClick = async () => {
-    if (!deferredPrompt) return;
+    if (isStandalone) return;
+
+    if (!deferredPrompt) {
+      setShowInstructions(true);
+      return;
+    }
 
     await deferredPrompt.prompt();
     const choiceResult = await deferredPrompt.userChoice;
@@ -44,29 +50,29 @@ export function InstallAppButton() {
     }
   };
 
-  if (isStandalone) {
-    return null;
-  }
-
-  if (canPromptInstall) {
-    return (
+  return (
+    <div className="relative inline-flex">
       <button
         type="button"
         onClick={handleInstallClick}
-        className="inline-flex min-h-12 items-center justify-center rounded-full bg-white/8 px-6 py-3 text-sm font-medium text-violet-50/95 ring-1 ring-white/20 transition hover:bg-white/14 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-100"
+        disabled={isStandalone}
+        className="inline-flex min-h-12 items-center justify-center rounded-full bg-white/8 px-6 py-3 text-sm font-medium text-violet-50/95 ring-1 ring-white/20 transition hover:bg-white/14 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-100 disabled:cursor-not-allowed disabled:opacity-80"
       >
-        Install App
+        {isStandalone ? "App installed" : "Download App"}
       </button>
-    );
-  }
 
-  if (isIos) {
-    return (
-      <p className="inline-flex min-h-12 items-center rounded-full bg-white/8 px-5 py-3 text-xs text-violet-50/95 ring-1 ring-white/20 sm:text-sm">
-        On iPhone/iPad: tap Share, then Add to Home Screen.
-      </p>
-    );
-  }
-
-  return null;
+      {showInstructions && !canPromptInstall && !isStandalone ? (
+        <div className="absolute left-0 top-[calc(100%+0.6rem)] z-20 w-72 rounded-2xl bg-[#120f26]/95 p-3 text-xs text-violet-50/95 shadow-[0_24px_56px_-34px_rgba(167,139,250,1)] ring-1 ring-white/20 backdrop-blur-md sm:w-80 sm:text-sm">
+          <p>{isIos ? "Tap Share, then Add to Home Screen." : "Install prompt unavailable. Tap Share, then Add to Home Screen."}</p>
+          <button
+            type="button"
+            onClick={() => setShowInstructions(false)}
+            className="mt-2 inline-flex rounded-full bg-white/10 px-3 py-1 text-[11px] font-medium text-violet-100 ring-1 ring-white/20 hover:bg-white/15"
+          >
+            Got it
+          </button>
+        </div>
+      ) : null}
+    </div>
+  );
 }

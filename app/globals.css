@@ -47,6 +47,6 @@ a {
   }
 
   .moment-btn-secondary {
-    @apply inline-flex min-h-12 items-center justify-center rounded-full bg-white/10 px-6 py-3 text-sm font-medium text-violet-50 ring-1 ring-white/25 transition hover:bg-white/14 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-100;
+    @apply inline-flex min-h-12 items-center justify-center rounded-full bg-white/10 px-6 py-3 text-sm font-medium text-violet-50 ring-1 ring-white/25 transition hover:bg-white/[0.14] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-100;
   }
 }

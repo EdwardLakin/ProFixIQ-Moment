@@ -85,7 +85,7 @@ export function InstallAppButton() {
             <p className="mt-3 text-sm leading-relaxed text-slate-100/95">On iPhone or iPad Safari, the Share button is in the browser toolbar. It looks like a square with an arrow pointing up. Tap it, then choose Add to Home Screen.</p>
 
             <div className="mt-4 flex items-center gap-2.5 rounded-2xl bg-white/[0.09] px-3 py-2.5 text-sm font-medium text-white ring-1 ring-white/20">
-              <span aria-hidden="true" className="inline-flex h-8 w-8 items-center justify-center rounded-lg bg-white/14 text-base">⬆︎</span>
+              <span aria-hidden="true" className="inline-flex h-8 w-8 items-center justify-center rounded-lg bg-white/[0.14] text-base">⬆︎</span>
               <span className="tracking-wide">Share → Add to Home Screen</span>
             </div>
             <p className="mt-3 rounded-2xl bg-white/[0.08] px-3 py-2 text-xs leading-relaxed text-violet-100/95 ring-1 ring-white/20 sm:text-sm">

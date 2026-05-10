@@ -5,6 +5,7 @@ import { MomentShell } from "@/components/moment/MomentShell";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { requireAuthenticatedUser } from "@/lib/auth";
 import { OnboardingForm } from "./OnboardingForm";
+import { GlobalBackButton } from "@/components/moment/GlobalBackButton";
 
 async function completeOnboarding(_: { error: string | null }, formData: FormData) {
   "use server";
@@ -45,6 +46,7 @@ export default async function OnboardingPage() {
   await requireAuthenticatedUser("/onboarding");
   return (
     <MomentShell>
+      <GlobalBackButton fallbackHref="/dashboard" />
       <section className="mx-auto max-w-3xl">
         <MomentPageHeader eyebrow="Your first Moment" title="Tell Moment a little about you" subtitle="You don’t need perfect answers. This helps Moment greet you gently and route support in a way that feels useful." />
         <MomentCard className="border-white/20 bg-[#1a2438]">

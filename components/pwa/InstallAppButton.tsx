@@ -50,6 +50,8 @@ export function InstallAppButton() {
     }
   };
 
+  const closeInstructions = () => setShowInstructions(false);
+
   return (
     <div className="relative inline-flex">
       <button
@@ -62,15 +64,29 @@ export function InstallAppButton() {
       </button>
 
       {showInstructions && !canPromptInstall && !isStandalone ? (
-        <div className="absolute left-0 top-[calc(100%+0.6rem)] z-20 w-72 rounded-2xl bg-[#120f26]/95 p-3 text-xs text-violet-50/95 shadow-[0_24px_56px_-34px_rgba(167,139,250,1)] ring-1 ring-white/20 backdrop-blur-md sm:w-80 sm:text-sm">
-          <p>{isIos ? "Tap Share, then Add to Home Screen." : "Install prompt unavailable. Tap Share, then Add to Home Screen."}</p>
-          <button
-            type="button"
-            onClick={() => setShowInstructions(false)}
-            className="mt-2 inline-flex rounded-full bg-white/10 px-3 py-1 text-[11px] font-medium text-violet-100 ring-1 ring-white/20 hover:bg-white/15"
-          >
-            Got it
-          </button>
+        <div className="fixed inset-0 z-40 flex items-center justify-center p-4 sm:p-6" role="dialog" aria-modal="true" aria-labelledby="install-moment-title">
+          <button type="button" className="absolute inset-0 bg-black/45 backdrop-blur-[1px]" aria-label="Close install help" onClick={closeInstructions} />
+          <div className="relative w-full max-w-sm overflow-hidden rounded-3xl bg-[radial-gradient(circle_at_20%_0%,rgba(196,181,253,0.26),transparent_55%),linear-gradient(155deg,rgba(18,15,38,0.95),rgba(17,24,39,0.96))] p-5 text-violet-50/95 shadow-[0_34px_90px_-48px_rgba(167,139,250,1),inset_0_1px_0_rgba(255,255,255,0.14)] ring-1 ring-white/20 backdrop-blur-xl sm:p-6">
+            <div className="pointer-events-none absolute inset-x-6 top-0 h-px bg-white/20" />
+            <div className="flex items-start justify-between gap-4">
+              <h3 id="install-moment-title" className="text-lg font-semibold text-white">
+                Install Moment
+              </h3>
+              <button
+                type="button"
+                onClick={closeInstructions}
+                className="inline-flex h-8 w-8 items-center justify-center rounded-full bg-white/10 text-sm font-medium text-violet-100 ring-1 ring-white/20 transition hover:bg-white/15 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-100"
+                aria-label="Close install help"
+              >
+                ✕
+              </button>
+            </div>
+
+            <p className="mt-3 text-sm leading-relaxed text-slate-100/95">On iPhone or iPad, tap the Share button in Safari, then choose “Add to Home Screen.”</p>
+            <p className="mt-3 rounded-2xl bg-white/[0.045] px-3 py-2 text-xs leading-relaxed text-violet-100/85 ring-1 ring-white/12 sm:text-sm">
+              On Android or desktop Chrome, this button opens the install prompt when available.
+            </p>
+          </div>
         </div>
       ) : null}
     </div>

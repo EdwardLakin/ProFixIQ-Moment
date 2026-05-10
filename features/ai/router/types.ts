@@ -1,7 +1,7 @@
-import type { BrainAudience, BrainCategory, MomentBrainId } from "@/features/ai/brains/types";
+import type { AgeRange, BrainAudience, BrainCategory, MomentBrainId } from "@/features/ai/brains/types";
 import type { MomentRouteConfidence } from "@/features/ai/types";
 
-export type UserAgeRange = "under_13" | "13_15" | "16_17" | "18_plus";
+export type UserAgeRange = AgeRange;
 
 export type RouteMomentInput = {
   momentText: string;

@@ -23,3 +23,30 @@ a {
   color: inherit;
   text-decoration: none;
 }
+
+
+@layer components {
+  .moment-eyebrow {
+    @apply text-xs uppercase tracking-[0.24em] text-violet-100/80;
+  }
+
+  .moment-glass-panel {
+    @apply relative overflow-hidden rounded-[1.75rem] border border-white/15 bg-[linear-gradient(160deg,rgba(255,255,255,0.12),rgba(255,255,255,0.04)_42%,rgba(8,10,28,0.56))] shadow-[0_34px_110px_-58px_rgba(167,139,250,0.95),inset_0_1px_0_rgba(255,255,255,0.18)] ring-1 ring-white/10 backdrop-blur-xl;
+  }
+
+  .moment-gradient-border {
+    @apply border border-transparent bg-[linear-gradient(rgba(17,24,39,0.74),rgba(17,24,39,0.8))_padding-box,linear-gradient(135deg,rgba(196,181,253,0.65),rgba(34,211,238,0.3),rgba(248,250,252,0.18))_border-box];
+  }
+
+  .moment-soft-glow {
+    @apply shadow-[0_26px_80px_-44px_rgba(129,140,248,0.95),0_14px_44px_-36px_rgba(34,211,238,0.85)];
+  }
+
+  .moment-btn-primary {
+    @apply inline-flex min-h-12 items-center justify-center rounded-full bg-violet-100 px-6 py-3 text-sm font-semibold text-[#140f2a] shadow-[0_16px_42px_-20px_rgba(196,181,253,1)] transition hover:bg-[#efe9ff] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-100 focus-visible:ring-offset-2 focus-visible:ring-offset-[#130f26];
+  }
+
+  .moment-btn-secondary {
+    @apply inline-flex min-h-12 items-center justify-center rounded-full bg-white/10 px-6 py-3 text-sm font-medium text-violet-50 ring-1 ring-white/25 transition hover:bg-white/14 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-100;
+  }
+}

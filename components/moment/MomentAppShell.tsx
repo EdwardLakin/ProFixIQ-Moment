@@ -20,16 +20,18 @@ export async function MomentAppShell({ children, title, subtitle }: { children: 
   if (!user) redirect("/sign-in");
 
   return (
-    <main className="min-h-screen bg-[#0f172a] px-4 py-5 text-[#f8f1e7] md:px-6 md:py-6">
-      <section className="mx-auto flex w-full max-w-6xl gap-5 pb-24 md:pb-0">
+    <main className="moment-glow relative min-h-screen overflow-hidden px-4 py-5 text-[#f8f1e7] md:px-6 md:py-6">
+      <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_20%_15%,rgba(196,181,253,0.2),transparent_36%),radial-gradient(circle_at_82%_10%,rgba(34,211,238,0.12),transparent_32%)]" />
+      <div className="pointer-events-none absolute inset-0 opacity-25 [background-image:linear-gradient(rgba(255,255,255,0.05)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,0.035)_1px,transparent_1px)] [background-size:56px_56px]" />
+      <section className="relative mx-auto flex w-full max-w-6xl gap-5 pb-24 md:pb-0">
         <MomentAppNav />
-        <div className="min-w-0 flex-1 rounded-3xl border border-white/15 bg-[#172033] p-4 md:p-6">
+        <div className="moment-glass-panel moment-gradient-border min-w-0 flex-1 p-4 md:p-6">
           <MomentTopBar
             title={title}
             subtitle={subtitle}
             action={
               <form action={signOut}>
-                <button className="rounded-full border border-white/20 bg-white/5 px-3 py-1.5 text-xs text-[#d6d3e8] hover:bg-white/10 hover:text-[#f8f1e7]">Sign out</button>
+                <button className="moment-btn-secondary min-h-0 px-3 py-1.5 text-xs">Sign out</button>
               </form>
             }
           />

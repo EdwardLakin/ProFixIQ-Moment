@@ -48,7 +48,7 @@ export default function HomePage() {
           <div className="pointer-events-none absolute inset-x-10 top-0 h-px bg-white/18" />
           <div className="grid gap-9 lg:grid-cols-[1fr_1.05fr] lg:items-center">
             <div>
-              <p className="text-xs uppercase tracking-[0.3em] text-violet-100/75 sm:text-sm">Moment by ProFixIQ</p>
+              <p className="moment-eyebrow sm:text-sm">Moment by ProFixIQ</p>
               <h1 className="mt-5 text-4xl font-semibold tracking-tight text-white sm:text-5xl lg:text-6xl">
                 Open Moment. Check in. Get one tiny next step.
               </h1>
@@ -67,13 +67,13 @@ export default function HomePage() {
               <div className="mt-8 flex flex-col gap-3 sm:flex-row sm:flex-wrap">
                 <Link
                   href="/dashboard"
-                  className="inline-flex min-h-12 items-center justify-center rounded-full bg-violet-100 px-6 py-3 text-sm font-semibold text-[#140f2a] shadow-[0_16px_42px_-20px_rgba(196,181,253,1)] transition hover:bg-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-100 focus-visible:ring-offset-2 focus-visible:ring-offset-[#130f26]"
+                  className="moment-btn-primary"
                 >
                   Open Moment
                 </Link>
                 <Link
                   href="/onboarding"
-                  className="inline-flex min-h-12 items-center justify-center rounded-full bg-white/8 px-6 py-3 text-sm font-medium text-violet-50/95 ring-1 ring-white/20 transition hover:bg-white/14 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-100"
+                  className="moment-btn-secondary"
                 >
                   Start onboarding
                 </Link>

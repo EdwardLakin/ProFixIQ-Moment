@@ -21,7 +21,7 @@ export function normalizeMomentBrainOutput(input: Partial<MomentCheckInResponse>
     routePath: input.routePath?.trim() || "/check-in",
     reflection: input.reflection?.trim() || reflectionFallback,
     tinyNextStep: input.tinyNextStep?.trim() || "Take one tiny step and re-check in.",
-    whyThisRoute: input.whyThisRoute?.trim() || "Moment chose this route from what you shared.",
+    whyThisRoute: input.whyThisRoute?.trim() || "This felt like the most supportive next response.",
     continueLabel: input.continueLabel?.trim() || "Continue",
     steps: (input.steps ?? []).filter(Boolean).slice(0, 3),
     supportiveNote: input.supportiveNote?.trim() || noteFallback,
@@ -30,7 +30,7 @@ export function normalizeMomentBrainOutput(input: Partial<MomentCheckInResponse>
 
   const blocks: OperationalBlock[] = [
     { type: "momentum_builder", text: safe.tinyNextStep },
-    { type: "route_transition", text: safe.steps[0] ?? "Choose the next calm route." },
+    { type: "route_transition", text: safe.steps[0] ?? "Stay with one gentle next step." },
     { type: "recovery_prompt", text: safe.supportiveNote },
   ];
 
@@ -51,7 +51,7 @@ async function runOpenAI(primaryBrain: MomentBrainId, userText: string): Promise
     body: JSON.stringify({
       model: "gpt-4.1-mini",
       input: [
-        { role: "system", content: `${brain.systemPrompt}\nKeep responses practical, non-clinical, and brief.` },
+        { role: "system", content: `${brain.systemPrompt}\nKeep responses calm, human, brief, and emotionally natural. Avoid system wording or analysis framing.` },
         { role: "user", content: userText.slice(0, 1200) },
       ],
       text: {

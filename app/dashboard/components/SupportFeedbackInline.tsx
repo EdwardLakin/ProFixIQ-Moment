@@ -3,11 +3,11 @@
 import { useState } from "react";
 
 const options = [
-  ["helpful", "Was this helpful?"],
+  ["helpful", "That helped"],
   ["too_much", "Too much"],
-  ["not_helpful", "Not helpful"],
-  ["needed_more_support", "Needed more support"],
-  ["needed_less_advice", "Needed less advice"],
+  ["not_helpful", "Not the right kind of help"],
+  ["needed_less_advice", "Explain another way"],
+  ["needed_more_support", "Just stay with me"],
 ] as const;
 
 export function SupportFeedbackInline() {

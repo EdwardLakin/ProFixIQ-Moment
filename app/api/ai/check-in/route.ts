@@ -12,6 +12,7 @@ import { getMomentUsageSnapshot } from "@/lib/entitlements";
 import { buildTrustSignal, deriveSupportQualityFlags, summarizeTrace } from "@/features/moment/orchestration/observability";
 import { getCurrentMomentPlan } from "@/lib/subscriptions";
 import { normalizeAgeRange } from "@/lib/momentAudience";
+import { recommendMomentTools } from "@/features/moment/tools/recommend";
 
 const schema = z.object({
   text: z.string().min(3),
@@ -268,6 +269,17 @@ export async function POST(request: Request) {
   const gentlePresence = unresolvedCount >= 3 || /(exhausted|drained|can.t do this|too much)/i.test(parsed.data.text);
   const loopSignals = detectLoopSignals({ text: parsed.data.text, selectedStates: parsed.data.selectedStates, followUpAnswers, memoryThreads: memorySnapshot.threads, warnings, responseText: `${safeResponse.reflection} ${safeResponse.tinyNextStep} ${safeResponse.steps.join(" ")}` });
   const shouldSlowDown = gentlePresence || loopSignals.length > 0;
+  const emotionalLoad = result.route.primaryBrainId === "grief_support_brain" ? "grief" : result.route.primaryBrainId === "loneliness_support_brain" ? "lonely" : gentlePresence ? "heavy" : "medium";
+  const supportTools = recommendMomentTools({
+    route: result.route.primaryBrainId,
+    inputText: parsed.data.text,
+    ageRange: trustedAgeRange,
+    emotionalLoad,
+    memorySnapshot: {
+      dismissed: memorySnapshot.supportEffectivenessNotes.filter((n) => /skip the sorting tool|too much/i.test(n.outcomeNote)).map(() => "pressure_sort"),
+      helpful: memorySnapshot.supportEffectivenessNotes.filter((n) => /helped|better/i.test(n.outcomeNote)).map(() => "first_problem_together"),
+    },
+  });
   const adaptedSteps = shouldSlowDown ? safeResponse.steps.slice(0, 1) : safeResponse.steps;
   const qualityFlags = deriveSupportQualityFlags({
     steps: adaptedSteps,
@@ -314,6 +326,7 @@ export async function POST(request: Request) {
       qualityFlags,
     qaTags,
     loopSignals,
+    supportTools: supportTools.map((tool) => ({ id: tool.id, label: tool.label, description: tool.description })),
     },
     warnings: [...result.warnings, ...warnings],
     memorySnapshot,

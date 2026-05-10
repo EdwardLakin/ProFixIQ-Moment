@@ -1,58 +1,61 @@
 import type { MomentRouteResult } from "@/features/ai/types";
 import type { ContinuityCue, MomentThread, SupportStyle } from "@/features/moment/continuity/types";
 
-function includesAny(text: string, tokens: string[]) {
-  return tokens.some((token) => text.includes(token));
+function tokenize(input: string) {
+  return input.toLowerCase().replace(/[^a-z0-9\s]/g, " ").split(/\s+/).filter((token) => token.length > 2);
+}
+
+function similarityScore(a: string, b: string) {
+  const one = new Set(tokenize(a));
+  const two = new Set(tokenize(b));
+  if (one.size === 0 || two.size === 0) return 0;
+  let overlap = 0;
+  one.forEach((token) => {
+    if (two.has(token)) overlap += 1;
+  });
+  return overlap / Math.max(one.size, two.size);
 }
 
 function summarizeMoment(text: string) {
-  const cleaned = text.trim().replace(/\s+/g, " ");
-  return cleaned.slice(0, 180);
+  return text.trim().replace(/\s+/g, " ").slice(0, 180);
 }
 
-export function buildThreadTitle(text: string, route: MomentRouteResult) {
-  const normalized = text.toLowerCase();
-  if (includesAny(normalized, ["mother's day", "grief", "loss", "miss"])) return "Ongoing grief wave";
-  if (includesAny(normalized, ["math", "class", "test", "homework"])) return "Recurring math overwhelm";
-  if (includesAny(normalized, ["work", "boss", "deadline", "burnout"])) return "Work pressure cycle";
-  if (includesAny(normalized, ["friend", "relationship", "boundary"])) return "Relationship boundary support";
-  return route.routeLabel;
+export function summarizeContinuity(text: string, threads: MomentThread[]): string | null {
+  const best = findThreadContinuation(text, threads, "emotional_reset_brain");
+  if (!best) return null;
+  return `This feels connected to ${best.thread.title.toLowerCase()}. You have been trying to approach this differently.`;
 }
 
 export function continuityCueFromThread(thread: MomentThread, incomingText: string): ContinuityCue | null {
-  const normalized = incomingText.toLowerCase();
-  const summary = thread.summary.toLowerCase();
-  const routeHint = thread.primary_brain_id.replace(/_brain$/, "").replace(/_/g, " ");
-  if (!normalized || !summary) return null;
-  if (normalized.includes(routeHint) || includesAny(normalized, summary.split(" ").slice(0, 8))) {
-    return {
-      threadId: thread.id,
-      prompt: `This might be connected to your recent ${thread.title.toLowerCase()}. Want to continue that thread or start fresh?`,
-      confidence: "low",
-    };
-  }
-  return null;
+  const score = similarityScore(incomingText, `${thread.title} ${thread.summary}`);
+  if (score < 0.25) return null;
+  return {
+    threadId: thread.id,
+    prompt: "Last time grounding helped before action. Want to continue where we left off?",
+    confidence: score > 0.42 ? "medium" : "low",
+  };
+}
+
+export function findThreadContinuation(text: string, threads: MomentThread[], primaryBrainId: string) {
+  const ranked = threads.map((thread) => {
+    const routeBoost = thread.primary_brain_id === primaryBrainId ? 0.28 : 0;
+    const activeBoost = thread.status === "active" ? 0.18 : 0;
+    const score = similarityScore(text, `${thread.title} ${thread.summary}`) + routeBoost + activeBoost;
+    return { thread, score };
+  }).sort((a, b) => b.score - a.score);
+  return ranked[0] && ranked[0].score >= 0.38 ? ranked[0] : null;
 }
 
 export function inferSupportStyle(style?: SupportStyle): SupportStyle {
   return style ?? "calm_reflective";
 }
 
-export function summarizeContinuity(text: string, threads: MomentThread[]): string | null {
-  if (threads.length === 0) return null;
-  const normalized = text.toLowerCase();
-  const workMatches = threads.filter((thread) => thread.primary_brain_id === "work_stress_brain").length;
-  const mathMatches = threads.filter((thread) => thread.primary_brain_id === "math_reset_brain" || thread.primary_brain_id === "school_overwhelm_brain").length;
-  if (normalized.includes("work") && workMatches > 0) return "You have mentioned work pressure a few times recently. We can continue gently.";
-  if (normalized.includes("math") && mathMatches > 0) return "Math frustration has shown up repeatedly this week. We can keep the next step small.";
-  return "This seems loosely connected to a recent heavy moment. We can continue slowly or reset.";
-}
-
-export function buildThreadUpsert(text: string, route: MomentRouteResult, userId: string, supportStyle: SupportStyle) {
+export function buildThreadUpsert(text: string, route: MomentRouteResult, userId: string, supportStyle: SupportStyle, existingThreadId?: string) {
   const now = new Date().toISOString();
   return {
+    id: existingThreadId,
     user_id: userId,
-    title: buildThreadTitle(text, route),
+    title: route.routeLabel,
     summary: summarizeMoment(text),
     primary_brain_id: route.primaryBrainId,
     support_style: supportStyle,

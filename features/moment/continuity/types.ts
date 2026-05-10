@@ -2,7 +2,7 @@ import type { EmotionalStateLevel } from "@/features/moment/context/types";
 import type { MomentBrainId } from "@/features/ai/brains/types";
 
 export type SupportStyle = "calm_reflective" | "gentle_grounding" | "structured_reset" | "action_forward";
-export type MomentThreadStatus = "active" | "paused" | "resolved";
+export type MomentThreadStatus = "active" | "paused" | "quiet" | "resolved" | "archived";
 
 export type MomentThread = {
   id: string;

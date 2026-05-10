@@ -1,5 +1,7 @@
 import { redirect } from "next/navigation";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { getCurrentMomentPlan } from "@/lib/subscriptions";
+import { getPostSignupPath } from "@/lib/userFlow";
 
 export async function getAuthenticatedUser() {
   const supabase = await createSupabaseServerClient();
@@ -49,4 +51,10 @@ export async function requireAuthenticatedUser(next: string) {
     redirect(`/sign-in?next=${encodeURIComponent(next)}`);
   }
   return user;
+}
+
+
+export async function getCanonicalAppPath(userId: string, profile: { onboarding_complete?: boolean } | null) {
+  const subscription = await getCurrentMomentPlan(userId);
+  return getPostSignupPath({ onboardingComplete: Boolean(profile?.onboarding_complete), plan: subscription.plan });
 }

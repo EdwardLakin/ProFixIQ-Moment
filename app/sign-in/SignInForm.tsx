@@ -10,7 +10,7 @@ export function SignInForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const supabase = useMemo(() => createSupabaseBrowserClient(), []);
-  const next = searchParams.get("next") || "/onboarding";
+  const next = searchParams.get("next") || "/";
 
   const [mode, setMode] = useState<AuthMode>("sign-in");
   const [email, setEmail] = useState("");
@@ -38,7 +38,7 @@ export function SignInForm() {
             email: normalizedEmail,
             password,
             options: {
-              emailRedirectTo: `${window.location.origin}/auth/callback?next=/onboarding`,
+              emailRedirectTo: `${window.location.origin}/auth/callback?next=${encodeURIComponent(next)}`,
             },
           })
         : await supabase.auth.signInWithPassword({

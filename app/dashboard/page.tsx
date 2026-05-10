@@ -4,7 +4,7 @@ import { MomentAppShell } from "@/components/moment/MomentAppShell";
 import { getMomentGreeting } from "@/features/moment/greeting/getMomentGreeting";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { readMomentMemory } from "@/features/moment/memory/readMomentMemory";
-import { getOnboardingRedirectPath, getOrCreateMomentProfile, requireAuthenticatedUser } from "@/lib/auth";
+import { getCanonicalAppPath, getOrCreateMomentProfile, requireAuthenticatedUser } from "@/lib/auth";
 import { getCurrentMomentPlan } from "@/lib/subscriptions";
 import { getMomentUsageSnapshot } from "@/lib/entitlements";
 
@@ -13,8 +13,9 @@ export default async function DashboardPage() {
   const supabase = await createSupabaseServerClient();
   const profile = await getOrCreateMomentProfile(user.id);
 
-  if (getOnboardingRedirectPath(profile) !== "/dashboard") {
-    redirect("/onboarding");
+  const canonicalPath = await getCanonicalAppPath(user.id, profile);
+  if (canonicalPath !== "/dashboard") {
+    redirect(canonicalPath);
   }
 
   const greeting = getMomentGreeting({

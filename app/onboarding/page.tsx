@@ -3,7 +3,7 @@ import { MomentCard } from "@/components/moment/MomentCard";
 import { MomentPageHeader } from "@/components/moment/MomentPageHeader";
 import { MomentShell } from "@/components/moment/MomentShell";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
-import { requireAuthenticatedUser } from "@/lib/auth";
+import { getCanonicalAppPath, getOrCreateMomentProfile, requireAuthenticatedUser } from "@/lib/auth";
 import { OnboardingForm } from "./OnboardingForm";
 import { GlobalBackButton } from "@/components/moment/GlobalBackButton";
 
@@ -43,7 +43,12 @@ async function completeOnboarding(_: { error: string | null }, formData: FormDat
 }
 
 export default async function OnboardingPage() {
-  await requireAuthenticatedUser("/onboarding");
+  const user = await requireAuthenticatedUser("/onboarding");
+  const profile = await getOrCreateMomentProfile(user.id);
+  const canonicalPath = await getCanonicalAppPath(user.id, profile);
+  if (canonicalPath === "/pricing") {
+    redirect(canonicalPath);
+  }
   return (
     <MomentShell>
       <GlobalBackButton fallbackHref="/dashboard" />

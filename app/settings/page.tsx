@@ -14,8 +14,10 @@ async function updateProfile(formData: FormData) {
   const ageRange = String(formData.get("age_range") ?? "18_plus");
   const birthdayMonthRaw = String(formData.get("birthday_month") ?? "").trim();
   const birthdayDayRaw = String(formData.get("birthday_day") ?? "").trim();
-  const birthdayMonth = birthdayMonthRaw ? Number.parseInt(birthdayMonthRaw, 10) : null;
-  const birthdayDay = birthdayDayRaw ? Number.parseInt(birthdayDayRaw, 10) : null;
+  const birthdayMonthCandidate = birthdayMonthRaw ? Number.parseInt(birthdayMonthRaw, 10) : null;
+  const birthdayDayCandidate = birthdayDayRaw ? Number.parseInt(birthdayDayRaw, 10) : null;
+  const birthdayMonth = typeof birthdayMonthCandidate === "number" && birthdayMonthCandidate >= 1 && birthdayMonthCandidate <= 12 ? birthdayMonthCandidate : null;
+  const birthdayDay = typeof birthdayDayCandidate === "number" && birthdayDayCandidate >= 1 && birthdayDayCandidate <= 31 ? birthdayDayCandidate : null;
   const focusAreas = String(formData.get("focus_areas") ?? "").split(",").map((item) => item.trim()).filter((item) => item.length > 0);
   const supportGoals = String(formData.get("support_goals") ?? "").split(",").map((item) => item.trim()).filter((item) => item.length > 0);
 
@@ -23,8 +25,8 @@ async function updateProfile(formData: FormData) {
     user_id: user.id,
     display_name: displayName,
     age_range: ageRange,
-    birthday_month: Number.isInteger(birthdayMonth) ? birthdayMonth : null,
-    birthday_day: Number.isInteger(birthdayDay) ? birthdayDay : null,
+    birthday_month: birthdayMonth,
+    birthday_day: birthdayDay,
     focus_areas: focusAreas,
     support_goals: supportGoals,
   }, { onConflict: "user_id" });
@@ -60,8 +62,8 @@ export default async function SettingsPage() {
           <form action={updateProfile} className="mt-4 grid gap-3 sm:grid-cols-2">
             <label className="text-sm text-slate-300">Display name<input name="display_name" defaultValue={profile?.display_name ?? ""} className="mt-1 w-full rounded-xl border border-white/15 bg-[#202a40] p-3 text-[#f8f1e7]" /></label>
             <label className="text-sm text-slate-300">Age range<select name="age_range" defaultValue={profile?.age_range ?? "18_plus"} className="mt-1 w-full rounded-xl border border-white/15 bg-[#202a40] p-3 text-[#f8f1e7]"><option value="under_13">Under 13</option><option value="13_15">13-15</option><option value="16_17">16-17</option><option value="18_plus">18+</option><option value="not_set">Prefer not to say</option></select></label>
-            <label className="text-sm text-slate-300">Birthday month<input name="birthday_month" type="number" min={1} max={12} defaultValue={profile?.birthday_month ?? ""} className="mt-1 w-full rounded-xl border border-white/15 bg-[#202a40] p-3 text-[#f8f1e7]" /></label>
-            <label className="text-sm text-slate-300">Birthday day<input name="birthday_day" type="number" min={1} max={31} defaultValue={profile?.birthday_day ?? ""} className="mt-1 w-full rounded-xl border border-white/15 bg-[#202a40] p-3 text-[#f8f1e7]" /></label>
+            <label className="text-sm text-slate-300">Birthday month<input name="birthday_month" type="text" inputMode="numeric" pattern="[0-9]*" maxLength={2} defaultValue={profile?.birthday_month ?? ""} className="mt-1 w-full rounded-xl border border-white/15 bg-[#202a40] p-3 text-[#f8f1e7]" /></label>
+            <label className="text-sm text-slate-300">Birthday day<input name="birthday_day" type="text" inputMode="numeric" pattern="[0-9]*" maxLength={2} defaultValue={profile?.birthday_day ?? ""} className="mt-1 w-full rounded-xl border border-white/15 bg-[#202a40] p-3 text-[#f8f1e7]" /></label>
             <label className="text-sm text-slate-300 sm:col-span-2">Focus areas (comma-separated)<input name="focus_areas" defaultValue={(profile?.focus_areas ?? []).join(", ")} className="mt-1 w-full rounded-xl border border-white/15 bg-[#202a40] p-3 text-[#f8f1e7]" /></label>
             <label className="text-sm text-slate-300 sm:col-span-2">Support goals (comma-separated)<input name="support_goals" defaultValue={(profile?.support_goals ?? []).join(", ")} className="mt-1 w-full rounded-xl border border-white/15 bg-[#202a40] p-3 text-[#f8f1e7]" /></label>
             <div className="sm:col-span-2"><MomentButton type="submit">Save profile</MomentButton></div>

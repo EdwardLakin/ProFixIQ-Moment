@@ -8,7 +8,8 @@
     "start": "next start",
     "lint": "next lint",
     "typecheck": "tsc --noEmit",
-    "smoke:router": "node --experimental-strip-types scripts/smoke-router.mjs"
+    "smoke:router": "node --experimental-strip-types scripts/smoke-router.mjs",
+    "smoke:user-flow": "node scripts/smoke-user-flow.mjs"
   },
   "dependencies": {
     "@supabase/ssr": "latest",

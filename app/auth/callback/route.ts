@@ -1,11 +1,11 @@
 import { NextResponse } from "next/server";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
-import { getOnboardingRedirectPath, getOrCreateMomentProfile } from "@/lib/auth";
+import { getCanonicalAppPath, getOrCreateMomentProfile } from "@/lib/auth";
 
 export async function GET(request: Request) {
   const url = new URL(request.url);
   const code = url.searchParams.get("code");
-  const next = url.searchParams.get("next") || "/dashboard";
+  const next = url.searchParams.get("next") || "/";
 
   const supabase = await createSupabaseServerClient();
 
@@ -22,7 +22,7 @@ export async function GET(request: Request) {
   }
 
   const profile = await getOrCreateMomentProfile(user.id);
-  const path = next === "/dashboard" || next === "/onboarding" ? getOnboardingRedirectPath(profile) : next;
+  const path = next === "/" || next === "/dashboard" || next === "/onboarding" ? await getCanonicalAppPath(user.id, profile) : next;
 
   return NextResponse.redirect(new URL(path, url.origin));
 }

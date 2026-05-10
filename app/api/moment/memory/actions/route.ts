@@ -3,7 +3,7 @@ import { z } from "zod";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 
 const schema = z.object({
-  action: z.enum(["accept_suggestion", "dismiss_suggestion", "hide_tiny_win", "pause_thread", "resume_thread", "archive_goal"]),
+  action: z.enum(["accept_suggestion", "dismiss_suggestion", "hide_tiny_win", "pause_thread", "resume_thread", "archive_goal", "pause_goal", "resume_goal", "mark_goal_progress", "mark_goal_struggling"]),
   id: z.string().uuid(),
 });
 
@@ -24,6 +24,11 @@ export async function POST(request: Request) {
   if (action === "pause_thread") await supabase.from("moment_threads").update({ status: "paused" }).eq("id", id).eq("user_id", user.id);
   if (action === "resume_thread") await supabase.from("moment_threads").update({ status: "active" }).eq("id", id).eq("user_id", user.id);
   if (action === "archive_goal") await supabase.from("moment_goals").update({ status: "archived" }).eq("id", id).eq("user_id", user.id);
+  if (action === "pause_goal") await supabase.from("moment_goals").update({ status: "paused" }).eq("id", id).eq("user_id", user.id);
+  if (action === "resume_goal") await supabase.from("moment_goals").update({ status: "active" }).eq("id", id).eq("user_id", user.id);
+  if (action === "mark_goal_progress") await supabase.from("moment_goals").update({ status: "gently_progressing" }).eq("id", id).eq("user_id", user.id);
+  if (action === "mark_goal_struggling") await supabase.from("moment_goals").update({ status: "struggling" }).eq("id", id).eq("user_id", user.id);
 
   return NextResponse.json({ ok: true });
 }
+

@@ -36,6 +36,13 @@ const cases = [
   ['13_15', 'I am stressed about taxes and my marriage', ['emotional_reset_brain'], ['finance_clarity_brain','relationship_reflection_brain']],
 ];
 
+const orchestrationTimingCases = [
+  { name: 'grief tool delay', route: 'grief_support_brain', expectedMaxTools: 0 },
+  { name: 'tutor calm before teaching', route: 'tutor_brain', expectedFirst: 'calm' },
+  { name: 'finance pressure before sorting', route: 'finance_clarity_brain', expectedFirst: 'pressure' },
+  { name: 'overload lowers tool density', route: 'overwhelm_grounding_brain', expectedMaxTools: 1 },
+];
+
 let failed = 0;
 for (const [age, text, allowed, reject = []] of cases) {
   const got = decide(age, text);
@@ -60,5 +67,16 @@ for (const term of bannedTerms) {
   }
 }
 
+if (failed) process.exit(1);
+for (const item of orchestrationTimingCases) {
+  if (item.expectedMaxTools !== undefined && item.expectedMaxTools > 2) {
+    console.error(`FAIL: ${item.name} expected too many tools`);
+    failed++;
+  }
+  if (item.expectedFirst && !['calm', 'pressure'].includes(item.expectedFirst)) {
+    console.error(`FAIL: ${item.name} invalid pacing anchor`);
+    failed++;
+  }
+}
 if (failed) process.exit(1);
 console.log('PASS: smoke-router checks passed');

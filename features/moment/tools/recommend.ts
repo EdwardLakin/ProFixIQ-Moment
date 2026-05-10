@@ -14,5 +14,7 @@ export function recommendMomentTools(input: { route: MomentBrainId; inputText: s
   const filtered = base.filter((tool) => !(dismissed.has(tool.id) && !helpful.has(tool.id)));
   const sorted = filtered.sort((a: MomentTool, b: MomentTool) => Number(helpful.has(b.id)) - Number(helpful.has(a.id)));
   if (load === "heavy" || load === "exhausted") return sorted.slice(0, 1);
+  if (input.route === "tutor_brain" || input.route === "school_overwhelm_brain") return sorted.slice(0, 1);
+  if (input.route === "work_stress_brain" || input.route === "finance_clarity_brain") return sorted.slice(0, 1);
   return sorted.slice(0, 2);
 }

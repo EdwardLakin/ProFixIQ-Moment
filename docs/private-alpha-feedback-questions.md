@@ -1,30 +1,25 @@
-# Private alpha feedback questions
+# Private Alpha Feedback Questions
 
-Use these questions after a real Moment session.
-
-## Core reflection
-- What felt helpful?
-- What felt robotic?
-- What felt like too much?
-- What felt emotionally useful, even if it was small?
-
-## Emotional quality
+## Emotional calibration
 - What felt emotionally accurate?
 - What felt emotionally wrong?
-- Where did pacing feel off?
-- Did it ever feel like the app was talking too much?
+- Where did it feel too AI-generated?
+- Where did it feel comforting?
+- Where did it talk too much?
+- Where did it not say enough?
+- Where did it misunderstand the emotional weight?
 
-## Continuity and memory tone
-- Where did continuity feel comforting?
-- Where did continuity feel strange or uncanny?
-- Did references to earlier moments feel human or system-like?
+## Support usefulness
+- Did the response feel calm and low-pressure?
+- Did the next step feel small enough to actually try?
+- Did the pace match your emotional state?
 
-## Trust and comfort
-- Where did it feel calming?
-- Where did it feel unsafe, pushy, or manipulative?
-- Did support feel private and non-judgmental?
+## Trust and privacy tone
+- Did Moment feel private-by-default?
+- Did any language feel like surveillance or overfamiliarity?
+- Did you feel in control of whether to continue or pause?
 
-## Failure-case check
-- If you felt numb, exhausted, or overloaded, did the app slow down enough?
-- If you felt like “nothing helps,” did the response still feel present and respectful?
-- If you did not know what you needed, did the app avoid interrogating you?
+## Mobile experience
+- Was the response easy to read on your phone?
+- Did scrolling feel manageable or tiring?
+- Did keyboard/input flow feel smooth during check-in?

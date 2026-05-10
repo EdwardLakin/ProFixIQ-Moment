@@ -8,14 +8,14 @@ export function SupportStream({ result }: { result: CheckInResult | null }) {
   const firstStep = result.response.steps[0];
 
   return (
-    <MomentCard className="p-5 sm:p-6">
-      <div className="space-y-3">
-        <p className="text-sm leading-6 text-[#f5edff]">{result.response.reflection}</p>
-        <p className="text-sm leading-6 text-[#ece3ff]">{result.response.tinyNextStep}</p>
-        {firstStep ? <p className="text-sm leading-6 text-[#ddd0f3]">{firstStep}</p> : null}
+    <MomentCard className="p-4 sm:p-6">
+      <div className="space-y-4">
+        <p className="text-sm leading-7 text-[#f5edff]">{result.response.reflection}</p>
+        <p className="text-sm leading-7 text-[#ece3ff]">{result.response.tinyNextStep}</p>
+        {firstStep ? <p className="text-sm leading-7 text-[#ddd0f3]">{firstStep}</p> : null}
       </div>
-      <p className="mt-4 text-xs text-[#cabfdf]">No pressure to do this perfectly. You can pause anytime.</p>
-      <SupportFeedbackInline />
+      <p className="mt-5 max-w-xl text-xs leading-6 text-[#cabfdf]">No pressure to reply right away. You can pause, scroll back, or continue when it feels right.</p>
+      <div className="mt-4"><SupportFeedbackInline /></div>
     </MomentCard>
   );
 }

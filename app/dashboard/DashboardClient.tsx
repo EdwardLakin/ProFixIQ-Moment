@@ -13,6 +13,7 @@ type SupportStyle = "calm_reflective" | "gentle_grounding" | "structured_reset" 
 type ClarificationChoice = { id: string; label: string; };
 type ClarificationPrompt = { id: string; prompt: string; choices: ClarificationChoice[] };
 type FollowUpHistoryEntry = { promptId: string; choiceId: string; choiceLabel: string };
+type ContinuationOption = "continue" | "pause" | "start_fresh";
 
 const knownBrainIds: MomentBrainId[] = ["school_overwhelm_brain", "math_reset_brain", "social_boundary_brain", "task_start_brain", "emotional_reset_brain", "confidence_repair_brain", "work_stress_brain", "finance_clarity_brain", "relationship_reflection_brain", "household_overload_brain", "life_admin_brain", "decision_reset_brain", "safety_support_brain"];
 const knownAudiences: BrainAudience[] = ["teen", "adult", "all"];
@@ -97,6 +98,9 @@ export function DashboardClient({ greeting }: { greeting: MomentGreetingOutput }
   const [selectedStates, setSelectedStates] = useState<string[]>([]);
   const [result, setResult] = useState<{ route: MomentRouteResult; response: MomentCheckInResponse } | null>(null);
   const [warnings, setWarnings] = useState<string[]>([]);
+  const [continuitySummary, setContinuitySummary] = useState<string | null>(null);
+  const [continuityCue, setContinuityCue] = useState<string | null>(null);
+  const [continuationOptions, setContinuationOptions] = useState<ContinuationOption[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [supportStyle, setSupportStyle] = useState<SupportStyle>("calm_reflective");
   const [threadId] = useState(`thread_${Date.now().toString(36)}`);
@@ -133,6 +137,10 @@ export function DashboardClient({ greeting }: { greeting: MomentGreetingOutput }
         return;
       }
       setWarnings(Array.isArray(data.warnings) ? data.warnings.filter((w): w is string => typeof w === "string") : []);
+      const responseObj = data.response && typeof data.response === "object" ? data.response as Record<string, unknown> : null;
+      setContinuitySummary(typeof responseObj?.continuitySummary === "string" ? responseObj.continuitySummary : null);
+      setContinuityCue(typeof responseObj?.continuityCue === "string" ? responseObj.continuityCue : null);
+      setContinuationOptions(Array.isArray(responseObj?.continuationOptions) ? responseObj.continuationOptions.filter((o): o is ContinuationOption => o === "continue" || o === "pause" || o === "start_fresh") : []);
       setResult({ route: safeRoute, response: safeResponse });
       setPendingPrompt(null);
     } catch {
@@ -153,7 +161,7 @@ export function DashboardClient({ greeting }: { greeting: MomentGreetingOutput }
   }
 
   return (
-    <div className="mx-auto max-w-4xl space-y-6">
+    <div className="mx-auto max-w-4xl space-y-5">
       <section className="rounded-[2rem] border border-white/10 bg-[radial-gradient(circle_at_14%_0%,rgba(244,200,255,0.14),transparent_38%),radial-gradient(circle_at_88%_0%,rgba(147,197,253,0.15),transparent_36%),linear-gradient(140deg,#1a1427,#111925_58%,#1a2238)] p-6 shadow-[0_45px_120px_-65px_rgba(232,121,249,0.8)] sm:p-8">
         <p className="text-xs uppercase tracking-[0.2em] text-[#e8dbff]/75">{greeting.headline}</p>
         <h2 className="mt-3 text-3xl font-semibold tracking-tight text-[#f7efe3] sm:text-4xl">Tell Moment what&apos;s going on right now.</h2>
@@ -170,6 +178,8 @@ export function DashboardClient({ greeting }: { greeting: MomentGreetingOutput }
           {!pendingPrompt && promptFromText ? <MomentButton onClick={() => setPendingPrompt(promptFromText)}>Answer one quick follow-up</MomentButton> : null}
           <MomentButton onClick={submit} disabled={text.length < 3}>Continue gently</MomentButton>
         </div>
+        {continuitySummary ? <p className="mt-4 rounded-2xl border border-white/10 bg-white/[0.04] p-3 text-sm text-[#e8e4f4]">{continuitySummary}</p> : null}
+        {continuityCue ? <p className="mt-3 rounded-2xl border border-violet-200/20 bg-violet-300/10 p-3 text-sm text-violet-100">{continuityCue}</p> : null}
         {error ? <p className="mt-3 rounded-xl border border-rose-200/40 bg-rose-400/10 p-3 text-sm text-rose-100">{error}</p> : null}
         {warnings.length > 0 ? <div className="mt-3 rounded-xl border border-amber-100/30 bg-amber-300/10 p-3 text-xs text-amber-100">{warnings.map((warning) => <p key={warning}>{warning}</p>)}</div> : null}
       </section>
@@ -180,14 +190,15 @@ export function DashboardClient({ greeting }: { greeting: MomentGreetingOutput }
           <h3 className="mt-2 text-2xl font-semibold text-[#f8f1e7]">{result.response.routeLabel || safeLabel(result.route.primaryBrainId)}</h3>
           <p className="mt-3 text-[#dbd9e8]">{result.response.reflection}</p>
           <p className="mt-3 rounded-2xl bg-black/20 p-3 text-sm text-[#f8f1e7] ring-1 ring-white/10">Tiny next step: {result.response.tinyNextStep}</p>
-          <p className="mt-3 text-xs text-violet-100/70">Support style: {supportStyle.replace("_", " ")}</p>
+          <p className="mt-3 text-xs text-violet-100/70">Today's support style: {supportStyle.replace("_", " ")}</p>
+          {continuationOptions.length > 0 ? <div className="mt-3 flex flex-wrap gap-2 text-xs text-[#ddd6f8]">{continuationOptions.map((option) => <span key={option} className="rounded-full bg-white/8 px-3 py-1 ring-1 ring-white/15">{option.replace("_", " ")}</span>)}</div> : null}
           <Link href={result.response.routePath || "/check-in"} className="mt-4 inline-flex rounded-full bg-white/10 px-4 py-2 text-sm text-violet-100 ring-1 ring-white/20 hover:bg-white/15">{result.response.continueLabel}</Link>
         </section>
       ) : null}
 
       <MomentCard className="border-white/8 bg-white/[0.02]">
-        <p className="text-xs uppercase tracking-[0.18em] text-violet-100/70">Need something specific?</p>
-        <div className="mt-3 flex flex-wrap gap-3 text-sm text-[#d2cee5]"><Link href="/check-in" className="hover:text-white">Check In</Link><Link href="/stuck" className="hover:text-white">Stuck Restart</Link><Link href="/math-reset" className="hover:text-white">Math Reset</Link><Link href="/drama-pause" className="hover:text-white">Boundary Pause</Link></div>
+        <p className="text-xs uppercase tracking-[0.18em] text-violet-100/70">Current moment pathways</p>
+        <div className="mt-3 flex flex-wrap gap-3 text-sm text-[#d2cee5]"><Link href="/check-in" className="hover:text-white">Check In</Link><Link href="/stuck" className="hover:text-white">Stuck Restart</Link><Link href="/math-reset" className="hover:text-white">Math Reset</Link><Link href="/drama-pause" className="hover:text-white">Relationship support</Link></div>
       </MomentCard>
     </div>
   );

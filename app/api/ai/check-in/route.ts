@@ -23,6 +23,16 @@ const schema = z.object({
 
 function summarizeInput(text: string): string { return text.trim().replace(/\s+/g, " ").slice(0, 180); }
 
+function detectPattern(text: string): { key: string; summary: string; focus: string } | null {
+  const normalized = text.toLowerCase();
+  if (/(math|homework|class|test)/.test(normalized)) return { key: "recurring_school_stress", summary: "Math or school stress has been showing up a lot lately.", focus: "Pair grounding with a tiny school start step." };
+  if (/(work|boss|deadline|burnout)/.test(normalized)) return { key: "recurring_work_pressure", summary: "Work pressure seems to be recurring.", focus: "Use calmer restart boundaries before task sorting." };
+  if (/(friend|drama|relationship|conflict)/.test(normalized)) return { key: "recurring_relationship_strain", summary: "Relationship tension seems to keep looping.", focus: "Try pause-before-reply and boundary framing." };
+  if (/(shutdown|avoid|stuck|overwhelmed)/.test(normalized)) return { key: "recurring_shutdown_before_tasks", summary: "Task shutdown has been recurring before starts.", focus: "Lead with emotional grounding, then one setup action." };
+  return null;
+}
+
+
 export async function POST(request: Request) {
   const warnings: string[] = [];
   let continuitySummary: string | null = null;
@@ -86,6 +96,16 @@ export async function POST(request: Request) {
     artifacts,
   });
   if (!entryId) warnings.push("Failed to persist memory entry.");
+
+  const detectedPattern = detectPattern(parsed.data.text);
+  if (detectedPattern) {
+    const { data: existing } = await supabase.from("moment_patterns").select("id,recurrence_count").eq("user_id", user.id).eq("pattern_key", detectedPattern.key).maybeSingle();
+    if (existing) {
+      await supabase.from("moment_patterns").update({ recurrence_count: (existing.recurrence_count ?? 1) + 1, summary: detectedPattern.summary, support_focus: detectedPattern.focus, last_seen_at: new Date().toISOString() }).eq("id", existing.id);
+    } else {
+      await supabase.from("moment_patterns").insert({ user_id: user.id, pattern_key: detectedPattern.key, summary: detectedPattern.summary, support_focus: detectedPattern.focus });
+    }
+  }
 
   const memorySnapshot = await readMomentMemory(supabase, user.id);
   return NextResponse.json({ route: result.route, response: { ...result.response, continuitySummary, continuityCue, continuationOptions: ["continue", "pause", "start_fresh"] }, warnings: [...result.warnings, ...warnings], memorySnapshot });

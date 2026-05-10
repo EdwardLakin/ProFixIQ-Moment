@@ -31,6 +31,27 @@ export async function persistMomentMemory(params: {
       user_id: params.userId, thread_id: params.threadId, entry_id: entryData.id, source: item.source, suggestion_text: item.suggestionText, status: item.status,
     })));
   }
+  if (params.artifacts.goalSuggestions.length > 0) {
+    await params.supabase.from("moment_goals").upsert(params.artifacts.goalSuggestions.map((goal) => ({
+      user_id: params.userId,
+      thread_id: params.threadId,
+      source: goal.source,
+      title: goal.title,
+      detail: goal.detail,
+      status: goal.status,
+    })), { onConflict: "user_id,title" });
+  }
+  await params.supabase.from("moment_support_effectiveness").insert({
+    user_id: params.userId,
+    thread_id: params.threadId,
+    entry_id: entryData.id,
+    support_style: params.artifacts.supportEffectiveness.supportStyle,
+    accepted_suggestion: params.artifacts.supportEffectiveness.acceptedSuggestion,
+    returned_to_thread: params.artifacts.supportEffectiveness.returnedToThread,
+    tiny_step_completed: params.artifacts.supportEffectiveness.tinyStepCompleted,
+    continuation_engaged: params.artifacts.supportEffectiveness.continuationEngaged,
+    outcome_note: params.artifacts.supportEffectiveness.outcomeNote,
+  });
   if (params.artifacts.tinyWin) {
     await params.supabase.from("moment_tiny_wins").insert({
       user_id: params.userId, thread_id: params.threadId, entry_id: entryData.id, source: params.artifacts.tinyWin.source, win_note: params.artifacts.tinyWin.winNote, status: params.artifacts.tinyWin.status,

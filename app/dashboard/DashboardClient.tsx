@@ -23,9 +23,12 @@ function toSafeRoute(raw: unknown): MomentRouteResult | null { if (!raw || typeo
 function toSafeBlocks(blocks: unknown, reflection: string, tinyNextStep: string): OperationalBlock[] { return Array.isArray(blocks) ? blocks.filter((b): b is Record<string, unknown> => !!b && typeof b === "object").map((b)=>({ type: typeof b.type === "string" ? b.type : "support", text: typeof b.text === "string" ? b.text : "" })).filter((b)=>b.text.length>0) as OperationalBlock[] : [{ type:"reflection", text:reflection},{type:"tiny_step",text:tinyNextStep}];}
 function toSafeResponse(raw: unknown, route: MomentRouteResult): MomentCheckInResponse | null { if (!raw || typeof raw !== "object") return null; const response = raw as Record<string, unknown>; const reflection = typeof response.reflection === "string" ? response.reflection : "Thanks for sharing this moment."; const tinyNextStep = typeof response.tinyNextStep === "string" ? response.tinyNextStep : "Take one small step."; return { routeLabel: route.routeLabel, routePath: route.routePath, reflection, tinyNextStep, whyThisRoute: typeof response.whyThisRoute === "string" ? response.whyThisRoute : route.reason, continueLabel: "Continue gently", steps: [tinyNextStep], supportiveNote: "Small steps count.", followUpActions: [], blocks: toSafeBlocks(response.blocks, reflection, tinyNextStep) }; }
 
-export function DashboardClient({ greeting, memory }: { greeting: MomentGreetingOutput; memory: MomentMemorySnapshot }) {
-  const [memoryState,setMemoryState]=useState(memory);
+export function DashboardClient({ greeting, memory }: { greeting: MomentGreetingOutput; memory: MomentMemorySnapshot | null }) {
+  const emptyMemory: MomentMemorySnapshot = { entries: [], threads: [], goals: [], tinyWins: [], suggestions: [], supportPatterns: [], supportEffectivenessNotes: [] };
+  const [memoryState,setMemoryState]=useState(memory ?? emptyMemory);
   const [savedNote,setSavedNote]=useState<string | null>(null);
+  const [inlineError,setInlineError]=useState<string | null>(null);
+  const [isSubmitting,setIsSubmitting]=useState(false);
   const [text,setText]=useState("");
   const [result,setResult]=useState<{route:MomentRouteResult;response:MomentCheckInResponse}|null>(null);
   const [continuitySummary,setContinuitySummary]=useState<string | null>(null);
@@ -34,23 +37,33 @@ export function DashboardClient({ greeting, memory }: { greeting: MomentGreeting
   const [threadId]=useState(`thread_${Date.now().toString(36)}`);
   const personalizedOpening=useMemo(()=> memoryState.threads[0]?.summary ? `This seems connected to ${memoryState.threads[0].summary.toLowerCase()}.` : "We can take this one breath at a time.",[memoryState]);
   async function submit(){
+    setInlineError(null);
+    setSavedNote(null);
+    setIsSubmitting(true);
+    try {
     const res=await fetch('/api/ai/check-in',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({text,selectedStates:[],conversationState:{threadId,selectedEmotionalContext:[],inferredSupportStyle:supportStyle}})});
-    if(!res.ok) return;
+    if(!res.ok){ setInlineError("Couldn’t save that check-in right now. Your words are still here—try again in a moment."); return; }
     const data=await res.json();
     const route=toSafeRoute(data.route);
-    if(!route) return;
+    if(!route){ setInlineError("We had trouble shaping support, but we can still stay with this gently."); return; }
     const response=toSafeResponse(data.response,route);
-    if(!response) return;
+    if(!response){ setInlineError("Response came back incomplete. Please try once more."); return; }
     setResult({route,response});
     setContinuitySummary(data.response?.continuitySummary ?? null);
     setContinuityCue(data.response?.continuityCue ?? null);
-    if(data.memorySnapshot) setMemoryState(data.memorySnapshot);
-    setSavedNote("Saved quietly to your private journal.");
+    if(data.memorySnapshot && typeof data.memorySnapshot === "object") setMemoryState(data.memorySnapshot);
+    setSavedNote((Array.isArray(data.warnings) && data.warnings.length > 0) ? "Support is ready. Some memory details may sync in a moment." : "Saved quietly to your private journal.");
+    } catch {
+      setInlineError("Something interrupted this check-in. Your text is safe—please try again.");
+    } finally {
+      setIsSubmitting(false);
+    }
   }
 
   return <div className="mx-auto max-w-4xl space-y-5 py-4">
     <GreetingSurface headline={greeting.headline} opening={personalizedOpening} text={text} onText={setText} />
-    <IntakeComposer onSubmit={submit} disabled={text.length < 3} savedNote={savedNote} />
+    <IntakeComposer onSubmit={submit} disabled={text.length < 3 || isSubmitting} savedNote={savedNote} />
+    {inlineError ? <p className="rounded-xl border border-rose-300/35 bg-rose-500/10 px-3 py-2 text-sm text-rose-100">{inlineError}</p> : null}
     <ClarificationFlow prompt={continuityCue} />
     <ContinuityPanel summary={continuitySummary} cue={continuityCue} />
     <SupportFocusCard focus={memoryState.supportPatterns[0]?.supportFocus ?? "We’re learning what steadies you."} helped={memoryState.supportEffectivenessNotes[0]?.outcomeNote ?? "No pattern yet."} />

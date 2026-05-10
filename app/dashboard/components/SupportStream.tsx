@@ -14,7 +14,7 @@ export function SupportStream({ result }: { result: CheckInResult | null }) {
   };
   return (
     <MomentCard>
-      <p className="text-xs uppercase tracking-[0.18em] text-violet-100/70">What I’m hearing</p>
+      <p className="text-xs uppercase tracking-[0.18em] text-violet-100/70">A gentle reflection</p>
       <p className="mt-3 text-sm text-[#f5edff]">{result.response.reflection}</p>
       <p className="mt-2 text-sm text-[#d8d0ee]">{result.response.whyThisRoute}</p>
       <p className="mt-2 text-sm text-[#f3ebdb]">A gentle next step: {result.response.tinyNextStep}</p>

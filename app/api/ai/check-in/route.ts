@@ -8,6 +8,7 @@ import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { extractMemoryArtifacts } from "@/features/moment/memory/extractMemoryArtifacts";
 import { persistMomentMemory } from "@/features/moment/memory/persistMomentMemory";
 import { readMomentMemory } from "@/features/moment/memory/readMomentMemory";
+import { buildTrustSignal, deriveSupportQualityFlags, summarizeTrace } from "@/features/moment/orchestration/observability";
 
 const schema = z.object({
   text: z.string().min(3),
@@ -90,6 +91,21 @@ function ensureResponseShape(response: ReturnType<typeof runMomentOrchestrator>[
   };
 }
 
+
+function buildFallbackResponse(reason: string) {
+  return {
+    routeLabel: "Gentle reset",
+    routePath: "/check-in",
+    reflection: "Thanks for staying with this. We can keep this gentle.",
+    tinyNextStep: "Take one slower breath and name one thing you need right now.",
+    whyThisRoute: reason,
+    continueLabel: "Stay here",
+    steps: ["We can keep this very light.", "If you want, name one pressure point in a few words."],
+    supportiveNote: "No need to solve this immediately.",
+    followUpActions: [{ label: "Quiet reflection", href: "/check-in" }],
+  };
+}
+
 function createJournalArcSummary(memorySnapshot: Awaited<ReturnType<typeof readMomentMemory>>) {
   const joined = memorySnapshot.entries.map((entry) => `${entry.inputSummary} ${entry.emotionalState ?? ""}`).join(" ").toLowerCase();
   if (/(work|deadline|burnout)/.test(joined)) return "Arc lately: work pressure has been recurring, and slower restarts seem to help.";
@@ -131,7 +147,9 @@ export async function POST(request: Request) {
   const cue = typedThreads.map((thread) => continuityCueFromThread(thread, parsed.data.text)).find((item) => !!item);
   continuityCue = cue?.prompt ?? null;
 
-  const result = runMomentOrchestrator({
+  let result;
+  try {
+  result = runMomentOrchestrator({
     momentText: parsed.data.text,
     selectedSignals: [...parsed.data.selectedStates, ...followUpAnswers],
     ageRange: parsed.data.ageRange,
@@ -139,6 +157,10 @@ export async function POST(request: Request) {
     followUpHistory: parsed.data.conversationState?.unresolvedClarification?.followUpHistory ?? [],
     threadId: parsed.data.conversationState?.threadId,
   });
+  } catch {
+    const fallback = buildFallbackResponse("Support temporarily shifted into minimal mode.");
+    return NextResponse.json({ route: { primaryBrainId: "emotional_reset_brain", supportingBrainIds: [], routeLabel: "Gentle reset", routePath: "/check-in", reason: "orchestration_fallback", confidence: "low", audience: "all", category: "emotion" }, response: { ...fallback, trustSignal: buildTrustSignal(0), fallbackMode: "orchestrator_failure" }, warnings: ["Orchestration fallback used."] });
+  }
   const confidenceValue = result.route.confidence === "high" ? 0.95 : result.route.confidence === "medium" ? 0.75 : 0.5;
   const safeResponse = ensureResponseShape(result.response);
   const { data: routeData, error: routeError } = await supabase.from("moment_routes").insert({ user_id: user.id, primary_brain_id: result.route.primaryBrainId, supporting_brain_ids: result.route.supportingBrainIds, category: result.route.category, audience: result.route.audience, input_summary: summarizeInput(parsed.data.text), route_reason: result.route.reason, confidence: confidenceValue }).select("id").single();
@@ -195,6 +217,29 @@ export async function POST(request: Request) {
   const unresolvedCount = memorySnapshot.threads.filter((thread) => thread.status === "active").length;
   const gentlePresence = unresolvedCount >= 3 || /(exhausted|drained|can.t do this|too much)/i.test(parsed.data.text);
   const adaptedSteps = gentlePresence ? safeResponse.steps.slice(0, 1) : safeResponse.steps;
+  const qualityFlags = deriveSupportQualityFlags({
+    steps: adaptedSteps,
+    reflection: safeResponse.reflection,
+    tinyNextStep: safeResponse.tinyNextStep,
+    confidence: result.route.confidence,
+    reducePrompting: result.trace.supportFatigueReduction,
+  });
+  const fallbackPath = (warnings.some((item) => item.includes("memory")) ? "memory_failure" : result.route.confidence === "low" ? "routing_low_confidence" : "none") as "none" | "memory_failure" | "routing_low_confidence";
+  const trace = {
+    routedBrain: result.route.primaryBrainId,
+    supportStyle: parsed.data.conversationState?.inferredSupportStyle ?? "calm_reflective",
+    pacingProfile: result.trace.pacingProfile,
+    clarificationUsed: result.trace.clarificationUsed,
+    responseDepth: result.trace.responseDepth,
+    continuationPath: "continue" as const,
+    supportFatigueReduction: result.trace.supportFatigueReduction,
+    fallbackPath,
+    confidence: result.route.confidence,
+    qualityFlags,
+  };
+  try {
+    await supabase.from("moment_orchestration_events").insert({ user_id: user.id, thread_id: threadData?.id ?? null, route_id: routeData?.id ?? null, trace_summary: summarizeTrace(trace), trace_metadata: trace });
+  } catch {}
   return NextResponse.json({
     route: result.route,
     response: {
@@ -209,6 +254,9 @@ export async function POST(request: Request) {
       recoveryTrajectoryCue: trajectoryCue,
       journalArcSummary,
       supportTimingMode: gentlePresence ? "gentle_presence" : "normal",
+      trustSignal: buildTrustSignal(memorySnapshot.entries.length),
+      fallbackMode: fallbackPath,
+      qualityFlags,
     },
     warnings: [...result.warnings, ...warnings],
     memorySnapshot,

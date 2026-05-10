@@ -1,3 +1,4 @@
+import { InstallAppButton } from "@/components/pwa/InstallAppButton";
 import Link from "next/link";
 
 const routes = [
@@ -76,6 +77,7 @@ export default function HomePage() {
                 >
                   Start onboarding
                 </Link>
+                <InstallAppButton />
               </div>
             </div>
 

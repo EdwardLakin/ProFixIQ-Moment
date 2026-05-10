@@ -118,6 +118,39 @@ function createJournalArcSummary(memorySnapshot: Awaited<ReturnType<typeof readM
   return "Arc lately: you’ve been returning to what matters, and small continuity seems to help.";
 }
 
+
+
+type QaTag = "emotionally_warm" | "too_robotic" | "too_many_prompts" | "too_instructional" | "emotionally_flat" | "emotionally_helpful" | "pacing_mismatch" | "continuity_creepy" | "continuity_comforting";
+
+function deriveQaTags(input: { reflection: string; tinyNextStep: string; steps: string[]; selectedStates: string[]; continuityCue: string | null; supportFatigueReduction: boolean; pacingProfile: string; warnings: string[]; }): QaTag[] {
+  const tags: QaTag[] = [];
+  const joined = `${input.reflection} ${input.tinyNextStep} ${input.steps.join(" ")}`.toLowerCase();
+  if (/(with you|gentle|no pressure|one breath|it's okay)/.test(joined)) tags.push("emotionally_warm", "emotionally_helpful");
+  if (/(framework|optimize|profile|pipeline)/.test(joined)) tags.push("too_robotic");
+  if (input.steps.length >= 3 || /(first|second|third)/.test(joined)) tags.push("too_many_prompts");
+  if (/(you should|you need to|must)/.test(joined)) tags.push("too_instructional");
+  if (!/(feel|hard|heavy|tender|overwhelm|pressure)/.test(joined)) tags.push("emotionally_flat");
+  if (input.pacingProfile === "slow" && /(quick|right now)/.test(joined)) tags.push("pacing_mismatch");
+  if (input.continuityCue && /(always|every time|you keep)/i.test(input.continuityCue)) tags.push("continuity_creepy");
+  if (input.continuityCue && /(small returns|checking back in|steadier)/i.test(input.continuityCue)) tags.push("continuity_comforting");
+  if (input.supportFatigueReduction) tags.push("emotionally_warm");
+  if (input.warnings.length > 0 && !tags.includes("emotionally_helpful")) tags.push("emotionally_helpful");
+  return [...new Set(tags)];
+}
+
+function detectLoopSignals(input: { text: string; selectedStates: string[]; followUpAnswers: string[]; memoryThreads: { status: string }[]; warnings: string[]; responseText: string; }) {
+  const signals: string[] = [];
+  const normalized = `${input.text} ${input.selectedStates.join(" ")} ${input.followUpAnswers.join(" ")}`.toLowerCase();
+  if (/(nothing helps|same thing again|still stuck|again and again)/.test(normalized)) signals.push("repeated_unresolved_loops");
+  if (/(what do you mean|can you clarify|not what i mean)/.test(normalized)) signals.push("circular_clarification");
+  if (input.memoryThreads.filter((t) => t.status === "active").length >= 4) signals.push("support_fatigue_pattern");
+  if (/(doesn't help|not helping|no point)/.test(normalized)) signals.push("nothing_helps_escalation");
+  if (/\b(i\s+guess|whatever|fine)\b/.test(normalized)) signals.push("abrupt_emotional_transition");
+  if (/(first,|second,|third,).*(first,|second,|third,)/.test(input.responseText.toLowerCase())) signals.push("repetitive_response_structure");
+  if (input.warnings.length > 0) signals.push("system_fallback_load");
+  return signals;
+}
+
 export async function POST(request: Request) {
   const warnings: string[] = [];
   let continuitySummary: string | null = null;
@@ -233,7 +266,9 @@ export async function POST(request: Request) {
   const journalArcSummary = createJournalArcSummary(memorySnapshot);
   const unresolvedCount = memorySnapshot.threads.filter((thread) => thread.status === "active").length;
   const gentlePresence = unresolvedCount >= 3 || /(exhausted|drained|can.t do this|too much)/i.test(parsed.data.text);
-  const adaptedSteps = gentlePresence ? safeResponse.steps.slice(0, 1) : safeResponse.steps;
+  const loopSignals = detectLoopSignals({ text: parsed.data.text, selectedStates: parsed.data.selectedStates, followUpAnswers, memoryThreads: memorySnapshot.threads, warnings, responseText: `${safeResponse.reflection} ${safeResponse.tinyNextStep} ${safeResponse.steps.join(" ")}` });
+  const shouldSlowDown = gentlePresence || loopSignals.length > 0;
+  const adaptedSteps = shouldSlowDown ? safeResponse.steps.slice(0, 1) : safeResponse.steps;
   const qualityFlags = deriveSupportQualityFlags({
     steps: adaptedSteps,
     reflection: safeResponse.reflection,
@@ -242,6 +277,7 @@ export async function POST(request: Request) {
     reducePrompting: result.trace.supportFatigueReduction,
   });
   const fallbackPath = (warnings.some((item) => item.includes("memory")) ? "memory_failure" : result.route.confidence === "low" ? "routing_low_confidence" : "none") as "none" | "memory_failure" | "routing_low_confidence";
+  const qaTags = deriveQaTags({ reflection: safeResponse.reflection, tinyNextStep: safeResponse.tinyNextStep, steps: adaptedSteps, selectedStates: parsed.data.selectedStates, continuityCue, supportFatigueReduction: result.trace.supportFatigueReduction, pacingProfile: result.trace.pacingProfile, warnings });
   const trace = {
     routedBrain: result.route.primaryBrainId,
     supportStyle: parsed.data.conversationState?.inferredSupportStyle ?? "calm_reflective",
@@ -253,6 +289,8 @@ export async function POST(request: Request) {
     fallbackPath,
     confidence: result.route.confidence,
     qualityFlags,
+    qaTags,
+    loopSignals,
   };
   try {
     await supabase.from("moment_orchestration_events").insert({ user_id: user.id, thread_id: threadData?.id ?? null, route_id: routeData?.id ?? null, trace_summary: summarizeTrace(trace), trace_metadata: trace });
@@ -270,10 +308,12 @@ export async function POST(request: Request) {
       supportStyleAdaptationCue: `Support pacing is leaning ${styleHint.replace("_", " ")} right now.`,
       recoveryTrajectoryCue: trajectoryCue,
       journalArcSummary,
-      supportTimingMode: gentlePresence ? "gentle_presence" : "normal",
+      supportTimingMode: shouldSlowDown ? "gentle_presence" : "normal",
       trustSignal: buildTrustSignal(memorySnapshot.entries.length),
       fallbackMode: fallbackPath,
       qualityFlags,
+    qaTags,
+    loopSignals,
     },
     warnings: [...result.warnings, ...warnings],
     memorySnapshot,

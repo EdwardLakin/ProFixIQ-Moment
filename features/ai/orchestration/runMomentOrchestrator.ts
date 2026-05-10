@@ -2,6 +2,16 @@ import { routeMoment } from "@/features/ai/router/routeMoment";
 import type { RouteMomentInput } from "@/features/ai/router/types";
 import type { MomentRouteResult, OperationalBlock } from "@/features/ai/types";
 
+type PacingProfile = "grief" | "burnout" | "overwhelm" | "shutdown" | "conflict" | "default";
+
+type PhraseBank = {
+  acknowledgments: string[];
+  pace: string[];
+  continuity: string[];
+  direction: string[];
+  tinyStep: string[];
+};
+
 export type MomentOrchestratorResult = {
   route: MomentRouteResult;
   response: {
@@ -19,39 +29,143 @@ export type MomentOrchestratorResult = {
   warnings: string[];
 };
 
-const routeBlock: Record<string, OperationalBlock> = {
-  finance_clarity_brain: { type: "money_clarity", text: "List fixed bills, urgent due dates, and one question to clarify before acting." },
-  work_stress_brain: { type: "work_reset", text: "Pick one must-do, one can-wait, and one boundary sentence for today." },
-  relationship_reflection_brain: { type: "relationship_reflection", text: "Name one feeling, one boundary, and one respectful request." },
-  school_overwhelm_brain: { type: "school_reset", text: "Pick one class and one 10-minute start task." },
-  confidence_repair_brain: { type: "confidence_repair", text: "Write one recent win and one tiny proof-of-progress step." },
-  life_admin_brain: { type: "life_admin_sort", text: "Sort tasks into now, later, and delegate if possible." },
-  grief_support_brain: { type: "emotional_presence", text: "That sounds really heavy. It makes sense this hurts, especially around meaningful dates." },
-  emotional_presence_brain: { type: "emotional_presence", text: "You do not need to force yourself to be okay right now." },
-  loneliness_support_brain: { type: "emotional_presence", text: "Feeling alone can ache in a deep way. You are not wrong for feeling this." },
-  overwhelm_grounding_brain: { type: "grounding", text: "Before solving anything, let your body settle: unclench your jaw, lower your shoulders, and take one slow breath." },
+const supportLabels: Record<string, string> = {
+  finance_clarity_brain: "Finance pressure",
+  work_stress_brain: "Work stress",
+  relationship_reflection_brain: "Relationship pressure",
+  school_overwhelm_brain: "School overwhelm",
+  confidence_repair_brain: "Confidence dip",
+  life_admin_brain: "Life admin load",
+  grief_support_brain: "Grief support",
+  emotional_presence_brain: "Emotional load",
+  loneliness_support_brain: "Loneliness",
+  overwhelm_grounding_brain: "Feeling overwhelmed",
 };
+
+const routeBlock: Record<string, OperationalBlock> = {
+  finance_clarity_brain: { type: "money_clarity", text: "When you’re ready, we can sort bills by due date and urgency so the pressure is less foggy." },
+  work_stress_brain: { type: "work_reset", text: "We can name one must-do, one can-wait, and one boundary line for today." },
+  relationship_reflection_brain: { type: "relationship_reflection", text: "Start with one feeling, one boundary, and one respectful request." },
+  school_overwhelm_brain: { type: "school_reset", text: "Choose one class and one short start task. Nothing beyond that yet." },
+  confidence_repair_brain: { type: "confidence_repair", text: "Name one recent win and one tiny proof step to rebuild trust in yourself." },
+  life_admin_brain: { type: "life_admin_sort", text: "Sort tasks into now, later, and not-today to lower load." },
+  grief_support_brain: { type: "emotional_presence", text: "This pain matters. We can keep this gentle and unhurried." },
+  emotional_presence_brain: { type: "emotional_presence", text: "You don’t need to force clarity right now." },
+  loneliness_support_brain: { type: "emotional_presence", text: "Feeling alone can ache deeply; we can stay with that without rushing fixes." },
+  overwhelm_grounding_brain: { type: "grounding", text: "Before planning anything, let your body settle with one slow exhale and softer shoulders." },
+};
+
+function getPacingProfile(input: RouteMomentInput, route: MomentRouteResult): PacingProfile {
+  const text = `${input.momentText} ${input.selectedSignals.join(" ")}`.toLowerCase();
+  if (route.primaryBrainId === "grief_support_brain" || text.includes("grief") || text.includes("loss")) return "grief";
+  if (route.primaryBrainId === "work_stress_brain" || text.includes("burnout") || text.includes("exhausted")) return "burnout";
+  if (route.primaryBrainId === "overwhelm_grounding_brain" || text.includes("overwhelm")) return "overwhelm";
+  if (text.includes("shutdown") || text.includes("numb")) return "shutdown";
+  if (route.primaryBrainId === "relationship_reflection_brain" || text.includes("conflict") || text.includes("argument")) return "conflict";
+  return "default";
+}
+
+function uniqueLines(lines: string[]) {
+  const seen = new Set<string>();
+  return lines.filter((line) => {
+    const key = line.trim().toLowerCase();
+    if (!key || seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
+}
+
+function phraseFor(profile: PacingProfile, style: NonNullable<RouteMomentInput["supportStyle"]>): PhraseBank {
+  const byProfile: Record<PacingProfile, PhraseBank> = {
+    grief: {
+      acknowledgments: ["This carries a lot of weight, and it makes sense it hurts.", "I can hear how tender this is for you right now."],
+      pace: ["We can move slowly and keep this soft.", "No rush to make this tidy today."],
+      continuity: ["This feels connected to what has been heavy lately.", "This seems linked to a pattern you’ve been carrying for a while."],
+      direction: ["If helpful, we can stay with memory, grounding, or quiet reflection.", "If you want, we can hold this gently before choosing any next move."],
+      tinyStep: ["If it helps, place a hand on your chest and take one slower breath.", "A small step could be naming what you miss most in one sentence."],
+    },
+    burnout: {
+      acknowledgments: ["You sound stretched thin.", "This is a lot to hold while already depleted."],
+      pace: ["Let’s ground first, then simplify.", "First we lower pressure, then we sort."],
+      continuity: ["This kind of pressure has shown up before.", "You’ve been trying to approach this with more gentleness."],
+      direction: ["After grounding, we can narrow to one must-do.", "Then we can strip this down to the minimum for today."],
+      tinyStep: ["Loosen your jaw and shoulders before deciding anything.", "Pick one task to protect and let the rest wait for now."],
+    },
+    overwhelm: {
+      acknowledgments: ["This sounds like too many demands at once.", "Your system is carrying more than it can process right now."],
+      pace: ["Let’s reduce complexity first.", "We’ll keep choices very small."],
+      continuity: ["This echoes the overload you’ve described before.", "This feels connected to earlier overwhelm moments."],
+      direction: ["We can sort this into one emotional lane at a time.", "We can choose calm-first support before any plan."],
+      tinyStep: ["Name the heaviest category in two words.", "Choose between grounding or one short list—just one."],
+    },
+    shutdown: {
+      acknowledgments: ["It makes sense your system wants to shut down.", "This sounds like a low-battery moment."],
+      pace: ["Let’s keep this very low effort.", "No big choices right now."],
+      continuity: ["You’ve had moments like this where less helped more.", "This feels like a familiar shutdown curve."],
+      direction: ["We can use a reduced-choice path.", "We’ll keep language and options simple."],
+      tinyStep: ["Pick one: sip water, sit back, or one slow breath.", "Do one body reset, then stop if needed."],
+    },
+    conflict: {
+      acknowledgments: ["This relationship tension sounds draining.", "It makes sense this conflict is taking up so much space."],
+      pace: ["Reflection first, boundaries second.", "We can pause before deciding what to say."],
+      continuity: ["This seems connected to earlier boundary pressure.", "You’ve been trying to handle this more clearly over time."],
+      direction: ["Once grounded, we can draft one calm boundary line.", "Then we can shape one respectful next message."],
+      tinyStep: ["Write the feeling first, not the response.", "Try one boundary sentence that protects your energy."],
+    },
+    default: {
+      acknowledgments: ["I hear a lot of load in this moment.", "Thanks for naming what this feels like."],
+      pace: [style === "gentle_grounding" ? "We can stay gentle and paced." : "We can keep this clear and low-pressure."],
+      continuity: ["This feels related to what’s been hard lately.", "There’s a thread here from earlier moments."],
+      direction: ["If useful, we can choose support first and structure second.", "If you want, we can find one supportive direction next."],
+      tinyStep: ["A small next move is enough for now.", "One short step is plenty right now."],
+    },
+  };
+  return byProfile[profile];
+}
 
 export function runMomentOrchestrator(input: RouteMomentInput): MomentOrchestratorResult {
   const route = routeMoment(input);
   const style = input.supportStyle ?? "calm_reflective";
-  const reflection = input.momentText?.trim() ? `You're carrying a lot right now: ${input.momentText.trim().slice(0, 140)}.` : "You're carrying a lot right now, and naming it is a solid first step.";
-  const emotionalPrimary = new Set(["grief_support_brain", "emotional_presence_brain", "loneliness_support_brain", "overwhelm_grounding_brain"]);
-  const isEmotional = emotionalPrimary.has(route.primaryBrainId);
-  const stylePacing = style === "gentle_grounding"
-    ? "Let's move slowly: feel your feet on the floor, relax your jaw, and take one steady breath."
-    : style === "structured_reset"
-      ? "Let's keep this clear and light: one small category, one next action."
-      : style === "action_forward"
-        ? "We'll keep it direct and gentle: one tiny step now is enough."
-        : "We can stay reflective and low-pressure while we sort this.";
-  const blocks: OperationalBlock[] = [
-    { type: "reflection", text: reflection },
-    { type: "emotional_presence", text: stylePacing },
-    isEmotional ? { type: "gentle_next_step", text: "If it helps, we can stay with this feeling, do light grounding, or reflect quietly." } : { type: "tiny_step", text: "Do a 2-minute setup step: open notes, name one next action, and begin." },
-    isEmotional ? { type: "gentle_next_step", text: "If it helps, we can stay with this feeling, do light grounding, or reflect on who/what you're missing." } : { type: "route_transition", text: `Continue with ${route.routeLabel}.` },
-    routeBlock[route.primaryBrainId] ?? { type: "grounding", text: "Take one slow breath, unclench your shoulders, and choose one tiny action." },
-  ];
+  const profile = getPacingProfile(input, route);
+  const bank = phraseFor(profile, style);
 
-  return { route, response: { routeLabel: route.routeLabel, routePath: route.routePath, reflection, tinyNextStep: blocks[2].text, whyThisRoute: isEmotional ? "Emotional acknowledgment comes first before any structure." : "Routing confidence improved from your context and follow-up signals.", continueLabel: isEmotional ? "Continue with grief support" : `Continue with ${route.routeLabel}`, steps: [blocks[2].text], supportiveNote: isEmotional ? "You can move slowly here." : "Small consistent steps create progress.", followUpActions: [{ label: isEmotional ? "Grounding support" : `Open ${route.routeLabel}`, href: route.routePath }, { label: "Quiet reflection", href: "/check-in" }], blocks }, warnings: route.primaryBrainId === "safety_support_brain" ? ["High-severity safety signals detected."] : [] };
+  const reflection = `${bank.acknowledgments[0]} ${bank.pace[0]}`;
+  const continuity = bank.continuity[input.followUpHistory && input.followUpHistory.length > 0 ? 0 : 1];
+  const tinyStep = profile === "grief" ? bank.tinyStep[0] : bank.tinyStep[1] ?? bank.tinyStep[0];
+
+  const blocks = uniqueLines([
+    reflection,
+    continuity,
+    bank.direction[0],
+    tinyStep,
+    (routeBlock[route.primaryBrainId] ?? { type: "grounding", text: "Take one slower breath and choose one small next action." }).text,
+  ]).map<OperationalBlock>((text, index) => {
+    if (index === 0) return { type: "reflection", text };
+    if (index === 1) return { type: "emotional_presence", text };
+    if (index === 2) return { type: "support", text };
+    if (index === 3) return { type: "gentle_next_step", text };
+    return { type: "route_transition", text };
+  });
+
+  const routeLabel = supportLabels[route.primaryBrainId] ?? route.routeLabel;
+
+  return {
+    route,
+    response: {
+      routeLabel,
+      routePath: route.routePath,
+      reflection,
+      tinyNextStep: tinyStep,
+      whyThisRoute: `${continuity} ${bank.direction[1]}`,
+      continueLabel: profile === "grief" ? "Continue gently" : `Continue with ${routeLabel}`,
+      steps: blocks.slice(2, 5).map((block) => block.text),
+      supportiveNote: bank.pace[1],
+      followUpActions: [
+        { label: profile === "shutdown" ? "Keep it gentle" : `Open ${routeLabel}`, href: route.routePath },
+        { label: "Quiet reflection", href: "/check-in" },
+      ],
+      blocks,
+    },
+    warnings: route.primaryBrainId === "safety_support_brain" ? ["High-severity safety signals detected."] : [],
+  };
 }

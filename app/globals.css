@@ -27,7 +27,8 @@ a {
 
 @layer components {
   .moment-eyebrow {
-    @apply text-xs uppercase tracking-[0.24em] text-violet-100/80;
+    @apply text-xs uppercase tracking-[0.24em];
+    color: rgba(196, 181, 253, 0.8);
   }
 
   .moment-glass-panel {
@@ -43,10 +44,10 @@ a {
   }
 
   .moment-btn-primary {
-    @apply inline-flex min-h-12 items-center justify-center rounded-full bg-violet-100 px-6 py-3 text-sm font-semibold text-[#140f2a] shadow-[0_16px_42px_-20px_rgba(196,181,253,1)] transition hover:bg-[#efe9ff] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-100 focus-visible:ring-offset-2 focus-visible:ring-offset-[#130f26];
+    @apply inline-flex min-h-12 items-center justify-center rounded-full bg-[#c4b5fd] px-6 py-3 text-sm font-semibold text-[#140f2a] shadow-[0_16px_42px_-20px_rgba(196,181,253,1)] transition hover:bg-[#efe9ff] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#c4b5fd] focus-visible:ring-offset-2 focus-visible:ring-offset-[#130f26];
   }
 
   .moment-btn-secondary {
-    @apply inline-flex min-h-12 items-center justify-center rounded-full bg-white/10 px-6 py-3 text-sm font-medium text-violet-50 ring-1 ring-white/25 transition hover:bg-white/[0.14] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-100;
+    @apply inline-flex min-h-12 items-center justify-center rounded-full bg-white/10 px-6 py-3 text-sm font-medium text-[#f5edff] ring-1 ring-white/25 transition hover:bg-white/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#c4b5fd];
   }
 }

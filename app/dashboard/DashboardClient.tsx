@@ -21,7 +21,7 @@ const knownCategories: BrainCategory[] = ["school","math","social","task","emoti
 const safeLabel=(id:string)=>id.replace(/_brain$/,"").split("_").map((c)=>c[0].toUpperCase()+c.slice(1)).join(" ");
 function toSafeRoute(raw: unknown): MomentRouteResult | null { if (!raw || typeof raw !== "object") return null; const route = raw as Record<string, unknown>; const id = typeof route.primaryBrainId === "string" ? route.primaryBrainId : null; if (!id || !knownBrainIds.includes(id as MomentBrainId)) return null; return { primaryBrainId:id as MomentBrainId,supportingBrainIds:[],routeLabel:typeof route.routeLabel==="string"?route.routeLabel:safeLabel(id),routePath:typeof route.routePath==="string"?route.routePath:"/check-in",reason:typeof route.reason==="string"?route.reason:"Moment selected support.",confidence:"medium",audience:knownAudiences.includes(route.audience as BrainAudience)?route.audience as BrainAudience:"all",category:knownCategories.includes(route.category as BrainCategory)?route.category as BrainCategory:"emotion"}; }
 function toSafeBlocks(blocks: unknown, reflection: string, tinyNextStep: string): OperationalBlock[] { return Array.isArray(blocks) ? blocks.filter((b): b is Record<string, unknown> => !!b && typeof b === "object").map((b)=>({ type: typeof b.type === "string" ? b.type : "support", text: typeof b.text === "string" ? b.text : "" })).filter((b)=>b.text.length>0) as OperationalBlock[] : [{ type:"reflection", text:reflection},{type:"tiny_step",text:tinyNextStep}];}
-function toSafeResponse(raw: unknown, route: MomentRouteResult): MomentCheckInResponse | null { if (!raw || typeof raw !== "object") return null; const response = raw as Record<string, unknown>; const reflection = typeof response.reflection === "string" ? response.reflection : "Thanks for sharing this moment."; const tinyNextStep = typeof response.tinyNextStep === "string" ? response.tinyNextStep : "Take one small step."; return { routeLabel: route.routeLabel, routePath: route.routePath, reflection, tinyNextStep, whyThisRoute: typeof response.whyThisRoute === "string" ? response.whyThisRoute : route.reason, continueLabel: `Continue with ${route.routeLabel}`, steps: [tinyNextStep], supportiveNote: "Small steps count.", followUpActions: [], blocks: toSafeBlocks(response.blocks, reflection, tinyNextStep) }; }
+function toSafeResponse(raw: unknown, route: MomentRouteResult): MomentCheckInResponse | null { if (!raw || typeof raw !== "object") return null; const response = raw as Record<string, unknown>; const reflection = typeof response.reflection === "string" ? response.reflection : "Thanks for sharing this moment."; const tinyNextStep = typeof response.tinyNextStep === "string" ? response.tinyNextStep : "Take one small step."; return { routeLabel: route.routeLabel, routePath: route.routePath, reflection, tinyNextStep, whyThisRoute: typeof response.whyThisRoute === "string" ? response.whyThisRoute : route.reason, continueLabel: "Continue gently", steps: [tinyNextStep], supportiveNote: "Small steps count.", followUpActions: [], blocks: toSafeBlocks(response.blocks, reflection, tinyNextStep) }; }
 
 export function DashboardClient({ greeting, memory }: { greeting: MomentGreetingOutput; memory: MomentMemorySnapshot }) {
   const [memoryState,setMemoryState]=useState(memory);
@@ -32,7 +32,7 @@ export function DashboardClient({ greeting, memory }: { greeting: MomentGreeting
   const [continuityCue,setContinuityCue]=useState<string | null>(null);
   const [supportStyle]=useState<SupportStyle>("calm_reflective");
   const [threadId]=useState(`thread_${Date.now().toString(36)}`);
-  const personalizedOpening=useMemo(()=> memoryState.threads[0]?.summary ? `This feels connected to ${memoryState.threads[0].summary.toLowerCase()}.` : "I will quietly route, remember, support, and continue with you.",[memoryState]);
+  const personalizedOpening=useMemo(()=> memoryState.threads[0]?.summary ? `This seems connected to ${memoryState.threads[0].summary.toLowerCase()}.` : "We can take this one breath at a time.",[memoryState]);
   async function submit(){
     const res=await fetch('/api/ai/check-in',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({text,selectedStates:[],conversationState:{threadId,selectedEmotionalContext:[],inferredSupportStyle:supportStyle}})});
     if(!res.ok) return;
@@ -45,7 +45,7 @@ export function DashboardClient({ greeting, memory }: { greeting: MomentGreeting
     setContinuitySummary(data.response?.continuitySummary ?? null);
     setContinuityCue(data.response?.continuityCue ?? null);
     if(data.memorySnapshot) setMemoryState(data.memorySnapshot);
-    setSavedNote("Saved to your private stream.");
+    setSavedNote("Saved quietly to your private journal.");
   }
 
   return <div className="mx-auto max-w-4xl space-y-5 py-4">
@@ -53,8 +53,8 @@ export function DashboardClient({ greeting, memory }: { greeting: MomentGreeting
     <IntakeComposer onSubmit={submit} disabled={text.length < 3} savedNote={savedNote} />
     <ClarificationFlow prompt={continuityCue} />
     <ContinuityPanel summary={continuitySummary} cue={continuityCue} />
-    <SupportFocusCard focus={memoryState.supportPatterns[0]?.supportFocus ?? "We are learning your rhythm."} helped={memoryState.supportEffectivenessNotes[0]?.outcomeNote ?? "No pattern yet."} />
-    <ThreadContinuationCard thread={memoryState.threads[0]?.summary ?? "No active thread yet."} />
+    <SupportFocusCard focus={memoryState.supportPatterns[0]?.supportFocus ?? "We’re learning what steadies you."} helped={memoryState.supportEffectivenessNotes[0]?.outcomeNote ?? "No pattern yet."} />
+    <ThreadContinuationCard thread={memoryState.threads[0]?.summary ?? "Nothing to carry forward yet."} />
     <TinyWinsPanel win={memoryState.tinyWins[0]?.winNote ?? "No tiny wins captured yet."} />
     <SupportStream result={result} />
   </div>;

@@ -3,7 +3,7 @@ import { MomentCard } from "@/components/moment/MomentCard";
 import { MomentPageHeader } from "@/components/moment/MomentPageHeader";
 import { MomentShell } from "@/components/moment/MomentShell";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
-import { getCanonicalAppPath, getOrCreateMomentProfile, requireAuthenticatedUser } from "@/lib/auth";
+import { getOrCreateMomentProfile, requireAuthenticatedUser } from "@/lib/auth";
 import { OnboardingForm } from "./OnboardingForm";
 import { GlobalBackButton } from "@/components/moment/GlobalBackButton";
 
@@ -44,14 +44,10 @@ async function completeOnboarding(_: { error: string | null }, formData: FormDat
 
 export default async function OnboardingPage() {
   const user = await requireAuthenticatedUser("/onboarding");
-  const profile = await getOrCreateMomentProfile(user.id);
-  const canonicalPath = await getCanonicalAppPath(user.id, profile);
-  if (canonicalPath === "/pricing") {
-    redirect(canonicalPath);
-  }
+  await getOrCreateMomentProfile(user.id);
   return (
     <MomentShell>
-      <GlobalBackButton fallbackHref="/pricing" />
+      <GlobalBackButton fallbackHref="/dashboard" />
       <section className="mx-auto max-w-3xl">
         <MomentPageHeader eyebrow="Your first Moment" title="Tell Moment a little about you" subtitle="You don’t need perfect answers. This helps Moment greet you gently and route support in a way that feels useful." />
         <MomentCard className="border-white/20 bg-[#1a2438]">

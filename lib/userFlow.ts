@@ -6,13 +6,17 @@ export type UserFlowState = {
 };
 
 export function getPostSignupPath(state: UserFlowState): string {
-  if (!isPaidMomentPlan(state.plan)) {
-    return "/pricing";
-  }
-
   if (!state.onboardingComplete) {
     return "/onboarding";
   }
 
   return "/dashboard";
+}
+
+export function getPostCheckoutPath(state: UserFlowState): string {
+  if (!isPaidMomentPlan(state.plan)) {
+    return state.onboardingComplete ? "/dashboard" : "/onboarding";
+  }
+
+  return state.onboardingComplete ? "/dashboard" : "/onboarding";
 }

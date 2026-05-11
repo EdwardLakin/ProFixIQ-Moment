@@ -48,6 +48,7 @@ export async function POST(request: Request) {
     cancel_url: cancelUrl,
     "metadata[user_id]": user.id,
     "subscription_data[metadata][user_id]": user.id,
+    allow_promotion_codes: "true",
   });
 
   const stripeResponse = await fetch("https://api.stripe.com/v1/checkout/sessions", {

@@ -17,7 +17,7 @@ export function SupportStream({ result, adaptiveCue }: { result: CheckInResult |
         {firstStep ? <p className="text-sm leading-7 text-[#ddd0f3]">{firstStep}</p> : null}
       </div>
       <SupportToolInline response={result.response} />
-      <p className="mt-5 max-w-xl text-xs leading-6 text-[#cabfdf]">No pressure to reply right away. You can pause, scroll back, or continue when it feels right.</p>
+      <p className="mt-5 max-w-xl text-xs leading-6 text-[#cabfdf]">You can keep going from here, or pause and come back.</p>
       <div className="mt-4"><SupportFeedbackInline /></div>
     </MomentCard>
   );

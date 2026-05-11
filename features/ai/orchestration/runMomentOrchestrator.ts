@@ -20,6 +20,18 @@ const routeBlock: Record<string, OperationalBlock> = { finance_clarity_brain: { 
 const hasAny = (text: string, needles: string[]) => needles.some((n) => text.includes(n));
 function getPacingProfile(input: RouteMomentInput, route: MomentRouteResult): PacingProfile { const text = `${input.momentText} ${input.selectedSignals.join(" ")}`.toLowerCase(); if (route.primaryBrainId === "grief_support_brain" || text.includes("grief") || text.includes("loss")) return "grief"; if (route.primaryBrainId === "work_stress_brain" || text.includes("burnout") || text.includes("exhausted")) return "burnout"; if (route.primaryBrainId === "overwhelm_grounding_brain" || text.includes("overwhelm")) return "overwhelm"; if (text.includes("shutdown") || text.includes("numb")) return "shutdown"; if (route.primaryBrainId === "relationship_reflection_brain" || text.includes("conflict") || text.includes("argument")) return "conflict"; return "default"; }
 function uniqueLines(lines: string[]) { const seen = new Set<string>(); return lines.filter((line) => { const key = line.trim().toLowerCase(); if (!key || seen.has(key)) return false; seen.add(key); return true; }); }
+function buildGriefFirstReflection(momentText: string): string {
+  const lowered = momentText.toLowerCase();
+  const mothersDayCue = /mom|mother|moms|mother's day|mothers day/.test(lowered);
+  if (mothersDayCue) {
+    return "I’m really sorry. That kind of sadness can feel especially unfair when other people are making plans with their moms. It’s not just missing her privately — it’s being reminded of what you don’t get to have right now.";
+  }
+  const excerpt = momentText.trim().split(/[.!?]/).map((part) => part.trim()).find((part) => part.length >= 18);
+  if (excerpt) {
+    return `I’m really sorry you’re carrying this. Reading \"${excerpt.slice(0, 140)}\" tells me this hurts in a deep, personal way.`;
+  }
+  return "I’m really sorry. Losing someone you love can ache in a way that feels relentless and unfair.";
+}
 function pickSupportDepthMode(profile: PacingProfile, depth: ResponseDepth, reducePrompting: boolean, routeId: string): SupportDepthMode {
   if (routeId === "grief_support_brain") return "quiet_presence";
   if (depth === "heavy" && reducePrompting) return "companionship";
@@ -45,7 +57,9 @@ export function runMomentOrchestrator(input: RouteMomentInput): MomentOrchestrat
   const bank = phraseFor(profile, style);
   const reflectionBase = depth === "light" && !failureCase ? `${bank.acknowledgments[0]} ${bank.pace[0]}` : bank.acknowledgments[0];
   const emotionalDetail = cognition.subtext[0] ?? cognition.relationalPain[0] ?? cognition.emotionalTension[0];
-  const reflection = emotionalDetail ? `${reflectionBase} ${emotionalDetail.charAt(0).toUpperCase()}${emotionalDetail.slice(1)}.` : reflectionBase;
+  const reflection = profile === "grief"
+    ? buildGriefFirstReflection(input.momentText)
+    : emotionalDetail ? `${reflectionBase} ${emotionalDetail.charAt(0).toUpperCase()}${emotionalDetail.slice(1)}.` : reflectionBase;
   const clarificationUsed = (input.followUpHistory?.length ?? 0) > 0;
   const continuity = bank.continuity[clarificationUsed ? 0 : 1];
   const tinyStep = supportDepthMode === "quiet_presence"

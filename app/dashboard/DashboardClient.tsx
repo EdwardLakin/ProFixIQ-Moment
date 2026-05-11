@@ -12,6 +12,7 @@ import { GreetingSurface } from "./components/GreetingSurface";
 import { IntakeComposer } from "./components/IntakeComposer";
 import { SupportStream } from "./components/SupportStream";
 import { ContinuityPanel } from "./components/ContinuityPanel";
+import { sanitizeUiCue, sanitizeVisibleResponse } from "@/features/ai/responseSanitizer";
 
 type SupportStyle = "calm_reflective" | "gentle_grounding" | "structured_reset" | "action_forward";
 const knownBrainIds = new Set<string>(MOMENT_BRAIN_IDS);
@@ -21,7 +22,7 @@ const knownBlockTypes = new Set<string>(OPERATIONAL_BLOCK_TYPES);
 const safeLabel = (id: MomentBrainId) => ROUTE_LABELS[id] ?? id.replace(/_brain$/, "").split("_").map((c) => c[0].toUpperCase() + c.slice(1)).join(" ");
 function toSafeRoute(raw: unknown): MomentRouteResult | null { if (!raw || typeof raw !== "object") return null; const route = raw as Record<string, unknown>; const id = typeof route.primaryBrainId === "string" ? route.primaryBrainId : null; if (!id || !knownBrainIds.has(id)) return null; const brainId = id as MomentBrainId; return { primaryBrainId:brainId,supportingBrainIds:[],routeLabel:typeof route.routeLabel==="string"?route.routeLabel:safeLabel(brainId),routePath:typeof route.routePath==="string"?route.routePath:"/check-in",reason:typeof route.reason==="string"?route.reason:"Moment selected support.",confidence:"medium",audience:typeof route.audience === "string" && knownAudiences.has(route.audience)?route.audience as BrainAudience:"all",category:typeof route.category === "string" && knownCategories.has(route.category)?route.category as BrainCategory:"emotion"}; }
 function toSafeBlocks(blocks: unknown, reflection: string, tinyNextStep: string): OperationalBlock[] { return Array.isArray(blocks) ? blocks.filter((b): b is Record<string, unknown> => !!b && typeof b === "object").map((b)=>({ type: typeof b.type === "string" && knownBlockTypes.has(b.type) ? b.type : "support", text: typeof b.text === "string" ? b.text : "" })).filter((b)=>b.text.length>0) as OperationalBlock[] : [{ type:"reflection", text:reflection},{type:"tiny_step",text:tinyNextStep}];}
-function toSafeResponse(raw: unknown, route: MomentRouteResult): MomentCheckInResponse | null { if (!raw || typeof raw !== "object") return null; const response = raw as Record<string, unknown>; const reflection = typeof response.reflection === "string" ? response.reflection : "Thanks for sharing this moment."; const tinyNextStep = typeof response.tinyNextStep === "string" ? response.tinyNextStep : "Take one small step."; return { routeLabel: route.routeLabel, routePath: route.routePath, reflection, tinyNextStep, whyThisRoute: typeof response.whyThisRoute === "string" ? response.whyThisRoute : "", continueLabel: "If you want, keep going", steps: [tinyNextStep], supportiveNote: "Small steps count.", followUpActions: [], blocks: toSafeBlocks(response.blocks, reflection, tinyNextStep) }; }
+function toSafeResponse(raw: unknown, route: MomentRouteResult): MomentCheckInResponse | null { if (!raw || typeof raw !== "object") return null; const response = raw as Record<string, unknown>; const reflection = typeof response.reflection === "string" ? response.reflection : "Thanks for sharing this moment."; const tinyNextStep = typeof response.tinyNextStep === "string" ? response.tinyNextStep : "Take one small step."; const steps = Array.isArray(response.steps) ? response.steps.filter((s): s is string => typeof s === "string") : []; return sanitizeVisibleResponse({ routeLabel: route.routeLabel, routePath: route.routePath, reflection, tinyNextStep, whyThisRoute: typeof response.whyThisRoute === "string" ? response.whyThisRoute : "", continueLabel: "If you want, keep going", steps, supportiveNote: typeof response.supportiveNote === "string" ? response.supportiveNote : "Small steps count.", followUpActions: [], blocks: toSafeBlocks(response.blocks, reflection, tinyNextStep) }); }
 
 export function DashboardClient({ greeting, memory, plan, usage }: { greeting: MomentGreetingOutput; memory: MomentMemorySnapshot | null; plan: MomentPlan; usage: { usedMoments: number; momentLimit: number | null; remainingMoments: number | null } }) {
   const emptyMemory: MomentMemorySnapshot = { entries: [], threads: [], goals: [], tinyWins: [], suggestions: [], supportPatterns: [], supportEffectivenessNotes: [] };
@@ -59,14 +60,14 @@ export function DashboardClient({ greeting, memory, plan, usage }: { greeting: M
     setResult({route,response});
     setContinuitySummary(data.response?.continuitySummary ?? null);
     const timingMode = typeof data.response?.supportTimingMode === "string" ? data.response.supportTimingMode : null;
-    const styleCue = typeof data.response?.supportStyleAdaptationCue === "string" ? data.response.supportStyleAdaptationCue : null;
+    const styleCue = sanitizeUiCue(typeof data.response?.supportStyleAdaptationCue === "string" ? data.response.supportStyleAdaptationCue : null);
     const blendCue = route.primaryBrainId === "tutor_brain"
       ? "Moment is blending emotional support with practical decomposition right now."
       : route.primaryBrainId === "social_boundary_brain"
         ? "Moment is balancing emotional processing with boundary clarity."
         : null;
     const pacingCue = timingMode === "gentle_presence" ? "I’ll keep this slower and lighter while we get our footing." : null;
-    setAdaptiveCue(pacingCue ?? blendCue ?? styleCue);
+    setAdaptiveCue(sanitizeUiCue(pacingCue ?? blendCue ?? styleCue));
     if(data.memorySnapshot && typeof data.memorySnapshot === "object") setMemoryState(data.memorySnapshot);
     setSavedNote("Saved quietly.");
     } catch {

@@ -1,6 +1,7 @@
 import { routeMoment } from "@/features/ai/router/routeMoment";
 import type { RouteMomentInput } from "@/features/ai/router/types";
 import type { MomentRouteResult, OperationalBlock } from "@/features/ai/types";
+import { buildEmotionalCognition, type EmotionalCognition } from "@/features/ai/orchestration/emotionalCognitionEngine";
 
 type PacingProfile = "grief" | "burnout" | "overwhelm" | "shutdown" | "conflict" | "default";
 type ResponseDepth = "light" | "heavy" | "overwhelmed";
@@ -9,7 +10,7 @@ type PhraseBank = { acknowledgments: string[]; pace: string[]; continuity: strin
 type SupportDepthMode = "quiet_presence" | "reflective_support" | "companionship" | "emotional_unpacking" | "gentle_guidance" | "practical_help";
 
 export type MomentOrchestratorResult = {
-  trace: { pacingProfile: PacingProfile; responseDepth: ResponseDepth; supportFatigueReduction: boolean; clarificationUsed: boolean };
+  trace: { pacingProfile: PacingProfile; responseDepth: ResponseDepth; supportFatigueReduction: boolean; clarificationUsed: boolean; emotionalCognition: EmotionalCognition };
   route: MomentRouteResult;
   response: { routeLabel: string; routePath: string; reflection: string; tinyNextStep: string; whyThisRoute: string; continueLabel: string; steps: string[]; supportiveNote: string; followUpActions: { label: string; href: string }[]; blocks: OperationalBlock[] };
   warnings: string[];
@@ -34,6 +35,7 @@ function phraseFor(profile: PacingProfile, style: NonNullable<RouteMomentInput["
 
 export function runMomentOrchestrator(input: RouteMomentInput): MomentOrchestratorResult {
   const route = routeMoment(input);
+  const cognition = buildEmotionalCognition(input);
   const style = input.supportStyle ?? "calm_reflective";
   const profile = getPacingProfile(input, route);
   const depth = getResponseDepth(input, profile);
@@ -41,12 +43,17 @@ export function runMomentOrchestrator(input: RouteMomentInput): MomentOrchestrat
   const reducePrompting = shouldReducePrompting(input, profile, depth) || Boolean(failureCase);
   const supportDepthMode = pickSupportDepthMode(profile, depth, reducePrompting, route.primaryBrainId);
   const bank = phraseFor(profile, style);
-  const reflection = depth === "light" && !failureCase ? `${bank.acknowledgments[0]} ${bank.pace[0]}` : bank.acknowledgments[0];
+  const reflectionBase = depth === "light" && !failureCase ? `${bank.acknowledgments[0]} ${bank.pace[0]}` : bank.acknowledgments[0];
+  const emotionalDetail = cognition.subtext[0] ?? cognition.relationalPain[0] ?? cognition.emotionalTension[0];
+  const reflection = emotionalDetail ? `${reflectionBase} ${emotionalDetail.charAt(0).toUpperCase()}${emotionalDetail.slice(1)}.` : reflectionBase;
   const clarificationUsed = (input.followUpHistory?.length ?? 0) > 0;
   const continuity = bank.continuity[clarificationUsed ? 0 : 1];
   const tinyStep = supportDepthMode === "quiet_presence"
     ? "If you want to stay with this a little longer, I'm here with you."
     : profile === "grief" ? bank.tinyStep[0] : bank.tinyStep[1] ?? bank.tinyStep[0];
+  const weightedTinyStep = cognition.emotionalWeight === "acute" || cognition.fragilityLevel === "raw"
+    ? "We can slow this way down. If you want, tell me the part that feels heaviest right now."
+    : tinyStep;
   const normalized = input.momentText.toLowerCase();
   const softLowConfidence = route.confidence === "low" || hasAny(normalized, ["not sure", "i don't know", "mixed", "everything"]) ? "There may be a few kinds of pressure stacked together here." : "";
   const failureCaseLine: Record<FailureCase, string> = { nothing_helps: "When nothing seems to help, staying present still counts as support.", unclear_need: "If you don't know what you need yet, we can keep this simple and gentle.", numbness: "Numb can be its own kind of overwhelm; there is nothing wrong with moving slowly.", emotional_exhaustion: "Emotional exhaustion asks for less demand, not more effort.", repeated_grief: "Grief can return in waves. It doesn't mean you're doing it wrong.", shame: "Shame can make everything feel smaller and harsher; you're still allowed care.", emotional_overload: "When everything feels loud inside, fewer words and fewer choices can help.", hopeless_non_crisis: "Even in a hopeless-feeling hour, we can focus on one steadying thing." };
@@ -54,21 +61,21 @@ export function runMomentOrchestrator(input: RouteMomentInput): MomentOrchestrat
   const blocks = uniqueLines([
     softLowConfidence || reflection,
     failureCase ? failureCaseLine[failureCase] : ((input.recentRouteHistory?.length ?? 0) > 2 ? "This feels familiar. You don't have to start from scratch." : continuity),
-    reducePrompting ? "We can stay with this feeling before we do anything with it." : bank.direction[0],
-    supportDepthMode === "quiet_presence" ? "You don't need to turn this into progress right now." : (reducePrompting ? "If you want, we can keep it to one very small next step." : tinyStep),
+    reducePrompting ? "We can stay with this feeling before we do anything with it." : (cognition.connectionBids[0] ? `${bank.direction[0]} I can stay with you in it.` : bank.direction[0]),
+    supportDepthMode === "quiet_presence" ? "You don't need to turn this into progress right now." : (reducePrompting ? "If you want, we can keep it to one very small next step." : weightedTinyStep),
     (routeBlock[route.primaryBrainId] ?? { type: "grounding", text: "Take one slower breath and choose one small next action." }).text,
   ]).map<OperationalBlock>((text, index) => index === 0 ? { type: "reflection", text } : index === 1 ? { type: "emotional_presence", text } : index === 2 ? { type: "support", text } : index === 3 ? { type: "gentle_next_step", text } : { type: "route_transition", text });
 
   const routeLabel = supportLabels[route.primaryBrainId] ?? route.routeLabel;
   return {
-    trace: { pacingProfile: profile, responseDepth: depth, supportFatigueReduction: reducePrompting, clarificationUsed },
+    trace: { pacingProfile: profile, responseDepth: depth, supportFatigueReduction: reducePrompting, clarificationUsed, emotionalCognition: cognition },
     route,
     response: {
       routeLabel,
       routePath: route.routePath,
       reflection: softLowConfidence || reflection,
-      tinyNextStep: failureCase === "numbness" || failureCase === "emotional_exhaustion" ? "One hand on your chest, one slower breath, then pause." : tinyStep,
-      whyThisRoute: `${continuity} ${bank.direction[1]} Mode: ${supportDepthMode.replace(/_/g, " ")}.`,
+      tinyNextStep: failureCase === "numbness" || failureCase === "emotional_exhaustion" ? "One hand on your chest, one slower breath, then pause." : weightedTinyStep,
+      whyThisRoute: `${continuity} ${bank.direction[1]}`,
       continueLabel: profile === "grief" || reducePrompting ? "Stay here a bit" : `Continue with ${routeLabel}`,
       steps: depth === "overwhelmed" || reducePrompting ? blocks.slice(2, 4).map((block) => block.text) : blocks.slice(2, 5).map((block) => block.text),
       supportiveNote: reducePrompting ? "No pressure to solve this right now." : bank.pace[1],

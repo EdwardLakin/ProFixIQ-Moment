@@ -22,8 +22,9 @@ export async function POST(request: Request) {
   try {
     stripeConfig = getStripeConfig();
   } catch (error) {
-    console.error("[stripe_checkout] missing Stripe configuration", { error });
-    return NextResponse.json({ error: "Billing is temporarily unavailable. Please contact support." }, { status: 503 });
+    const message = error instanceof Error ? error.message : "Missing Stripe configuration";
+    console.error("[stripe_checkout] missing Stripe configuration", { message });
+    return NextResponse.json({ error: `Billing configuration error: ${message}` }, { status: 503 });
   }
 
   const { secretKey, plusPriceId, proPriceId } = stripeConfig;
@@ -31,7 +32,7 @@ export async function POST(request: Request) {
   const resolvedPriceId = resolveStripePriceId(plan, { plusPriceId, proPriceId });
   if (!resolvedPriceId.ok) {
     console.error("[stripe_checkout] invalid Stripe price id", { plan, plusPriceId, proPriceId });
-    return NextResponse.json({ error: "Billing is temporarily unavailable. Please contact support." }, { status: 503 });
+    return NextResponse.json({ error: `Billing configuration error: ${resolvedPriceId.error}` }, { status: 503 });
   }
 
   const profile = await getOrCreateMomentProfile(user.id);

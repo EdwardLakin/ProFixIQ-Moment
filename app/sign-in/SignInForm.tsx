@@ -12,7 +12,7 @@ export function SignInForm() {
   const supabase = useMemo(() => createSupabaseBrowserClient(), []);
   const requestedNext = searchParams.get("next") || "/";
   const signupNext = requestedNext === "/" || requestedNext === "/dashboard" || requestedNext === "/onboarding" || requestedNext.startsWith("/settings")
-    ? "/pricing"
+    ? "/onboarding"
     : requestedNext;
   const signinNext = requestedNext;
 

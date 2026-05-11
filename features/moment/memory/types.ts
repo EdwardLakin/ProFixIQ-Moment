@@ -18,6 +18,9 @@ export type MomentMemoryArtifacts = {
     routeAudience: string;
     responseSummary: string;
     tinyNextStep: string;
+    emotionalThemes: string[];
+    emotionalTriggers: string[];
+    supportStyleHints: string[];
   };
   suggestions: Array<{ source: MemorySource; suggestionText: string; status: SuggestionStatus }>;
   goalSuggestions: Array<{ source: MemorySource; title: string; detail: string; status: GoalStatus }>;

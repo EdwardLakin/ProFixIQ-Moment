@@ -3,9 +3,10 @@ import { MomentButton } from "@/components/moment/MomentButton";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { requireAuthenticatedUser } from "@/lib/auth";
 import { BillingActions } from "@/components/moment/BillingActions";
+import { ProfileSettingsForm } from "@/components/moment/ProfileSettingsForm";
 import { parseMomentPlan } from "@/lib/plans";
 
-async function updateProfile(formData: FormData) {
+async function updateProfile(_previousState: unknown, formData: FormData) {
   "use server";
   const user = await requireAuthenticatedUser("/settings");
   const supabase = await createSupabaseServerClient();
@@ -31,7 +32,33 @@ async function updateProfile(formData: FormData) {
     support_goals: supportGoals,
   }, { onConflict: "user_id" });
 
-  if (error) throw new Error(`Could not update profile: ${error.message}`);
+  if (error) {
+    return {
+      ok: false,
+      error: `Could not update profile: ${error.message}`,
+      profile: {
+        display_name: displayName,
+        age_range: ageRange,
+        birthday_month: birthdayMonthRaw,
+        birthday_day: birthdayDayRaw,
+        focus_areas: focusAreas.join(", "),
+        support_goals: supportGoals.join(", "),
+      },
+    };
+  }
+
+  return {
+    ok: true,
+    error: null,
+    profile: {
+      display_name: displayName,
+      age_range: ageRange,
+      birthday_month: birthdayMonth ? String(birthdayMonth) : "",
+      birthday_day: birthdayDay ? String(birthdayDay) : "",
+      focus_areas: focusAreas.join(", "),
+      support_goals: supportGoals.join(", "),
+    },
+  };
 }
 
 
@@ -59,15 +86,17 @@ export default async function SettingsPage() {
       <section className="grid gap-4 md:grid-cols-2">
         <article className="rounded-3xl border border-white/10 bg-white/[0.03] p-5 md:col-span-2">
           <h2 className="text-lg font-medium">Profile</h2>
-          <form action={updateProfile} className="mt-4 grid gap-3 sm:grid-cols-2">
-            <label className="text-sm text-slate-300">Display name<input name="display_name" defaultValue={profile?.display_name ?? ""} className="mt-1 w-full rounded-xl border border-white/15 bg-[#202a40] p-3 text-[#f8f1e7]" /></label>
-            <label className="text-sm text-slate-300">Age range<select name="age_range" defaultValue={profile?.age_range ?? "18_plus"} className="mt-1 w-full rounded-xl border border-white/15 bg-[#202a40] p-3 text-[#f8f1e7]"><option value="under_13">Under 13</option><option value="13_15">13-15</option><option value="16_17">16-17</option><option value="18_plus">18+</option><option value="not_set">Prefer not to say</option></select></label>
-            <label className="text-sm text-slate-300">Birthday month<input name="birthday_month" type="text" inputMode="numeric" pattern="[0-9]*" maxLength={2} defaultValue={profile?.birthday_month ?? ""} className="mt-1 w-full rounded-xl border border-white/15 bg-[#202a40] p-3 text-[#f8f1e7]" /></label>
-            <label className="text-sm text-slate-300">Birthday day<input name="birthday_day" type="text" inputMode="numeric" pattern="[0-9]*" maxLength={2} defaultValue={profile?.birthday_day ?? ""} className="mt-1 w-full rounded-xl border border-white/15 bg-[#202a40] p-3 text-[#f8f1e7]" /></label>
-            <label className="text-sm text-slate-300 sm:col-span-2">Focus areas (comma-separated)<input name="focus_areas" defaultValue={(profile?.focus_areas ?? []).join(", ")} className="mt-1 w-full rounded-xl border border-white/15 bg-[#202a40] p-3 text-[#f8f1e7]" /></label>
-            <label className="text-sm text-slate-300 sm:col-span-2">Support goals (comma-separated)<input name="support_goals" defaultValue={(profile?.support_goals ?? []).join(", ")} className="mt-1 w-full rounded-xl border border-white/15 bg-[#202a40] p-3 text-[#f8f1e7]" /></label>
-            <div className="sm:col-span-2"><MomentButton type="submit">Save profile</MomentButton></div>
-          </form>
+          <ProfileSettingsForm
+            action={updateProfile}
+            initialProfile={{
+              display_name: profile?.display_name ?? "",
+              age_range: profile?.age_range ?? "18_plus",
+              birthday_month: profile?.birthday_month ? String(profile.birthday_month) : "",
+              birthday_day: profile?.birthday_day ? String(profile.birthday_day) : "",
+              focus_areas: (profile?.focus_areas ?? []).join(", "),
+              support_goals: (profile?.support_goals ?? []).join(", "),
+            }}
+          />
         </article>
 
 

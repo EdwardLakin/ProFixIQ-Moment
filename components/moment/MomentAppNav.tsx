@@ -4,11 +4,11 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 
 const navItems = [
-  { label: "Moment", href: "/dashboard" },
-  { label: "Check in", href: "/check-in" },
-  { label: "Stuck", href: "/stuck" },
-  { label: "Math reset", href: "/math-reset" },
-  { label: "Drama pause", href: "/drama-pause" },
+  { label: "Talk", href: "/dashboard" },
+  { label: "Reset", href: "/check-in" },
+  { label: "Unblock", href: "/stuck" },
+  { label: "Homework", href: "/math-reset" },
+  { label: "Conflict", href: "/drama-pause" },
   { label: "Parent", href: "/parent" },
   { label: "Settings", href: "/settings" }
 ];

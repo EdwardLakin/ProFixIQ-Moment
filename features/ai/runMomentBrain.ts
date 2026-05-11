@@ -1,6 +1,7 @@
 import { brainRegistry } from "@/features/ai/brainRegistry";
 import { getMockResponse } from "@/features/ai/mockResponses";
 import type { MomentBrainId, MomentCheckInResponse, OperationalBlock } from "@/features/ai/types";
+import { applyEmotionalRealismLayer } from "@/features/ai/emotionalRealism";
 import { getOpenAIKey } from "@/lib/env";
 
 export function normalizeMomentBrainOutput(input: Partial<MomentCheckInResponse>): MomentCheckInResponse {
@@ -98,8 +99,8 @@ async function runOpenAI(primaryBrain: MomentBrainId, userText: string): Promise
 export async function runMomentBrain(primaryBrain: MomentBrainId, userText = ""): Promise<MomentCheckInResponse> {
   try {
     const raw = await runOpenAI(primaryBrain, userText);
-    return normalizeMomentBrainOutput(raw);
+    return applyEmotionalRealismLayer(normalizeMomentBrainOutput(raw), primaryBrain, userText);
   } catch {
-    return normalizeMomentBrainOutput(getMockResponse(primaryBrain));
+    return applyEmotionalRealismLayer(normalizeMomentBrainOutput(getMockResponse(primaryBrain)), primaryBrain, userText);
   }
 }

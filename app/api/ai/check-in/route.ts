@@ -14,6 +14,7 @@ import { getCurrentMomentPlan } from "@/lib/subscriptions";
 import { normalizeAgeRange } from "@/lib/momentAudience";
 import { recommendMomentTools } from "@/features/moment/tools/recommend";
 import { buildEmotionalStateModel } from "@/features/moment/continuity/emotionalStateModel";
+import { sanitizeVisibleResponse } from "@/features/ai/responseSanitizer";
 
 const schema = z.object({
   text: z.string().min(3),
@@ -233,7 +234,7 @@ export async function POST(request: Request) {
     return NextResponse.json({ route: { primaryBrainId: "emotional_reset_brain", supportingBrainIds: [], routeLabel: "Gentle reset", routePath: "/check-in", reason: "orchestration_fallback", confidence: "low", audience: "all", category: "emotion" }, response: { ...fallback, trustSignal: buildTrustSignal(0), fallbackMode: "orchestrator_failure" }, warnings: ["Orchestration fallback used."] });
   }
   const confidenceValue = result.route.confidence === "high" ? 0.95 : result.route.confidence === "medium" ? 0.75 : 0.5;
-  const safeResponse = ensureResponseShape(result.response);
+  const safeResponse = sanitizeVisibleResponse(ensureResponseShape(result.response));
   const { data: routeData, error: routeError } = await supabase.from("moment_routes").insert({ user_id: user.id, primary_brain_id: result.route.primaryBrainId, supporting_brain_ids: result.route.supportingBrainIds, category: result.route.category, audience: result.route.audience, input_summary: summarizeInput(parsed.data.text), route_reason: result.route.reason, confidence: confidenceValue }).select("id").single();
   const continuation = findThreadContinuation(parsed.data.text, typedThreads, result.route.primaryBrainId);
   const upsertPayload = buildThreadUpsert(parsed.data.text, result.route, user.id, inferSupportStyle(parsed.data.conversationState?.inferredSupportStyle), continuation?.thread.id);

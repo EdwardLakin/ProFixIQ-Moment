@@ -32,9 +32,10 @@ export function DashboardClient({ greeting, memory, plan, usage }: { greeting: M
   const [text,setText]=useState("");
   const [result,setResult]=useState<{route:MomentRouteResult;response:MomentCheckInResponse}|null>(null);
   const [continuitySummary,setContinuitySummary]=useState<string | null>(null);
+  const [adaptiveCue,setAdaptiveCue]=useState<string | null>(null);
   const [supportStyle]=useState<SupportStyle>("calm_reflective");
   const [threadId]=useState(`thread_${Date.now().toString(36)}`);
-  const personalizedOpening=useMemo(()=> memoryState.threads[0]?.summary ? `This feels familiar — ${memoryState.threads[0].summary.toLowerCase()}.` : "You don’t have to start from scratch.",[memoryState]);
+  const personalizedOpening=useMemo(()=> memoryState.threads[0]?.summary ? `I can hold continuity with what you shared before: ${memoryState.threads[0].summary.toLowerCase()}.` : "You can start anywhere — one sentence is enough.",[memoryState]);
 
   async function submit(){
     setInlineError(null);
@@ -57,6 +58,15 @@ export function DashboardClient({ greeting, memory, plan, usage }: { greeting: M
     if(!response){ setInlineError("We hit a pause. Please try once more."); return; }
     setResult({route,response});
     setContinuitySummary(data.response?.continuitySummary ?? null);
+    const timingMode = typeof data.response?.supportTimingMode === "string" ? data.response.supportTimingMode : null;
+    const styleCue = typeof data.response?.supportStyleAdaptationCue === "string" ? data.response.supportStyleAdaptationCue : null;
+    const blendCue = route.primaryBrainId === "tutor_brain"
+      ? "Moment is blending emotional support with practical decomposition right now."
+      : route.primaryBrainId === "social_boundary_brain"
+        ? "Moment is balancing emotional processing with boundary clarity."
+        : null;
+    const pacingCue = timingMode === "gentle_presence" ? "I’ll keep this slower and lighter while we get our footing." : null;
+    setAdaptiveCue(pacingCue ?? blendCue ?? styleCue);
     if(data.memorySnapshot && typeof data.memorySnapshot === "object") setMemoryState(data.memorySnapshot);
     setSavedNote("Saved quietly.");
     } catch {
@@ -74,7 +84,7 @@ export function DashboardClient({ greeting, memory, plan, usage }: { greeting: M
     <GreetingSurface headline={greeting.headline} opening={personalizedOpening} text={text} onText={setText} />
     <IntakeComposer onSubmit={submit} disabled={text.length < 3 || isSubmitting} savedNote={savedNote} />
     {inlineError ? <p className="rounded-xl bg-rose-500/10 px-3 py-2 text-sm text-rose-100">{inlineError}</p> : null}
-    <ContinuityPanel summary={continuitySummary ?? memoryState.threads[0]?.summary ?? null} cue={result ? "We can stay with this for a minute." : null} />
-    <SupportStream result={result} />
+    <ContinuityPanel summary={continuitySummary ?? memoryState.threads[0]?.summary ?? null} cue={result ? "We can stay with this and adjust as your needs change." : null} />
+    <SupportStream result={result} adaptiveCue={adaptiveCue} />
   </div>;
 }

@@ -6,62 +6,59 @@ export function inferAudienceFromAgeRange(ageRange?: AgeRange): BrainAudience {
   if (!ageRange) return "all";
   return ageRange === "18_plus" ? "adult" : "teen";
 }
-
 export function isBrainAllowedForAudience(brain: MomentBrain, audience: BrainAudience, ageRange?: AgeRange): boolean {
   if (brain.allowedAgeRanges && ageRange && !brain.allowedAgeRanges.includes(ageRange)) return false;
   if (audience === "teen" && brain.audience === "adult") return false;
   if (audience === "adult" && brain.audience === "teen") return false;
   return true;
 }
-
 export function filterBrainsForAudience(brains: MomentBrain[], audience: BrainAudience, ageRange?: AgeRange): MomentBrain[] {
   return brains.filter((brain) => isBrainAllowedForAudience(brain, audience, ageRange));
 }
 
 function hasAny(text: string, tokens: string[]) { return tokens.some((token) => text.includes(token)); }
-function toConfidence(score: number): "low" | "medium" | "high" { return score >= 0.85 ? "high" : score >= 0.6 ? "medium" : "low"; }
+function toConfidence(score: number): "low" | "medium" | "high" { return score >= 18 ? "high" : score >= 10 ? "medium" : "low"; }
 
 export function routeMoment(input: RouteMomentInput): RouteMomentResult {
-  const normalized = `${input.momentText} ${input.selectedSignals.join(" ")} ${input.profileContext ?? ""} ${(input.knownSupportNeeds ?? []).join(" ")} ${(input.followUpHistory ?? []).map((item) => item.choiceLabel).join(" ")}`.toLowerCase();
+  const normalized = `${input.momentText} ${input.selectedSignals.join(" ")} ${input.profileContext ?? ""} ${(input.knownSupportNeeds ?? []).join(" ")} ${(input.followUpHistory ?? []).map((item) => item.choiceLabel).join(" ")} ${input.suggestedIntent ?? ""}`.toLowerCase();
   const audience = inferAudienceFromAgeRange(input.ageRange);
-
-  const severe = hasAny(normalized, ["suicide", "kill myself", "self harm", "hurt myself", "abuse"]);
-  if (severe) return { primaryBrainId: "safety_support_brain", supportingBrainIds: [], routeLabel: "Safety Support", routePath: "/check-in", confidence: "high", reason: "Severe safety signal detected.", audience: "all", category: "safety" };
-
-  const adultCoded = ["finances", "partner", "marriage", "taxes", "workplace", "dating"];
-  const minorAdultCoded = audience === "teen" && hasAny(normalized, adultCoded);
+  if (hasAny(normalized, ["suicide", "kill myself", "self harm", "hurt myself", "abuse"])) return { primaryBrainId: "safety_support_brain", supportingBrainIds: [], routeLabel: "Safety Support", routePath: "/check-in", confidence: "high", reason: "Severe safety signal detected.", audience: "all", category: "safety" };
 
   const candidates = filterBrainsForAudience(Object.values(brainRegistry), audience, input.ageRange);
   const allowed = new Set(candidates.map((brain) => brain.id));
+  const scores = new Map<MomentBrainId, number>();
+  const add = (id: MomentBrainId, amount: number) => scores.set(id, (scores.get(id) ?? 0) + amount);
 
-  const pick = (id: MomentBrainId, supporting: MomentBrainId[], confidence: number, reason: string): RouteMomentResult => {
-    const selected = allowed.has(id) ? id : "emotional_reset_brain";
-    const safeSupporting = supporting.filter((brainId) => allowed.has(brainId));
-    return { primaryBrainId: selected, supportingBrainIds: safeSupporting, routeLabel: brainRegistry[selected].label, routePath: brainRegistry[selected].routePath, confidence: toConfidence(confidence), reason, audience: brainRegistry[selected].audience, category: brainRegistry[selected].category };
+  if (input.optionalBrainHint) add(input.optionalBrainHint, 6);
+  if (input.sourceSurface === "stuck") add("task_start_brain", 4);
+  if (input.sourceSurface === "drama_pause") add("social_boundary_brain", 4);
+  if (input.sourceSurface === "tutor") add("tutor_brain", 5);
+
+  if (hasAny(normalized, ["grief", "loss", "died", "death", "passed away", "miss her", "miss him", "anniversary", "mother's day", "fathers day"])) { add("grief_support_brain", 15); add("emotional_presence_brain", 5); }
+  if (hasAny(normalized, ["lonely", "alone", "isolated"])) add("loneliness_support_brain", 12);
+  if (hasAny(normalized, ["overwhelmed", "shutdown", "spiral", "can't breathe", "cant focus"])) { add("overwhelm_grounding_brain", 12); add("emotional_presence_brain", 4); }
+  if (hasAny(normalized, ["stuck", "avoid", "procrast", "can't start", "cannot start"])) { add("task_start_brain", 10); add("emotional_presence_brain", 3); }
+  if (hasAny(normalized, ["math", "homework", "studying", "test prep", "science", "writing", "i don't understand", "i dont understand", "grade", "teacher", "class"])) add("tutor_brain", 14);
+  if (hasAny(normalized, ["friend", "drama", "conflict", "boundary", "group chat", "rumor"])) add("social_boundary_brain", 12);
+  if (hasAny(normalized, ["work", "boss", "deadline", "burnout"])) add("work_stress_brain", 10);
+  if (audience === "adult" && hasAny(normalized, ["money", "bills", "budget", "debt", "tax", "paperwork", "appointments"])) { add("finance_clarity_brain", 10); add("life_admin_brain", 7); }
+
+  for (const route of input.recentRouteHistory ?? []) add(route, 1.5);
+  if (hasAny(normalized, ["feel stupid", "ashamed", "embarrassed"])) add("emotional_presence_brain", 5);
+
+  const ranked = [...scores.entries()].sort((a, b) => b[1] - a[1]);
+  const selected = ranked.find(([id]) => allowed.has(id))?.[0] ?? "emotional_reset_brain";
+  const score = ranked.find(([id]) => id === selected)?.[1] ?? 0;
+  const supports = ranked.filter(([id]) => id !== selected && allowed.has(id) && (scores.get(id) ?? 0) >= 5).slice(0, 2).map(([id]) => id);
+
+  return {
+    primaryBrainId: selected,
+    supportingBrainIds: supports,
+    routeLabel: brainRegistry[selected].label,
+    routePath: brainRegistry[selected].routePath,
+    confidence: toConfidence(score),
+    reason: `Weighted routing selected ${selected} from text, preset, emotion, and continuity signals.`,
+    audience: brainRegistry[selected].audience,
+    category: brainRegistry[selected].category,
   };
-
-  if (minorAdultCoded) return pick("emotional_reset_brain", ["social_boundary_brain", "task_start_brain"], 0.9, "Minor used adult-coded terms. Route to all-safe boundary support.");
-  const griefTerms = ["grief", "grieving", "died", "death", "passed away", "funeral", "loss", "bereaved", "anniversary", "birthday", "holiday", "mother's day", "mothers day", "fathers day", "father's day", "miss him", "miss her", "miss them", "wish i could call", "without my mom", "without my dad", "friends with their moms", "friends with their dads", "can't stop crying", "cannot stop crying"];
-  const lonelinessTerms = ["lonely", "alone", "isolated", "no one", "disconnected"];
-  const sadnessTerms = ["sad", "hurts", "heartbroken", "emotional pain", "i'm in pain", "crying"];
-  const overwhelmTerms = ["overwhelmed", "flooded", "spiraling", "shutdown", "can't breathe", "cant focus"];
-
-  if (hasAny(normalized, griefTerms) && hasAny(normalized, ["homework", "school", "class", "test", "deadline", "work"])) {
-    return pick("grief_support_brain", ["emotional_presence_brain", "overwhelm_grounding_brain", "school_overwhelm_brain"], 0.97, "Hybrid grief + execution moment detected. Emotional support first, then gentle structure.");
-  }
-  if (hasAny(normalized, griefTerms)) return pick("grief_support_brain", ["emotional_presence_brain", "overwhelm_grounding_brain"], 0.98, "Grief/loss or anniversary language detected.");
-  if (hasAny(normalized, lonelinessTerms)) return pick("loneliness_support_brain", ["emotional_presence_brain"], 0.93, "Loneliness language detected.");
-  if (hasAny(normalized, sadnessTerms)) return pick("emotional_presence_brain", ["overwhelm_grounding_brain"], 0.9, "Emotional pain language detected.");
-  if (hasAny(normalized, overwhelmTerms)) return pick("overwhelm_grounding_brain", ["emotional_presence_brain"], 0.88, "Emotional overwhelm signal detected.");
-
-  if (hasAny(normalized, ["money", "bills", "budget", "debt", "taxes"])) return pick("finance_clarity_brain", hasAny(normalized, ["work", "job"]) ? ["work_stress_brain", "overwhelm_grounding_brain"] : ["task_start_brain"], 0.95, "Money language detected.");
-  if (hasAny(normalized, ["partner", "spouse", "dating", "breakup", "marriage"])) return pick("relationship_reflection_brain", ["emotional_reset_brain"], 0.93, "Relationship language detected.");
-  if (hasAny(normalized, ["work", "boss", "job", "burnout", "deadline"])) return pick("work_stress_brain", hasAny(normalized, ["bills", "money", "debt"]) ? ["finance_clarity_brain", "overwhelm_grounding_brain"] : ["task_start_brain"], 0.94, "Work stress language detected.");
-  if (hasAny(normalized, ["math", "homework", "class", "test", "teacher"])) return pick(hasAny(normalized, ["math"]) ? "tutor_brain" : "school_overwhelm_brain", ["task_start_brain"], 0.92, "School or math language detected.");
-  if (hasAny(normalized, ["friend", "drama", "group chat", "rumor", "social"])) return pick("social_boundary_brain", ["emotional_reset_brain"], 0.9, "Social boundary language detected.");
-  if (audience === "adult" && hasAny(normalized, ["errands", "forms", "appointments", "paperwork", "bills"])) return pick("life_admin_brain", ["household_overload_brain"], 0.84, "Adult life-admin language detected.");
-  if (hasAny(normalized, ["start", "stuck", "avoid", "procrast"])) return pick("task_start_brain", ["emotional_reset_brain"], 0.86, "Start-friction signals detected.");
-
-  if (hasAny(normalized, ["just everything", "emotional overwhelm", "mental exhaustion"])) return pick("overwhelm_grounding_brain", ["emotional_presence_brain"], 0.82, "Clarification pointed to overwhelm patterns.");
-  return pick("emotional_reset_brain", ["task_start_brain"], 0.65, "Ambiguous input: start with emotional reset.");
 }

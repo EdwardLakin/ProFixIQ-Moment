@@ -20,6 +20,11 @@ const schema = z.object({
   text: z.string().min(3),
   selectedStates: z.array(z.string()).default([]),
   ageRange: z.enum(["under_13", "13_15", "16_17", "18_plus"]).optional(),
+  sourceSurface: z.string().optional(),
+  suggestedIntent: z.string().optional(),
+  optionalBrainHint: z.string().optional(),
+  audience: z.string().optional(),
+  routeMetadata: z.record(z.string(), z.unknown()).optional(),
   conversationState: z.object({
     threadId: z.string(),
     unresolvedClarification: z.object({ promptId: z.string(), followUpHistory: z.array(z.object({ promptId: z.string(), choiceId: z.string(), choiceLabel: z.string() })) }).nullable().optional(),
@@ -228,6 +233,10 @@ export async function POST(request: Request) {
     profileContext: continuitySummary ?? undefined,
     recentRouteHistory: typedThreads.slice(0, 4).map((thread) => thread.primary_brain_id),
     threadId: parsed.data.conversationState?.threadId,
+    sourceSurface: parsed.data.sourceSurface,
+    suggestedIntent: parsed.data.suggestedIntent,
+    optionalBrainHint: parsed.data.optionalBrainHint as "tutor_brain" | "task_start_brain" | "social_boundary_brain" | undefined,
+    audienceHint: parsed.data.audience === "adult" || parsed.data.audience === "teen" || parsed.data.audience === "all" ? parsed.data.audience : undefined,
   });
   } catch {
     const fallback = buildFallbackResponse("Support temporarily shifted into minimal mode.");
@@ -287,6 +296,10 @@ export async function POST(request: Request) {
       supportStyle: parsed.data.conversationState?.inferredSupportStyle,
       followUpHistory: parsed.data.conversationState?.unresolvedClarification?.followUpHistory ?? [],
       threadId: parsed.data.conversationState?.threadId,
+    sourceSurface: parsed.data.sourceSurface,
+    suggestedIntent: parsed.data.suggestedIntent,
+    optionalBrainHint: parsed.data.optionalBrainHint as "tutor_brain" | "task_start_brain" | "social_boundary_brain" | undefined,
+    audienceHint: parsed.data.audience === "adult" || parsed.data.audience === "teen" || parsed.data.audience === "all" ? parsed.data.audience : undefined,
     },
     memorySnapshot,
     cognition: result.trace.emotionalCognition,

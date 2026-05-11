@@ -2,6 +2,21 @@ import type { ExtractMemoryArtifactsInput, MomentMemoryArtifacts } from "@/featu
 
 const clean = (value: string, max = 180) => value.replace(/\s+/g, " ").trim().slice(0, max);
 
+const EMOTIONAL_THEME_MAP: Record<string, string[]> = {
+  grief: ["grief", "miss", "loss", "anniversary", "passed away"],
+  loneliness: ["alone", "lonely", "disconnected", "isolated"],
+  shame: ["ashamed", "embarrassed", "humiliated"],
+  overwhelm: ["overwhelmed", "flooded", "spiraling", "too much"],
+  rejection: ["rejected", "left out", "abandoned"],
+};
+
+function detectThemes(text: string): string[] {
+  const normalized = text.toLowerCase();
+  return Object.entries(EMOTIONAL_THEME_MAP)
+    .filter(([, words]) => words.some((word) => normalized.includes(word)))
+    .map(([theme]) => theme);
+}
+
 const goalTemplates: Record<string, { title: string; detail: string }> = {
   work_stress_brain: { title: "Handle work stress more calmly", detail: "Practice calmer restarts during high-pressure work moments." },
   finance_clarity_brain: { title: "Feel less overwhelmed by bills", detail: "Use small bill-clarity steps instead of carrying every money task at once." },
@@ -31,6 +46,17 @@ export function extractMemoryArtifacts(input: ExtractMemoryArtifactsInput): Mome
   const goalTemplate = goalTemplates[input.route.primaryBrainId];
   const goalSuggestions = goalTemplate ? [{ source: "ai_suggested" as const, title: goalTemplate.title, detail: goalTemplate.detail, status: "active" as const }] : [];
 
+  const emotionalThemes = detectThemes(input.userText);
+  const emotionalTriggers = input.userText
+    .split(/[,.!?]/)
+    .map((chunk) => clean(chunk, 60))
+    .filter((chunk) => /(when|every time|seeing|hearing|around|without)/i.test(chunk))
+    .slice(0, 3);
+  const supportStyleHints = [
+    input.route.primaryBrainId === "grief_support_brain" ? "presence_over_guidance" : "reflect_then_suggest",
+    emotionalThemes.includes("overwhelm") ? "shorter_choices" : "deeper_reflection_ok",
+  ];
+
   return {
     entry: {
       source: "system_detected",
@@ -44,6 +70,9 @@ export function extractMemoryArtifacts(input: ExtractMemoryArtifactsInput): Mome
       routeAudience: input.route.audience,
       responseSummary,
       tinyNextStep,
+      emotionalThemes,
+      emotionalTriggers,
+      supportStyleHints,
     },
     suggestions,
     goalSuggestions,
@@ -54,7 +83,7 @@ export function extractMemoryArtifacts(input: ExtractMemoryArtifactsInput): Mome
       returnedToThread: true,
       tinyStepCompleted: likelyDone,
       continuationEngaged: true,
-      outcomeNote: likelyDone ? "User signaled a gentle completion cue." : "Continuation engagement observed; keep support low-pressure.",
+      outcomeNote: likelyDone ? "User signaled a gentle completion cue." : `Continuation engagement observed; favor ${supportStyleHints.join(", ")} with themes: ${emotionalThemes.join(", ") || "none captured"}.`,
     },
   };
 }

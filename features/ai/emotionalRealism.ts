@@ -31,6 +31,9 @@ const THERAPY_APP_PATTERNS = [
   "micro-step",
   "gentle next step",
   "optional feedback",
+  "take a slower breath",
+  "one short step",
+  "if it helps",
 ];
 
 const MOTIVATIONAL_PATTERNS = ["you can do this", "momentum", "optimize", "productivity", "perform", "reset then effort"];
@@ -67,6 +70,17 @@ function softenOverGuidance(text: string): string {
     .replace(/\b(first,|second,|third,)\b/gi, "")
     .replace(/\s{2,}/g, " ")
     .trim();
+}
+
+function expandPresenceReflection(reflection: string, userText: string, isGrief: boolean): string {
+  const cleaned = reflection.trim();
+  if (!cleaned) return reflection;
+  const specificFragment = userText.split(/[.!?]/).map((s) => s.trim()).filter((s) => s.length > 24)[0];
+  const presenceTail = isGrief
+    ? "You don't have to be okay for this moment, and you don't have to make it smaller than it is."
+    : "You don't need to rush past this feeling or package it neatly right now.";
+  if (!specificFragment) return `${cleaned} ${presenceTail}`;
+  return `${cleaned} What stands out is this part: "${specificFragment.slice(0, 160)}." ${presenceTail}`;
 }
 
 export function buildRealismScorecard(response: MomentCheckInResponse): RealismScorecard {
@@ -109,12 +123,12 @@ export function applyEmotionalRealismLayer(response: MomentCheckInResponse, prim
   }
 
   const tinyNextStep = isGrief
-    ? "We can stay here for a moment. If it helps, tell me what feels sharpest right now."
+    ? "We can stay here for a moment. If you want, tell me what feels sharpest right now."
     : softenOverGuidance(response.tinyNextStep).replace(/one step at a time/gi, "at your own pace");
 
   const rewritten: MomentCheckInResponse = {
     ...response,
-    reflection: cleanedReflection || response.reflection,
+    reflection: expandPresenceReflection(cleanedReflection || response.reflection, userText, isGrief),
     supportiveNote: cleanedNote || response.supportiveNote,
     steps,
     tinyNextStep,

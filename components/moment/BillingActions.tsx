@@ -15,11 +15,16 @@ export function BillingActions({ plan, source = "settings" }: { plan: "free" | "
         headers: { "Content-Type": "application/json" },
         body: body ? JSON.stringify(body) : undefined,
       });
-      const data = (await response.json()) as { url?: string; error?: string };
+      const data = (response.headers.get("content-type")?.includes("application/json")
+        ? await response.json()
+        : {}) as { url?: string; error?: string };
       if (!response.ok || !data.url) {
         throw new Error(data.error || "Unable to start checkout. Please try again.");
       }
-      window.location.href = data.url;
+      if (!/^https?:\/\//.test(data.url)) {
+        throw new Error("Unable to start checkout. Please try again.");
+      }
+      window.location.assign(data.url);
       return;
     } catch (checkoutError) {
       setError(checkoutError instanceof Error ? checkoutError.message : "Unable to start checkout. Please try again.");

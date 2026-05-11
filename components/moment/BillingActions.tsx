@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 
-export function BillingActions({ plan, source = "settings" }: { plan: "free" | "plus" | "pro"; source?: "settings" | "pricing" }) {
+export function BillingActions({ plan, source = "settings", showSync = false }: { plan: "free" | "plus" | "pro"; source?: "settings" | "pricing"; showSync?: boolean }) {
   const [busy, setBusy] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
@@ -17,9 +17,16 @@ export function BillingActions({ plan, source = "settings" }: { plan: "free" | "
       });
       const data = (response.headers.get("content-type")?.includes("application/json")
         ? await response.json()
-        : {}) as { url?: string; error?: string };
-      if (!response.ok || !data.url) {
+        : {}) as { url?: string; error?: string; synced?: boolean };
+      if (!response.ok) {
         throw new Error(data.error || "Unable to start checkout. Please try again.");
+      }
+      if (data.synced) {
+        window.location.reload();
+        return;
+      }
+      if (!data.url) {
+        throw new Error("Unable to refresh billing right now. Please try again.");
       }
       if (!/^https?:\/\//.test(data.url)) {
         throw new Error("Unable to start checkout. Please try again.");
@@ -44,6 +51,7 @@ export function BillingActions({ plan, source = "settings" }: { plan: "free" | "
         ) : (
           <button onClick={() => go("/api/stripe/create-portal-session")} className="moment-btn-primary" disabled={Boolean(busy)}>{busy ? "Working…" : "Manage subscription"}</button>
         )}
+        {showSync ? <button onClick={() => go("/api/stripe/sync-subscription")} className="moment-btn-secondary" disabled={Boolean(busy)}>{busy ? "Working…" : "Refresh billing status"}</button> : null}
       </div>
       {error ? <p className="text-sm text-rose-300">{error}</p> : null}
     </div>

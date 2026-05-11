@@ -17,9 +17,13 @@ export async function getCurrentMomentPlan(userId: string): Promise<MomentSubscr
     .eq("user_id", userId)
     .maybeSingle();
 
+  const status = data?.status ?? "inactive";
+  const plan = parseMomentPlan(data?.plan);
+  const effectivePlan = status === "active" || status === "trialing" || status === "past_due" ? plan : "free";
+
   return {
-    plan: parseMomentPlan(data?.plan),
-    status: data?.status ?? "inactive",
+    plan: effectivePlan,
+    status,
     currentPeriodEnd: data?.current_period_end ?? null,
     cancelAtPeriodEnd: data?.cancel_at_period_end ?? false,
   };

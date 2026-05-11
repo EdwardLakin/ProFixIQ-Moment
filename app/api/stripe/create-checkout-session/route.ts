@@ -3,6 +3,7 @@ import { getAuthenticatedUser } from "@/lib/auth";
 import { getAppUrl, getStripeConfig } from "@/lib/env";
 import { getOrCreateMomentProfile } from "@/lib/auth";
 import { getCheckoutPlanFromPayload, resolveStripePriceId } from "@/lib/stripeCheckout";
+import { createSupabaseServerClient } from "@/lib/supabase/server";
 
 type StripeSessionResponse = { id: string; url: string | null };
 
@@ -36,6 +37,12 @@ export async function POST(request: Request) {
   }
 
   const profile = await getOrCreateMomentProfile(user.id);
+  const supabase = await createSupabaseServerClient();
+  const { data: existingBilling } = await supabase
+    .from("moment_subscriptions")
+    .select("stripe_customer_id")
+    .eq("user_id", user.id)
+    .maybeSingle();
   const successPath = profile.onboarding_complete ? "/dashboard?checkout=success" : "/onboarding?checkout=success";
   const successUrl = new URL(successPath, appUrl).toString();
   const cancelUrl = new URL("/pricing?checkout=cancelled", appUrl).toString();
@@ -47,9 +54,17 @@ export async function POST(request: Request) {
     success_url: successUrl,
     cancel_url: cancelUrl,
     "metadata[user_id]": user.id,
+    "metadata[plan]": plan,
+    "metadata[price_id]": resolvedPriceId.priceId,
     "subscription_data[metadata][user_id]": user.id,
+    "subscription_data[metadata][plan]": plan,
+    "subscription_data[metadata][price_id]": resolvedPriceId.priceId,
     allow_promotion_codes: "true",
   });
+
+  if (existingBilling?.stripe_customer_id) {
+    payload.set("customer", existingBilling.stripe_customer_id);
+  }
 
   const stripeResponse = await fetch("https://api.stripe.com/v1/checkout/sessions", {
     method: "POST",

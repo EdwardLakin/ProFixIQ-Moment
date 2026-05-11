@@ -78,8 +78,9 @@ export default async function SettingsPage() {
   const { data: profile } = await supabase.from("moment_profiles").select("display_name,age_range,birthday_month,birthday_day,focus_areas,support_goals").eq("user_id", user.id).maybeSingle();
   const { data: goals } = await supabase.from("moment_goals").select("id,title,status").eq("user_id", user.id).eq("status", "active").order("updated_at", { ascending: false }).limit(6);
   const { data: suggestions } = await supabase.from("moment_suggestions").select("id,suggestion_text,status").eq("user_id", user.id).in("status", ["suggested", "accepted"]).order("updated_at", { ascending: false }).limit(6);
-  const { data: subscription } = await supabase.from("moment_subscriptions").select("plan,status,current_period_end,cancel_at_period_end").eq("user_id", user.id).maybeSingle();
+  const { data: subscription } = await supabase.from("moment_subscriptions").select("plan,status,current_period_end,cancel_at_period_end,stripe_customer_id,stripe_subscription_id").eq("user_id", user.id).maybeSingle();
   const currentPlan = parseMomentPlan(subscription?.plan);
+  const likelySyncDelay = currentPlan === "free" && Boolean(subscription?.stripe_customer_id || subscription?.stripe_subscription_id);
 
   return (
     <MomentAppShell title="Settings" subtitle="Simple profile details you can adjust anytime.">
@@ -105,7 +106,8 @@ export default async function SettingsPage() {
           <p className="mt-1 text-sm text-slate-300">Current plan: <span className="font-semibold text-slate-100 uppercase">{currentPlan}</span></p>
           <p className="text-sm text-slate-300">Status: {subscription?.status ?? "inactive"}</p>
           <p className="text-sm text-slate-300">Renews: {subscription?.current_period_end ? new Date(subscription.current_period_end).toLocaleDateString() : "—"}</p>
-          <BillingActions plan={currentPlan} />
+          {likelySyncDelay ? <p className="mt-2 text-sm text-amber-200">Syncing subscription… If billing looks stale, refresh billing status.</p> : null}
+          <BillingActions plan={currentPlan} showSync={likelySyncDelay || currentPlan !== "free"} />
         </article>
 
         <article className="rounded-3xl border border-white/10 bg-white/[0.03] p-5 md:col-span-2">

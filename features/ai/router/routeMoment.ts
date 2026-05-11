@@ -41,7 +41,7 @@ export function routeMoment(input: RouteMomentInput): RouteMomentResult {
   };
 
   if (minorAdultCoded) return pick("emotional_reset_brain", ["social_boundary_brain", "task_start_brain"], 0.9, "Minor used adult-coded terms. Route to all-safe boundary support.");
-  const griefTerms = ["grief", "grieving", "died", "death", "passed away", "funeral", "loss", "bereaved", "anniversary", "mother's day", "fathers day", "father's day", "miss him", "miss her", "miss them", "can't stop crying", "cannot stop crying"];
+  const griefTerms = ["grief", "grieving", "died", "death", "passed away", "funeral", "loss", "bereaved", "anniversary", "birthday", "holiday", "mother's day", "mothers day", "fathers day", "father's day", "miss him", "miss her", "miss them", "wish i could call", "without my mom", "without my dad", "friends with their moms", "friends with their dads", "can't stop crying", "cannot stop crying"];
   const lonelinessTerms = ["lonely", "alone", "isolated", "no one", "disconnected"];
   const sadnessTerms = ["sad", "hurts", "heartbroken", "emotional pain", "i'm in pain", "crying"];
   const overwhelmTerms = ["overwhelmed", "flooded", "spiraling", "shutdown", "can't breathe", "cant focus"];

@@ -13,6 +13,10 @@ export type RouteMomentInput = {
   supportStyle?: "calm_reflective" | "gentle_grounding" | "structured_reset" | "action_forward";
   followUpHistory?: { promptId: string; choiceId: string; choiceLabel: string }[];
   threadId?: string;
+  sourceSurface?: string;
+  suggestedIntent?: string;
+  optionalBrainHint?: MomentBrainId;
+  audienceHint?: "teen" | "adult" | "all";
 };
 
 export type RouteMomentResult = {

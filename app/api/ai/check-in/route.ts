@@ -13,6 +13,7 @@ import { buildTrustSignal, deriveSupportQualityFlags, summarizeTrace } from "@/f
 import { getCurrentMomentPlan } from "@/lib/subscriptions";
 import { normalizeAgeRange } from "@/lib/momentAudience";
 import { recommendMomentTools } from "@/features/moment/tools/recommend";
+import { buildEmotionalStateModel } from "@/features/moment/continuity/emotionalStateModel";
 
 const schema = z.object({
   text: z.string().min(3),
@@ -222,6 +223,9 @@ export async function POST(request: Request) {
     ageRange: trustedAgeRange,
     supportStyle: parsed.data.conversationState?.inferredSupportStyle,
     followUpHistory: parsed.data.conversationState?.unresolvedClarification?.followUpHistory ?? [],
+    knownSupportNeeds: typedThreads.slice(0, 3).map((thread) => thread.summary),
+    profileContext: continuitySummary ?? undefined,
+    recentRouteHistory: typedThreads.slice(0, 4).map((thread) => thread.primary_brain_id),
     threadId: parsed.data.conversationState?.threadId,
   });
   } catch {
@@ -275,6 +279,17 @@ export async function POST(request: Request) {
   }
 
   const memorySnapshot = await readMomentMemory(supabase, user.id).catch(() => ({ entries: [], threads: [], goals: [], tinyWins: [], suggestions: [], supportPatterns: [], supportEffectivenessNotes: [] }));
+  const emotionalStateModel = buildEmotionalStateModel({
+    routeInput: {
+      momentText: parsed.data.text,
+      selectedSignals: [...parsed.data.selectedStates, ...followUpAnswers],
+      supportStyle: parsed.data.conversationState?.inferredSupportStyle,
+      followUpHistory: parsed.data.conversationState?.unresolvedClarification?.followUpHistory ?? [],
+      threadId: parsed.data.conversationState?.threadId,
+    },
+    memorySnapshot,
+    cognition: result.trace.emotionalCognition,
+  });
   const now = new Date();
   const rhythmHint = detectEmotionalRhythmHint(parsed.data.text, now);
   const seasonalCue = detectSeasonalCue(parsed.data.text, now);
@@ -341,6 +356,9 @@ export async function POST(request: Request) {
       supportStyleAdaptationCue: `Support pacing is leaning ${styleHint.replace("_", " ")} right now.`,
       recoveryTrajectoryCue: trajectoryCue,
       journalArcSummary,
+      emotionalStateModel,
+      emotionalContinuityCue: emotionalStateModel.continuityPrompt,
+      emotionalNarrativeArc: emotionalStateModel.narrativeArc,
       supportTimingMode: shouldSlowDown ? "gentle_presence" : "normal",
       trustSignal: buildTrustSignal(memorySnapshot.entries.length),
       fallbackMode: fallbackPath,

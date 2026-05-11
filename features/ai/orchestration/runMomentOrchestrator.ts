@@ -2,6 +2,7 @@ import { routeMoment } from "@/features/ai/router/routeMoment";
 import type { RouteMomentInput } from "@/features/ai/router/types";
 import type { MomentRouteResult, OperationalBlock } from "@/features/ai/types";
 import { buildEmotionalCognition, type EmotionalCognition } from "@/features/ai/orchestration/emotionalCognitionEngine";
+import { behaviorForDomain, classifyResponseDomain } from "@/features/ai/orchestration/domainBehavior";
 
 type PacingProfile = "grief" | "burnout" | "overwhelm" | "shutdown" | "conflict" | "default";
 type ResponseDepth = "light" | "heavy" | "overwhelmed";
@@ -16,7 +17,6 @@ export type MomentOrchestratorResult = {
   warnings: string[];
 };
 const supportLabels: Record<string, string> = { finance_clarity_brain: "Finance pressure", work_stress_brain: "Trying to stay afloat at work", relationship_reflection_brain: "Relationship strain", school_overwhelm_brain: "School overwhelm", confidence_repair_brain: "Confidence dip", life_admin_brain: "Daily life load", grief_support_brain: "Carrying grief", emotional_presence_brain: "Emotional weight", loneliness_support_brain: "Feeling alone", overwhelm_grounding_brain: "Feeling overwhelmed" };
-const routeBlock: Record<string, OperationalBlock> = { finance_clarity_brain: { type: "money_clarity", text: "When you’re ready, we can sort bills by due date and urgency so the pressure is less foggy." }, work_stress_brain: { type: "work_reset", text: "We can name one must-do, one can-wait, and one boundary line for today." }, relationship_reflection_brain: { type: "relationship_reflection", text: "Start with one feeling, one boundary, and one respectful request." }, school_overwhelm_brain: { type: "school_reset", text: "Choose one class and one short start task. Nothing beyond that yet." }, confidence_repair_brain: { type: "confidence_repair", text: "Name one recent win and one tiny proof step to rebuild trust in yourself." }, life_admin_brain: { type: "life_admin_sort", text: "Sort tasks into now, later, and not-today to lower load." }, grief_support_brain: { type: "emotional_presence", text: "This pain matters. We can keep this gentle and unhurried." }, emotional_presence_brain: { type: "emotional_presence", text: "You don’t need to force clarity right now." }, loneliness_support_brain: { type: "emotional_presence", text: "Feeling alone can ache deeply; we can stay with that without rushing fixes." }, overwhelm_grounding_brain: { type: "grounding", text: "Before planning anything, let your body settle with one slow exhale and softer shoulders." } };
 const hasAny = (text: string, needles: string[]) => needles.some((n) => text.includes(n));
 function getPacingProfile(input: RouteMomentInput, route: MomentRouteResult): PacingProfile { const text = `${input.momentText} ${input.selectedSignals.join(" ")}`.toLowerCase(); if (route.primaryBrainId === "grief_support_brain" || text.includes("grief") || text.includes("loss")) return "grief"; if (route.primaryBrainId === "work_stress_brain" || text.includes("burnout") || text.includes("exhausted")) return "burnout"; if (route.primaryBrainId === "overwhelm_grounding_brain" || text.includes("overwhelm")) return "overwhelm"; if (text.includes("shutdown") || text.includes("numb")) return "shutdown"; if (route.primaryBrainId === "relationship_reflection_brain" || text.includes("conflict") || text.includes("argument")) return "conflict"; return "default"; }
 function uniqueLines(lines: string[]) { const seen = new Set<string>(); return lines.filter((line) => { const key = line.trim().toLowerCase(); if (!key || seen.has(key)) return false; seen.add(key); return true; }); }
@@ -53,33 +53,47 @@ export function runMomentOrchestrator(input: RouteMomentInput): MomentOrchestrat
   const depth = getResponseDepth(input, profile);
   const failureCase = detectEmotionalFailureCase(input);
   const reducePrompting = shouldReducePrompting(input, profile, depth) || Boolean(failureCase);
-  const supportDepthMode = pickSupportDepthMode(profile, depth, reducePrompting, route.primaryBrainId);
-  const bank = phraseFor(profile, style);
-  const reflectionBase = depth === "light" && !failureCase ? `${bank.acknowledgments[0]} ${bank.pace[0]}` : bank.acknowledgments[0];
-  const emotionalDetail = cognition.subtext[0] ?? cognition.relationalPain[0] ?? cognition.emotionalTension[0];
-  const reflection = profile === "grief"
-    ? buildGriefFirstReflection(input.momentText)
-    : emotionalDetail ? `${reflectionBase} ${emotionalDetail.charAt(0).toUpperCase()}${emotionalDetail.slice(1)}.` : reflectionBase;
-  const clarificationUsed = (input.followUpHistory?.length ?? 0) > 0;
-  const continuity = bank.continuity[clarificationUsed ? 0 : 1];
-  const tinyStep = supportDepthMode === "quiet_presence"
-    ? "If you want to stay with this a little longer, I'm here with you."
-    : profile === "grief" ? bank.tinyStep[0] : bank.tinyStep[1] ?? bank.tinyStep[0];
-  const weightedTinyStep = cognition.emotionalWeight === "acute" || cognition.fragilityLevel === "raw"
-    ? "We can slow this way down. If you want, tell me the part that feels heaviest right now."
-    : tinyStep;
-  const normalized = input.momentText.toLowerCase();
-  const softLowConfidence = route.confidence === "low" || hasAny(normalized, ["not sure", "i don't know", "mixed", "everything"]) ? "There may be a few kinds of pressure stacked together here." : "";
-  const failureCaseLine: Record<FailureCase, string> = { nothing_helps: "When nothing seems to help, staying present still counts as support.", unclear_need: "If you don't know what you need yet, we can keep this simple and gentle.", numbness: "Numb can be its own kind of overwhelm; there is nothing wrong with moving slowly.", emotional_exhaustion: "Emotional exhaustion asks for less demand, not more effort.", repeated_grief: "Grief can return in waves. It doesn't mean you're doing it wrong.", shame: "Shame can make everything feel smaller and harsher; you're still allowed care.", emotional_overload: "When everything feels loud inside, fewer words and fewer choices can help.", hopeless_non_crisis: "Even in a hopeless-feeling hour, we can focus on one steadying thing." };
+    const bank = phraseFor(profile, style);
+  const domain = classifyResponseDomain(input, route.primaryBrainId);
+  const domainBehavior = behaviorForDomain(domain);
+
+  const griefReflection = buildGriefFirstReflection(input.momentText);
+  const tutorReflection = "Not understanding it doesn't mean you're stupid — it means the explanation hasn't clicked yet.";
+  const stuckReflection = "That shame spiral can make starting even harder. Wasting the day doesn't mean you ruined it.";
+  const conflictReflection = "Being left out hurts, and wanting to fire off a mean text usually means you're protecting that hurt.";
+  const overwhelmReflection = "That sounds like a lot at once. Let's make this smaller so your brain has less to carry.";
+
+  const reflection =
+    domain === "grief_loss" ? griefReflection
+      : domain === "tutor" ? tutorReflection
+      : domain === "stuck_avoidance" ? stuckReflection
+      : domain === "conflict" ? conflictReflection
+      : domain === "general_overwhelm" ? overwhelmReflection
+      : (cognition.subtext[0] ?? bank.acknowledgments[0]);
+
+  const tinyNextStep =
+    domain === "tutor" ? "Send me the exact problem, topic, or study-guide question that's confusing, and we'll break it down step by step."
+      : domain === "stuck_avoidance" ? "What's the essay about? We'll pick the smallest possible first move."
+      : domain === "conflict" ? "Want help drafting one honest text that says you're hurt without escalating it?"
+      : domain === "general_overwhelm" ? "Pick one lane: school, work, or relationships. We'll handle only that first."
+      : domain === "grief_loss" ? "If you want, tell me one moment with her that you wish you could have again."
+      : "Tell me which part feels most urgent, and we'll start there.";
+
+  const steps = domainBehavior.askFollowUp ? [tinyNextStep] : [];
+  const supportiveNote = domain === "tutor"
+    ? "Confusion is part of learning, not proof that you're bad at this."
+    : domain === "grief_loss"
+      ? "We can pick up from there, or start fresh."
+      : "Start wherever feels easiest.";
 
   const blocks = uniqueLines([
-    softLowConfidence || reflection,
-    failureCase ? failureCaseLine[failureCase] : ((input.recentRouteHistory?.length ?? 0) > 2 ? "This feels familiar. You don't have to start from scratch." : continuity),
-    reducePrompting ? "We can stay with this feeling before we do anything with it." : (cognition.connectionBids[0] ? `${bank.direction[0]} I can stay with you in it.` : bank.direction[0]),
-    supportDepthMode === "quiet_presence" ? "You don't need to turn this into progress right now." : (reducePrompting ? "If you want, we can keep it to one very small next step." : weightedTinyStep),
-    (routeBlock[route.primaryBrainId] ?? { type: "grounding", text: "Take one slower breath and choose one small next action." }).text,
-  ]).map<OperationalBlock>((text, index) => index === 0 ? { type: "reflection", text } : index === 1 ? { type: "emotional_presence", text } : index === 2 ? { type: "support", text } : index === 3 ? { type: "gentle_next_step", text } : { type: "route_transition", text });
+    reflection,
+    tinyNextStep,
+    ...(steps.length ? steps : []),
+  ]).map<OperationalBlock>((text, index) => index === 0 ? { type: "reflection", text } : { type: "gentle_next_step", text });
 
+  const clarificationUsed = (input.followUpHistory?.length ?? 0) > 0;
+  const continuity = clarificationUsed ? "You can keep going from what you shared, or tell me what changed." : "We can pick up from there, or start fresh.";
   const routeLabel = supportLabels[route.primaryBrainId] ?? route.routeLabel;
   return {
     trace: { pacingProfile: profile, responseDepth: depth, supportFatigueReduction: reducePrompting, clarificationUsed, emotionalCognition: cognition },
@@ -87,13 +101,13 @@ export function runMomentOrchestrator(input: RouteMomentInput): MomentOrchestrat
     response: {
       routeLabel,
       routePath: route.routePath,
-      reflection: softLowConfidence || reflection,
-      tinyNextStep: failureCase === "numbness" || failureCase === "emotional_exhaustion" ? "One hand on your chest, one slower breath, then pause." : weightedTinyStep,
-      whyThisRoute: `${continuity} ${bank.direction[1]}`,
-      continueLabel: profile === "grief" || reducePrompting ? "Stay here a bit" : `Continue with ${routeLabel}`,
-      steps: depth === "overwhelmed" || reducePrompting ? blocks.slice(2, 4).map((block) => block.text) : blocks.slice(2, 5).map((block) => block.text),
-      supportiveNote: reducePrompting ? "No pressure to solve this right now." : bank.pace[1],
-      followUpActions: reducePrompting ? [{ label: "Keep it quiet", href: "/check-in" }] : [{ label: profile === "shutdown" ? "Keep it gentle" : `Open ${routeLabel}`, href: route.routePath }, { label: "Quiet reflection", href: "/check-in" }],
+      reflection,
+      tinyNextStep,
+      whyThisRoute: continuity,
+      continueLabel: profile === "grief" ? "Stay here a bit" : `Continue with ${routeLabel}`,
+      steps,
+      supportiveNote,
+      followUpActions: [{ label: profile === "shutdown" ? "Keep it gentle" : `Open ${routeLabel}`, href: route.routePath }],
       blocks,
     },
     warnings: route.primaryBrainId === "safety_support_brain" ? ["High-severity safety signals detected."] : [],

@@ -1,6 +1,7 @@
 import type { RouteMomentInput } from "@/features/ai/router/types";
 import type { EmotionalCognition } from "@/features/ai/orchestration/emotionalCognitionEngine";
 import type { MomentBrainId } from "@/features/ai/brains/types";
+import { classifyResponseDomain, type ResponseDomain } from "@/features/ai/orchestration/domainBehavior";
 
 export type CapabilityId =
   | "tutor"
@@ -20,7 +21,10 @@ export type UnifiedCognitionTrace = {
   memoryRelevance: {
     score: number;
     applied: boolean;
-    suppressionReason?: "domain_mismatch" | "low_similarity";
+    suppressionReason?: "domain_mismatch" | "low_similarity" | "low_emotional_similarity" | "incompatible_domain";
+    semanticSimilarity: number;
+    emotionalSimilarity: number;
+    domainCompatibility: number;
   };
   dominantCapability: CapabilityId;
 };
@@ -49,25 +53,39 @@ function normalizeWeights(weights: CapabilityMap): CapabilityMap {
   return normalized;
 }
 
-export function computeMemoryRelevance(input: RouteMomentInput, continuitySummary?: string | null): UnifiedCognitionTrace["memoryRelevance"] {
-  if (!continuitySummary) return { score: 0, applied: false, suppressionReason: "low_similarity" };
-  const domainText = `${input.momentText} ${input.selectedSignals.join(" ")}`.toLowerCase();
-  const griefTerms = ["grief", "loss", "died", "death", "miss", "mother", "mom"];
-  const tutorTerms = ["math", "homework", "study", "class", "essay", "quiz", "science"];
-  const continuityLooksGrief = containsAny(continuitySummary.toLowerCase(), griefTerms);
-  const inputLooksTutor = containsAny(domainText, tutorTerms);
-  const inputLooksGrief = containsAny(domainText, griefTerms);
-
-  if (continuityLooksGrief && inputLooksTutor && !inputLooksGrief) {
-    return { score: 0.05, applied: false, suppressionReason: "domain_mismatch" };
-  }
-
-  const sharedTokenCount = continuitySummary.toLowerCase().split(/\W+/).filter((token) => token.length > 3 && domainText.includes(token)).length;
-  const score = clamp01(sharedTokenCount / 8);
-  return { score, applied: score >= 0.22, suppressionReason: score >= 0.22 ? undefined : "low_similarity" };
+function emotionalSignature(text: string) {
+  const griefTerms = ["grief", "loss", "died", "death", "miss", "mother", "mom", "dad"];
+  const conflictTerms = ["friend", "argument", "conflict", "group chat", "hurt", "boundary"];
+  const tutorTerms = ["math", "homework", "study", "class", "essay", "quiz", "science", "test"];
+  const overwhelmTerms = ["overwhelmed", "flooded", "shutdown", "stuck", "avoid", "can't start"];
+  if (containsAny(text, griefTerms)) return "grief";
+  if (containsAny(text, tutorTerms)) return "tutor";
+  if (containsAny(text, conflictTerms)) return "conflict";
+  if (containsAny(text, overwhelmTerms)) return "overwhelm";
+  return "neutral";
 }
 
-export function buildUnifiedCognition(input: RouteMomentInput, cognition: EmotionalCognition, continuitySummary?: string | null, primaryBrainId?: MomentBrainId): UnifiedCognitionTrace {
+export function computeMemoryRelevance(input: RouteMomentInput, continuitySummary?: string | null, currentDomain?: ResponseDomain): UnifiedCognitionTrace["memoryRelevance"] {
+  if (!continuitySummary) return { score: 0, applied: false, suppressionReason: "low_similarity", semanticSimilarity: 0, emotionalSimilarity: 0, domainCompatibility: 0 };
+  const domainText = `${input.momentText} ${input.selectedSignals.join(" ")}`.toLowerCase();
+  const continuityText = continuitySummary.toLowerCase();
+  const inferredCurrentDomain = currentDomain ?? classifyResponseDomain(input, "emotional_reset_brain");
+  const continuityDomain = containsAny(continuityText, ["grief", "loss", "died", "death", "miss", "mother", "mom"]) ? "grief_loss"
+    : containsAny(continuityText, ["math", "homework", "study", "quiz", "science", "class"]) ? "tutor"
+      : containsAny(continuityText, ["friend", "conflict", "group chat", "boundary"]) ? "conflict"
+        : "general";
+  const domainCompatibility = inferredCurrentDomain === continuityDomain ? 1 : (inferredCurrentDomain === "general" || continuityDomain === "general" ? 0.45 : 0.05);
+
+  const sharedTokenCount = continuityText.split(/\W+/).filter((token) => token.length > 3 && domainText.includes(token)).length;
+  const semanticSimilarity = clamp01(sharedTokenCount / 8);
+  const emotionalSimilarity = emotionalSignature(domainText) === emotionalSignature(continuityText) ? 1 : 0.15;
+  const score = clamp01((semanticSimilarity * 0.45) + (emotionalSimilarity * 0.2) + (domainCompatibility * 0.35));
+  const applied = semanticSimilarity >= 0.2 && emotionalSimilarity >= 0.3 && domainCompatibility >= 0.35 && score >= 0.3;
+  const suppressionReason = applied ? undefined : domainCompatibility < 0.2 ? "domain_mismatch" : emotionalSimilarity < 0.3 ? "low_emotional_similarity" : semanticSimilarity < 0.2 ? "low_similarity" : "incompatible_domain";
+  return { score, applied, suppressionReason, semanticSimilarity, emotionalSimilarity, domainCompatibility };
+}
+
+export function buildUnifiedCognition(input: RouteMomentInput, cognition: EmotionalCognition, continuitySummary?: string | null, primaryBrainId?: MomentBrainId, currentDomain?: ResponseDomain): UnifiedCognitionTrace {
   const text = `${input.momentText} ${input.selectedSignals.join(" ")} ${(input.knownSupportNeeds ?? []).join(" ")}`.toLowerCase();
   const weights: CapabilityMap = { ...BASE_WEIGHTS };
 
@@ -97,7 +115,7 @@ export function buildUnifiedCognition(input: RouteMomentInput, cognition: Emotio
     weights.emotionalPresence += 0.25;
   }
 
-  const memoryRelevance = computeMemoryRelevance(input, continuitySummary);
+  const memoryRelevance = computeMemoryRelevance(input, continuitySummary, currentDomain);
   weights.memoryRecall = memoryRelevance.applied ? memoryRelevance.score : 0;
 
   const capabilityWeights = normalizeWeights(weights);

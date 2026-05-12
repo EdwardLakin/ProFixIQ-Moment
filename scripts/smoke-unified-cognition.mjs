@@ -26,6 +26,21 @@ const scenarios = [
     input: { momentText: 'Can you help me with science quiz review?', selectedSignals: [], ageRange: '16_17', profileContext: 'Grief around important moments and loss of mom' },
     assert: (result) => result.trace.unifiedCognition.memoryRelevance.applied === false,
   },
+  {
+    name: 'grief to tutoring transition hard reset',
+    input: { momentText: 'I do not understand my science homework at all.', selectedSignals: [], ageRange: '16_17', profileContext: 'My mom died and this grief has been heavy.', knownSupportNeeds: ['My mom died and this grief has been heavy.'], recentRouteHistory: ['grief_support_brain'] },
+    assert: (result) => result.trace.currentDomain === 'tutor' && result.trace.continuitySuppressedReason === 'domain_shift' && result.trace.emotionalCarryoverStrength <= 0.1,
+  },
+  {
+    name: 'tutoring to conflict transition',
+    input: { momentText: 'My friend keeps excluding me and I want to send a mean text.', selectedSignals: [], ageRange: '16_17', knownSupportNeeds: ['I need help with math homework'], recentRouteHistory: ['tutor_brain'] },
+    assert: (result) => result.trace.currentDomain === 'conflict' && result.trace.continuitySuppressedReason === 'domain_shift',
+  },
+  {
+    name: 'conflict to grief transition',
+    input: { momentText: 'Today I miss my mom and the loss hurts all over again.', selectedSignals: [], ageRange: '16_17', knownSupportNeeds: ['group chat conflict'], recentRouteHistory: ['social_boundary_brain'] },
+    assert: (result) => result.trace.currentDomain === 'grief_loss' && result.trace.continuitySuppressedReason === 'domain_shift',
+  },
 ];
 
 const bannedCadence = ['we can', 'saved quietly', 'before we do anything with it'];

@@ -243,6 +243,10 @@ export async function POST(request: Request) {
     return NextResponse.json({ route: { primaryBrainId: "emotional_reset_brain", supportingBrainIds: [], routeLabel: "Gentle reset", routePath: "/check-in", reason: "orchestration_fallback", confidence: "low", audience: "all", category: "emotion" }, response: { ...fallback, trustSignal: buildTrustSignal(0), fallbackMode: "orchestrator_failure" }, warnings: ["Orchestration fallback used."] });
   }
   const confidenceValue = result.route.confidence === "high" ? 0.95 : result.route.confidence === "medium" ? 0.75 : 0.5;
+  if (result.trace.continuitySuppressedReason) {
+    continuitySummary = null;
+    continuityCue = null;
+  }
   const safeResponse = sanitizeVisibleResponse(ensureResponseShape(result.response));
   const { data: routeData, error: routeError } = await supabase.from("moment_routes").insert({ user_id: user.id, primary_brain_id: result.route.primaryBrainId, supporting_brain_ids: result.route.supportingBrainIds, category: result.route.category, audience: result.route.audience, input_summary: summarizeInput(parsed.data.text), route_reason: result.route.reason, confidence: confidenceValue }).select("id").single();
   const continuation = findThreadContinuation(parsed.data.text, typedThreads, result.route.primaryBrainId);
@@ -353,6 +357,10 @@ export async function POST(request: Request) {
     qualityFlags,
     qaTags,
     loopSignals,
+    previousDomain: result.trace.previousDomain,
+    currentDomain: result.trace.currentDomain,
+    continuitySuppressedReason: result.trace.continuitySuppressedReason,
+    memoryRelevanceScores: result.trace.unifiedCognition.memoryRelevance,
   };
   try {
     await supabase.from("moment_orchestration_events").insert({ user_id: user.id, thread_id: threadData?.id ?? null, route_id: routeData?.id ?? null, trace_summary: summarizeTrace(trace), trace_metadata: trace });

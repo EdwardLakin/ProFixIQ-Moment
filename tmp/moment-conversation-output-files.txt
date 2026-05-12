@@ -1,0 +1,1133 @@
+===== FILE: features/ai/orchestration/runMomentOrchestrator.ts =====
+import { routeMoment } from "@/features/ai/router/routeMoment";
+import type { RouteMomentInput } from "@/features/ai/router/types";
+import type { MomentRouteResult, OperationalBlock } from "@/features/ai/types";
+import { buildEmotionalCognition, type EmotionalCognition } from "@/features/ai/orchestration/emotionalCognitionEngine";
+import { behaviorForDomain, classifyResponseDomain } from "@/features/ai/orchestration/domainBehavior";
+import { buildUnifiedCognition } from "@/features/ai/orchestration/unifiedCognition";
+
+type PacingProfile = "grief" | "burnout" | "overwhelm" | "shutdown" | "conflict" | "default";
+type ResponseDepth = "light" | "heavy" | "overwhelmed";
+type FailureCase = "nothing_helps" | "unclear_need" | "numbness" | "emotional_exhaustion" | "repeated_grief" | "shame" | "emotional_overload" | "hopeless_non_crisis";
+
+export type MomentOrchestratorResult = {
+  trace: { pacingProfile: PacingProfile; responseDepth: ResponseDepth; supportFatigueReduction: boolean; clarificationUsed: boolean; emotionalCognition: EmotionalCognition; unifiedCognition: ReturnType<typeof buildUnifiedCognition>; previousDomain: string | null; currentDomain: string; suppressedDomains: string[]; emotionalCarryoverStrength: number; continuitySuppressedReason: string | null };
+  route: MomentRouteResult;
+  response: { routeLabel: string; routePath: string; reflection: string; tinyNextStep: string; whyThisRoute: string; continueLabel: string; steps: string[]; supportiveNote: string; followUpActions: { label: string; href: string }[]; blocks: OperationalBlock[] };
+  warnings: string[];
+};
+
+const supportLabels: Record<string, string> = { finance_clarity_brain: "Finance pressure", work_stress_brain: "Trying to stay afloat at work", relationship_reflection_brain: "Relationship strain", school_overwhelm_brain: "School overwhelm", confidence_repair_brain: "Confidence dip", life_admin_brain: "Daily life load", grief_support_brain: "Carrying grief", emotional_presence_brain: "Emotional weight", loneliness_support_brain: "Feeling alone", overwhelm_grounding_brain: "Feeling overwhelmed" };
+const hasAny = (text: string, needles: string[]) => needles.some((n) => text.includes(n));
+function getPacingProfile(input: RouteMomentInput, route: MomentRouteResult): PacingProfile { const text = `${input.momentText} ${input.selectedSignals.join(" ")}`.toLowerCase(); if (route.primaryBrainId === "grief_support_brain" || text.includes("grief") || text.includes("loss")) return "grief"; if (route.primaryBrainId === "work_stress_brain" || text.includes("burnout") || text.includes("exhausted")) return "burnout"; if (route.primaryBrainId === "overwhelm_grounding_brain" || text.includes("overwhelm")) return "overwhelm"; if (text.includes("shutdown") || text.includes("numb")) return "shutdown"; if (route.primaryBrainId === "relationship_reflection_brain" || text.includes("conflict") || text.includes("argument")) return "conflict"; return "default"; }
+function getResponseDepth(input: RouteMomentInput, profile: PacingProfile): ResponseDepth { const normalized = `${input.momentText} ${input.selectedSignals.join(" ")}`.toLowerCase(); if (profile === "grief" || profile === "shutdown" || normalized.includes("can't do") || normalized.includes("cannot do")) return "heavy"; if (profile === "overwhelm" || normalized.includes("exhaust") || normalized.includes("numb") || normalized.includes("spiral")) return "overwhelmed"; return "light"; }
+function shouldReducePrompting(input: RouteMomentInput, profile: PacingProfile, depth: ResponseDepth) { const followUps = input.followUpHistory?.length ?? 0; const repeats = input.recentRouteHistory?.slice(-4).filter((brainId) => brainId === input.recentRouteHistory?.[input.recentRouteHistory.length - 1]).length ?? 0; return depth !== "light" || profile === "grief" || profile === "shutdown" || followUps >= 3 || repeats >= 3; }
+function detectEmotionalFailureCase(input: RouteMomentInput): FailureCase | null { const text = `${input.momentText} ${input.selectedSignals.join(" ")}`.toLowerCase(); if (hasAny(text, ["nothing helps", "nothing works", "tried everything"])) return "nothing_helps"; if (hasAny(text, ["i don't know what i need", "dont know what i need", "not sure what i need"])) return "unclear_need"; if (hasAny(text, ["numb", "feel nothing", "empty"])) return "numbness"; if (hasAny(text, ["emotionally exhausted", "drained", "worn out", "spent"])) return "emotional_exhaustion"; if (hasAny(text, ["grief again", "still grieving", "same grief", "hasn't gotten better"])) return "repeated_grief"; if (hasAny(text, ["ashamed", "embarrassed", "humiliated", "stupid"])) return "shame"; if (hasAny(text, ["too much", "overloaded", "flooded"])) return "emotional_overload"; if (hasAny(text, ["hopeless", "pointless", "what's the point"])) return "hopeless_non_crisis"; return null; }
+
+function composeNaturalResponse(domain: ReturnType<typeof classifyResponseDomain>, capabilityWeights: ReturnType<typeof buildUnifiedCognition>["capabilityWeights"], momentText: string, opts: { activeDomain: string; suppressedDomains: string[]; emotionalCarryoverStrength: number }) {
+  const suppressGriefCadence = opts.suppressedDomains.includes("grief_loss") || (opts.activeDomain === "tutor" && opts.emotionalCarryoverStrength < 0.25);
+  if (domain === "tutor") {
+    const warmth = capabilityWeights.shameReduction > 0.35 ? "You're not stupid; this just hasn't been explained in a way that clicks yet." : "It's okay for this to feel hard before it starts to make sense.";
+    return {
+      reflection: warmth,
+      tinyNextStep: "Paste the exact problem or prompt, and tell me where you get stuck so we can solve that part first step-by-step.",
+      supportiveNote: "Confusion is a normal stage of learning.",
+    };
+  }
+
+  if (domain === "grief_loss") {
+    return {
+      reflection: "I'm really sorry. Days like this can make the absence feel sharp all over again.",
+      tinyNextStep: "If you want, tell me one memory that feels closest right now, and we can stay there.",
+      supportiveNote: "You don't need to force progress in this moment.",
+    };
+  }
+
+  if (domain === "conflict") {
+    return {
+      reflection: "That sounds painful, and reacting fast usually comes from feeling hurt.",
+      tinyNextStep: "Want to draft one message that is honest and calm without escalating things?",
+      supportiveNote: "You can protect yourself without going on the attack.",
+    };
+  }
+
+  return {
+    reflection: suppressGriefCadence ? `Got it. ${momentText.trim().slice(0, 80)}` : `I hear how heavy this feels. ${momentText.trim().slice(0, 80)}`,
+    tinyNextStep: "Tell me the most urgent part and we'll focus there first.",
+    supportiveNote: "Small steps still count.",
+  };
+}
+
+export function runMomentOrchestrator(input: RouteMomentInput): MomentOrchestratorResult {
+  const route = routeMoment(input);
+  const cognition = buildEmotionalCognition(input);
+  const profile = getPacingProfile(input, route);
+  const depth = getResponseDepth(input, profile);
+  const failureCase = detectEmotionalFailureCase(input);
+  const reducePrompting = shouldReducePrompting(input, profile, depth) || Boolean(failureCase);
+  const domain = classifyResponseDomain(input, route.primaryBrainId);
+  const previousDomain = input.recentRouteHistory?.[0] ? classifyResponseDomain({ ...input, momentText: input.knownSupportNeeds?.[0] ?? "", selectedSignals: [] }, input.recentRouteHistory[0]) : null;
+  const hardDomainTransition = Boolean(previousDomain && previousDomain !== domain && !(previousDomain === "general" || domain === "general"));
+  const domainBehavior = behaviorForDomain(domain);
+  const unifiedCognition = buildUnifiedCognition(input, cognition, input.profileContext, route.primaryBrainId, domain);
+  const suppressedDomains = hardDomainTransition ? [previousDomain as string] : [];
+  const emotionalCarryoverStrength = hardDomainTransition ? 0.05 : unifiedCognition.memoryRelevance.score;
+  const natural = composeNaturalResponse(domain, unifiedCognition.capabilityWeights, input.momentText, { activeDomain: domain, suppressedDomains, emotionalCarryoverStrength });
+
+  const steps = domainBehavior.askFollowUp ? [natural.tinyNextStep] : [];
+  const blocks = [natural.reflection, natural.tinyNextStep]
+    .filter(Boolean)
+    .map<OperationalBlock>((text, index) => index === 0 ? { type: "reflection", text } : { type: "gentle_next_step", text });
+
+  const clarificationUsed = (input.followUpHistory?.length ?? 0) > 0;
+  const continuitySuppressedReason = hardDomainTransition ? "domain_shift" : (unifiedCognition.memoryRelevance.suppressionReason ?? null);
+  const continuity = unifiedCognition.memoryRelevance.applied && !hardDomainTransition
+    ? "I can build on what you've shared before if that still fits this moment."
+    : "We can stay with this moment only, and bring in past context later if you want.";
+  const routeLabel = supportLabels[route.primaryBrainId] ?? route.routeLabel;
+  return {
+    trace: { pacingProfile: profile, responseDepth: depth, supportFatigueReduction: reducePrompting, clarificationUsed, emotionalCognition: cognition, unifiedCognition, previousDomain, currentDomain: domain, suppressedDomains, emotionalCarryoverStrength, continuitySuppressedReason },
+    route,
+    response: {
+      routeLabel,
+      routePath: route.routePath,
+      reflection: natural.reflection,
+      tinyNextStep: natural.tinyNextStep,
+      whyThisRoute: continuity,
+      continueLabel: profile === "grief" ? "Stay here a bit" : `Continue with ${routeLabel}`,
+      steps,
+      supportiveNote: natural.supportiveNote,
+      followUpActions: [{ label: profile === "shutdown" ? "Keep it gentle" : `Open ${routeLabel}`, href: route.routePath }],
+      blocks,
+    },
+    warnings: route.primaryBrainId === "safety_support_brain" ? ["High-severity safety signals detected."] : [],
+  };
+}
+
+===== FILE: features/ai/orchestration/domainBehavior.ts =====
+import type { RouteMomentInput } from "@/features/ai/router/types";
+import type { MomentBrainId } from "@/features/ai/brains/types";
+
+export type ResponseDomain = "grief_loss" | "tutor" | "stuck_avoidance" | "conflict" | "general_overwhelm" | "loneliness" | "safety" | "general";
+
+export type DomainBehavior = {
+  domain: ResponseDomain;
+  emotionalTemperature: "high" | "medium" | "steady";
+  guidanceTiming: "presence_first" | "quick_validate_then_tutor" | "validate_then_decompose" | "validate_then_slow_reaction" | "calm_then_prioritize" | "safety_first";
+  responseLength: "short" | "medium";
+  askFollowUp: boolean;
+  tutorMode: boolean;
+  avoidAdviceFirst: boolean;
+  bannedPhrases: string[];
+};
+
+const TUTOR_TOKENS = ["math", "homework", "science", "tutor", "study", "studying", "test", "quiz", "grade", "problem", "topic", "class", "teacher", "essay", "writing", "i don't understand", "i dont understand", "feel stupid"];
+
+const hasAny = (text: string, terms: string[]) => terms.some((term) => text.includes(term));
+
+export function classifyResponseDomain(input: RouteMomentInput, routeId: MomentBrainId): ResponseDomain {
+  const normalized = `${input.momentText} ${input.selectedSignals.join(" ")}`.toLowerCase();
+  if (routeId === "safety_support_brain") return "safety";
+  if (routeId === "grief_support_brain" || hasAny(normalized, ["died", "death", "passed away", "grief", "loss", "miss her", "miss him", "moms"])) return "grief_loss";
+  if (routeId === "tutor_brain" || hasAny(normalized, TUTOR_TOKENS)) return "tutor";
+  if (routeId === "task_start_brain" || hasAny(normalized, ["avoid", "procrast", "can't start", "cannot start", "stuck"])) return "stuck_avoidance";
+  if (routeId === "social_boundary_brain" || hasAny(normalized, ["friend", "left me out", "text something mean", "conflict", "group chat", "hurt"])) return "conflict";
+  if (routeId === "loneliness_support_brain" || hasAny(normalized, ["lonely", "alone", "isolated"])) return "loneliness";
+  if (routeId === "overwhelm_grounding_brain" || hasAny(normalized, ["overwhelmed", "too much", "spiral", "flooded"])) return "general_overwhelm";
+  return "general";
+}
+
+export function behaviorForDomain(domain: ResponseDomain): DomainBehavior {
+  const banned = [
+    "we can stay with this",
+    "we can slow this down",
+    "before we do anything with it",
+    "adjust as your needs change",
+    "this carries a lot of weight",
+    "deep, personal way",
+    "what feels heaviest",
+    "no pressure to reply right away",
+    "saved quietly",
+  ];
+
+  switch (domain) {
+    case "grief_loss":
+      return { domain, emotionalTemperature: "high", guidanceTiming: "presence_first", responseLength: "medium", askFollowUp: true, tutorMode: false, avoidAdviceFirst: true, bannedPhrases: banned };
+    case "tutor":
+      return { domain, emotionalTemperature: "steady", guidanceTiming: "quick_validate_then_tutor", responseLength: "short", askFollowUp: true, tutorMode: true, avoidAdviceFirst: false, bannedPhrases: banned };
+    case "stuck_avoidance":
+      return { domain, emotionalTemperature: "medium", guidanceTiming: "validate_then_decompose", responseLength: "short", askFollowUp: true, tutorMode: false, avoidAdviceFirst: false, bannedPhrases: banned };
+    case "conflict":
+      return { domain, emotionalTemperature: "medium", guidanceTiming: "validate_then_slow_reaction", responseLength: "short", askFollowUp: true, tutorMode: false, avoidAdviceFirst: false, bannedPhrases: banned };
+    case "general_overwhelm":
+      return { domain, emotionalTemperature: "steady", guidanceTiming: "calm_then_prioritize", responseLength: "short", askFollowUp: true, tutorMode: false, avoidAdviceFirst: false, bannedPhrases: banned };
+    case "safety":
+      return { domain, emotionalTemperature: "steady", guidanceTiming: "safety_first", responseLength: "short", askFollowUp: false, tutorMode: false, avoidAdviceFirst: false, bannedPhrases: banned };
+    default:
+      return { domain, emotionalTemperature: "medium", guidanceTiming: "calm_then_prioritize", responseLength: "short", askFollowUp: true, tutorMode: false, avoidAdviceFirst: false, bannedPhrases: banned };
+  }
+}
+
+===== FILE: features/ai/orchestration/unifiedCognition.ts =====
+import type { RouteMomentInput } from "@/features/ai/router/types";
+import type { EmotionalCognition } from "@/features/ai/orchestration/emotionalCognitionEngine";
+import type { MomentBrainId } from "@/features/ai/brains/types";
+import { classifyResponseDomain, type ResponseDomain } from "@/features/ai/orchestration/domainBehavior";
+
+export type CapabilityId =
+  | "tutor"
+  | "griefPresence"
+  | "emotionalPresence"
+  | "shameReduction"
+  | "taskDecomposition"
+  | "conflictRegulation"
+  | "grounding"
+  | "practicalGuidance"
+  | "memoryRecall";
+
+export type CapabilityMap = Record<CapabilityId, number>;
+
+export type UnifiedCognitionTrace = {
+  capabilityWeights: CapabilityMap;
+  memoryRelevance: {
+    score: number;
+    applied: boolean;
+    suppressionReason?: "domain_mismatch" | "low_similarity" | "low_emotional_similarity" | "incompatible_domain";
+    semanticSimilarity: number;
+    emotionalSimilarity: number;
+    domainCompatibility: number;
+  };
+  dominantCapability: CapabilityId;
+};
+
+const BASE_WEIGHTS: CapabilityMap = {
+  tutor: 0,
+  griefPresence: 0,
+  emotionalPresence: 0.15,
+  shameReduction: 0,
+  taskDecomposition: 0,
+  conflictRegulation: 0,
+  grounding: 0,
+  practicalGuidance: 0,
+  memoryRecall: 0,
+};
+
+const containsAny = (text: string, terms: string[]) => terms.some((term) => text.includes(term));
+const clamp01 = (value: number) => Math.max(0, Math.min(1, value));
+
+function normalizeWeights(weights: CapabilityMap): CapabilityMap {
+  const max = Math.max(...Object.values(weights), 1);
+  const normalized = {} as CapabilityMap;
+  (Object.keys(weights) as CapabilityId[]).forEach((key) => {
+    normalized[key] = Math.round((weights[key] / max) * 100) / 100;
+  });
+  return normalized;
+}
+
+function emotionalSignature(text: string) {
+  const griefTerms = ["grief", "loss", "died", "death", "miss", "mother", "mom", "dad"];
+  const conflictTerms = ["friend", "argument", "conflict", "group chat", "hurt", "boundary"];
+  const tutorTerms = ["math", "homework", "study", "class", "essay", "quiz", "science", "test"];
+  const overwhelmTerms = ["overwhelmed", "flooded", "shutdown", "stuck", "avoid", "can't start"];
+  if (containsAny(text, griefTerms)) return "grief";
+  if (containsAny(text, tutorTerms)) return "tutor";
+  if (containsAny(text, conflictTerms)) return "conflict";
+  if (containsAny(text, overwhelmTerms)) return "overwhelm";
+  return "neutral";
+}
+
+export function computeMemoryRelevance(input: RouteMomentInput, continuitySummary?: string | null, currentDomain?: ResponseDomain): UnifiedCognitionTrace["memoryRelevance"] {
+  if (!continuitySummary) return { score: 0, applied: false, suppressionReason: "low_similarity", semanticSimilarity: 0, emotionalSimilarity: 0, domainCompatibility: 0 };
+  const domainText = `${input.momentText} ${input.selectedSignals.join(" ")}`.toLowerCase();
+  const continuityText = continuitySummary.toLowerCase();
+  const inferredCurrentDomain = currentDomain ?? classifyResponseDomain(input, "emotional_reset_brain");
+  const continuityDomain = containsAny(continuityText, ["grief", "loss", "died", "death", "miss", "mother", "mom"]) ? "grief_loss"
+    : containsAny(continuityText, ["math", "homework", "study", "quiz", "science", "class"]) ? "tutor"
+      : containsAny(continuityText, ["friend", "conflict", "group chat", "boundary"]) ? "conflict"
+        : "general";
+  const domainCompatibility = inferredCurrentDomain === continuityDomain ? 1 : (inferredCurrentDomain === "general" || continuityDomain === "general" ? 0.45 : 0.05);
+
+  const sharedTokenCount = continuityText.split(/\W+/).filter((token) => token.length > 3 && domainText.includes(token)).length;
+  const semanticSimilarity = clamp01(sharedTokenCount / 8);
+  const emotionalSimilarity = emotionalSignature(domainText) === emotionalSignature(continuityText) ? 1 : 0.15;
+  const score = clamp01((semanticSimilarity * 0.45) + (emotionalSimilarity * 0.2) + (domainCompatibility * 0.35));
+  const applied = semanticSimilarity >= 0.2 && emotionalSimilarity >= 0.3 && domainCompatibility >= 0.35 && score >= 0.3;
+  const suppressionReason = applied ? undefined : domainCompatibility < 0.2 ? "domain_mismatch" : emotionalSimilarity < 0.3 ? "low_emotional_similarity" : semanticSimilarity < 0.2 ? "low_similarity" : "incompatible_domain";
+  return { score, applied, suppressionReason, semanticSimilarity, emotionalSimilarity, domainCompatibility };
+}
+
+export function buildUnifiedCognition(input: RouteMomentInput, cognition: EmotionalCognition, continuitySummary?: string | null, primaryBrainId?: MomentBrainId, currentDomain?: ResponseDomain): UnifiedCognitionTrace {
+  const text = `${input.momentText} ${input.selectedSignals.join(" ")}`.toLowerCase();
+  const weights: CapabilityMap = { ...BASE_WEIGHTS };
+
+  if (containsAny(text, ["math", "homework", "study", "class", "science", "essay", "problem", "quiz"]) || primaryBrainId === "tutor_brain") {
+    weights.tutor += 0.8;
+    weights.taskDecomposition += 0.65;
+    weights.practicalGuidance += 0.4;
+  }
+
+  if (containsAny(text, ["grief", "loss", "died", "death", "mother's day", "mothers day", "miss her", "miss him"]) || primaryBrainId === "grief_support_brain") {
+    weights.griefPresence += 0.95;
+    weights.emotionalPresence += 0.7;
+  }
+
+  if (containsAny(text, ["stupid", "ashamed", "embarrassed", "i'm behind", "im behind"])) {
+    weights.shameReduction += 0.55;
+    weights.emotionalPresence += 0.2;
+  }
+
+  if (containsAny(text, ["friend", "conflict", "boundary", "group chat", "text them", "argument"]) || primaryBrainId === "social_boundary_brain") {
+    weights.conflictRegulation += 0.85;
+    weights.practicalGuidance += 0.35;
+  }
+
+  if (containsAny(text, ["overwhelmed", "spiral", "shutdown", "can't breathe", "panic"])) {
+    weights.grounding += 0.7;
+    weights.emotionalPresence += 0.25;
+  }
+
+  const memoryRelevance = computeMemoryRelevance(input, continuitySummary, currentDomain);
+  weights.memoryRecall = memoryRelevance.applied ? memoryRelevance.score : 0;
+
+  const capabilityWeights = normalizeWeights(weights);
+  const dominantCapability = (Object.entries(capabilityWeights).sort((a, b) => b[1] - a[1])[0]?.[0] ?? "emotionalPresence") as CapabilityId;
+  return { capabilityWeights, memoryRelevance, dominantCapability };
+}
+
+===== FILE: features/ai/responseSanitizer.ts =====
+import type { MomentCheckInResponse } from "@/features/ai/types";
+
+const INTERNAL_PATTERNS = [
+  /support pacing is/i,
+  /^mode:/i,
+  /^route:/i,
+  /\bbrain\b/i,
+  /orchestrator/i,
+  /cognition/i,
+  /metadata/i,
+  /support mode/i,
+  /timing mode/i,
+  /\bdetected\b/i,
+  /classification/i,
+];
+
+const normalize = (text: string) => text.toLowerCase().replace(/[^a-z0-9\s]/g, " ").replace(/\s+/g, " ").trim();
+
+function isInternalCopy(text: string): boolean {
+  const trimmed = text.trim();
+  if (!trimmed) return true;
+  return INTERNAL_PATTERNS.some((pattern) => pattern.test(trimmed));
+}
+
+function dedupeLines(lines: string[]): string[] {
+  const seen = new Set<string>();
+  const kept: string[] = [];
+  for (const line of lines) {
+    const trimmed = line.trim();
+    if (!trimmed || isInternalCopy(trimmed)) continue;
+    const key = normalize(trimmed);
+    if (!key || seen.has(key)) continue;
+    seen.add(key);
+    kept.push(trimmed);
+  }
+  return kept;
+}
+
+export function sanitizeVisibleResponse(response: MomentCheckInResponse): MomentCheckInResponse {
+  const uniqueVisible = dedupeLines([response.reflection, response.tinyNextStep, ...response.steps, response.supportiveNote]);
+  const fallback = uniqueVisible[0] ?? "Thanks for sharing this with me.";
+  const reflection = dedupeLines([response.reflection])[0] ?? fallback;
+  const tinyNextStep = dedupeLines([response.tinyNextStep]).find((line) => normalize(line) !== normalize(reflection)) ?? "If you want, we can stay with this for a moment.";
+  const steps = dedupeLines(response.steps).filter((line) => normalize(line) !== normalize(reflection) && normalize(line) !== normalize(tinyNextStep)).slice(0, 3);
+  const supportiveNote = dedupeLines([response.supportiveNote]).find((line) => ![reflection, tinyNextStep, ...steps].some((item) => normalize(item) === normalize(line))) ?? "No pressure to do anything right away.";
+  return { ...response, reflection, tinyNextStep, steps, supportiveNote };
+}
+
+export function sanitizeUiCue(copy: string | null | undefined): string | null {
+  if (!copy) return null;
+  const cleaned = dedupeLines([copy]);
+  return cleaned[0] ?? null;
+}
+
+
+===== FILE: app/api/ai/check-in/route.ts =====
+import { NextResponse } from "next/server";
+import { z } from "zod";
+import { runMomentOrchestrator } from "@/features/ai/orchestration/runMomentOrchestrator";
+import { buildThreadUpsert, continuityCueFromThread, findThreadContinuation, inferSupportStyle, summarizeContinuity } from "@/features/moment/continuity/engine";
+import type { MomentThread } from "@/features/moment/continuity/types";
+import { applyRouteSafetyFilters, escalationCopy, resolveAudiencePolicy } from "@/features/moment/policy";
+import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { extractMemoryArtifacts } from "@/features/moment/memory/extractMemoryArtifacts";
+import { persistMomentMemory } from "@/features/moment/memory/persistMomentMemory";
+import { readMomentMemory } from "@/features/moment/memory/readMomentMemory";
+import { getMomentUsageSnapshot } from "@/lib/entitlements";
+import { buildTrustSignal, deriveSupportQualityFlags, summarizeTrace } from "@/features/moment/orchestration/observability";
+import { getCurrentMomentPlan } from "@/lib/subscriptions";
+import { normalizeAgeRange } from "@/lib/momentAudience";
+import { recommendMomentTools } from "@/features/moment/tools/recommend";
+import { buildEmotionalStateModel } from "@/features/moment/continuity/emotionalStateModel";
+import { sanitizeVisibleResponse } from "@/features/ai/responseSanitizer";
+
+const schema = z.object({
+  text: z.string().min(3),
+  selectedStates: z.array(z.string()).default([]),
+  ageRange: z.enum(["under_13", "13_15", "16_17", "18_plus"]).optional(),
+  sourceSurface: z.string().optional(),
+  suggestedIntent: z.string().optional(),
+  optionalBrainHint: z.string().optional(),
+  audience: z.string().optional(),
+  routeMetadata: z.record(z.string(), z.unknown()).optional(),
+  conversationState: z.object({
+    threadId: z.string(),
+    unresolvedClarification: z.object({ promptId: z.string(), followUpHistory: z.array(z.object({ promptId: z.string(), choiceId: z.string(), choiceLabel: z.string() })) }).nullable().optional(),
+    selectedEmotionalContext: z.array(z.string()).default([]),
+    inferredSupportStyle: z.enum(["calm_reflective", "gentle_grounding", "structured_reset", "action_forward"]).optional(),
+  }).optional(),
+});
+
+function summarizeInput(text: string): string { return text.trim().replace(/\s+/g, " ").slice(0, 180); }
+
+function detectPattern(text: string): { key: string; summary: string; focus: string } | null {
+  const normalized = text.toLowerCase();
+  if (/(math|homework|class|test)/.test(normalized)) return { key: "recurring_school_stress", summary: "Math or school stress has been showing up a lot lately.", focus: "Pair grounding with a tiny school start step." };
+  if (/(work|boss|deadline|burnout)/.test(normalized)) return { key: "recurring_work_pressure", summary: "Work pressure seems to be recurring.", focus: "Use calmer restart boundaries before task sorting." };
+  if (/(friend|drama|relationship|conflict)/.test(normalized)) return { key: "recurring_relationship_strain", summary: "Relationship tension seems to keep looping.", focus: "Try pause-before-reply and boundary framing." };
+  if (/(shutdown|avoid|stuck|overwhelmed)/.test(normalized)) return { key: "recurring_shutdown_before_tasks", summary: "Task shutdown has been recurring before starts.", focus: "Lead with emotional grounding, then one setup action." };
+  return null;
+}
+
+function detectEmotionalRhythmHint(text: string, now: Date) {
+  const normalized = text.toLowerCase();
+  const day = now.getUTCDay();
+  const hour = now.getUTCHours();
+  if (/(math|homework|exam|study)/.test(normalized) && hour >= 20) return "Night study pressure can feel sharper.";
+  if (/(alone|lonely|isolated)/.test(normalized) && (day === 0 || day === 6)) return "Weekends can sometimes feel heavier socially.";
+  if (/(work|deadline|meetings|burnout)/.test(normalized) && day === 1 && hour <= 15) return "Monday work pressure can stack quickly.";
+  if (/(conflict|fight|argument|drama)/.test(normalized)) return "After conflict, shutdown can show up as protection.";
+  return null;
+}
+
+function detectSeasonalCue(text: string, now: Date) {
+  const normalized = text.toLowerCase();
+  const month = now.getUTCMonth() + 1;
+  const day = now.getUTCDate();
+  const isWeekend = now.getUTCDay() === 0 || now.getUTCDay() === 6;
+  const tags: string[] = [];
+  if (isWeekend) tags.push("weekend");
+  if (month === 5 && day >= 1 && day <= 15) tags.push("Mother’s Day season");
+  if (/(birthday|anniversary|holiday)/.test(normalized)) tags.push("important date");
+  if (/(exam|final|midterm)/.test(normalized)) tags.push("exam period");
+  if (/(monday|work week|school week)/.test(normalized)) tags.push("start-of-week pressure");
+  return tags.length ? `Context note: ${tags.join(", ")} may be part of how this is landing.` : null;
+}
+
+function buildRecoveryTrajectoryCue(text: string, routeId: string) {
+  const normalized = text.toLowerCase();
+  if (routeId === "grief_support_brain") return "You’ve been approaching this grief in small returns, even when it still feels tender.";
+  if (routeId === "work_stress_brain") return "You’ve been trying to make work pressure more survivable, not perfect.";
+  if (routeId === "school_overwhelm_brain") return "You’ve been coming back to school pressure in steadier, smaller passes.";
+  if (/(boundary|conflict|relationship)/.test(normalized)) return "You’ve been trying to hold clearer boundaries with less self-abandoning.";
+  return "You’ve been showing a quieter kind of follow-through by checking back in.";
+}
+
+function deriveSupportStyle(memorySnapshot: Awaited<ReturnType<typeof readMomentMemory>>) {
+  const recent = memorySnapshot.supportEffectivenessNotes.slice(0, 4).map((item) => item.supportStyle);
+  if (recent.filter((style) => style === "gentle_grounding").length >= 2) return "gentle_grounding";
+  if (recent.filter((style) => style === "structured_reset").length >= 2) return "structured_reset";
+  if (recent.filter((style) => style === "action_forward").length >= 2) return "action_forward";
+  return "calm_reflective";
+}
+
+function deriveToolMemory(memorySnapshot: Awaited<ReturnType<typeof readMomentMemory>>) {
+  const notes = memorySnapshot.supportEffectivenessNotes;
+  const recentlyDismissed = notes
+    .filter((note) => /too much|not helpful|skip|dismiss|not now/i.test(note.outcomeNote))
+    .slice(0, 2)
+    .map(() => "first_problem_together");
+  const recentlyHelpful = notes
+    .filter((note) => /helped|better|easier|less overwhelming/i.test(note.outcomeNote))
+    .slice(0, 3)
+    .map(() => "first_problem_together");
+  return {
+    dismissed: [...new Set(recentlyDismissed)],
+    helpful: [...new Set(recentlyHelpful)],
+  };
+}
+
+
+function ensureResponseShape(response: ReturnType<typeof runMomentOrchestrator>["response"]) {
+  const reflection = typeof response.reflection === "string" && response.reflection.trim().length > 0
+    ? response.reflection
+    : "Thanks for sharing this. We can keep this gentle.";
+  const tinyNextStep = typeof response.tinyNextStep === "string" && response.tinyNextStep.trim().length > 0
+    ? response.tinyNextStep
+    : "One slow breath is enough for now.";
+  return {
+    ...response,
+    reflection,
+    tinyNextStep,
+    steps: Array.isArray(response.steps) && response.steps.length > 0 ? response.steps.filter((s) => typeof s === "string" && s.trim().length > 0) : [tinyNextStep],
+  };
+}
+
+
+function buildFallbackResponse(reason: string) {
+  return {
+    routeLabel: "Gentle reset",
+    routePath: "/check-in",
+    reflection: "Thanks for staying with this. We can keep this gentle.",
+    tinyNextStep: "Take one slower breath and name one thing you need right now.",
+    whyThisRoute: reason,
+    continueLabel: "Stay here",
+    steps: ["We can keep this very light.", "If you want, name one pressure point in a few words."],
+    supportiveNote: "No need to solve this immediately.",
+    followUpActions: [{ label: "Quiet reflection", href: "/check-in" }],
+  };
+}
+
+function createJournalArcSummary(memorySnapshot: Awaited<ReturnType<typeof readMomentMemory>>) {
+  const joined = memorySnapshot.entries.map((entry) => `${entry.inputSummary} ${entry.emotionalState ?? ""}`).join(" ").toLowerCase();
+  if (/(work|deadline|burnout)/.test(joined)) return "Arc lately: work pressure has been recurring, and slower restarts seem to help.";
+  if (/(school|exam|class|homework)/.test(joined)) return "Arc lately: school pressure has been showing up; tiny starts appear more workable than big pushes.";
+  if (/(grief|loss|miss)/.test(joined)) return "Arc lately: you’ve been carrying grief in waves, with gentler check-ins seeming more sustainable.";
+  if (/(overwhelm|shutdown|stuck)/.test(joined)) return "Arc lately: overwhelm loops appear, and grounding-first support tends to land better.";
+  return "Arc lately: you’ve been returning to what matters, and small continuity seems to help.";
+}
+
+
+
+type QaTag = "emotionally_warm" | "too_robotic" | "too_many_prompts" | "too_instructional" | "emotionally_flat" | "emotionally_helpful" | "pacing_mismatch" | "continuity_creepy" | "continuity_comforting";
+
+function deriveQaTags(input: { reflection: string; tinyNextStep: string; steps: string[]; selectedStates: string[]; continuityCue: string | null; supportFatigueReduction: boolean; pacingProfile: string; warnings: string[]; }): QaTag[] {
+  const tags: QaTag[] = [];
+  const joined = `${input.reflection} ${input.tinyNextStep} ${input.steps.join(" ")}`.toLowerCase();
+  if (/(with you|gentle|no pressure|one breath|it's okay)/.test(joined)) tags.push("emotionally_warm", "emotionally_helpful");
+  if (/(framework|optimize|profile|pipeline)/.test(joined)) tags.push("too_robotic");
+  if (input.steps.length >= 3 || /(first|second|third)/.test(joined)) tags.push("too_many_prompts");
+  if (/(you should|you need to|must)/.test(joined)) tags.push("too_instructional");
+  if (!/(feel|hard|heavy|tender|overwhelm|pressure)/.test(joined)) tags.push("emotionally_flat");
+  if (input.pacingProfile === "slow" && /(quick|right now)/.test(joined)) tags.push("pacing_mismatch");
+  if (input.continuityCue && /(always|every time|you keep)/i.test(input.continuityCue)) tags.push("continuity_creepy");
+  if (input.continuityCue && /(small returns|checking back in|steadier)/i.test(input.continuityCue)) tags.push("continuity_comforting");
+  if (input.supportFatigueReduction) tags.push("emotionally_warm");
+  if (input.warnings.length > 0 && !tags.includes("emotionally_helpful")) tags.push("emotionally_helpful");
+  return [...new Set(tags)];
+}
+
+function detectLoopSignals(input: { text: string; selectedStates: string[]; followUpAnswers: string[]; memoryThreads: { status: string }[]; warnings: string[]; responseText: string; }) {
+  const signals: string[] = [];
+  const normalized = `${input.text} ${input.selectedStates.join(" ")} ${input.followUpAnswers.join(" ")}`.toLowerCase();
+  if (/(nothing helps|same thing again|still stuck|again and again)/.test(normalized)) signals.push("repeated_unresolved_loops");
+  if (/(what do you mean|can you clarify|not what i mean)/.test(normalized)) signals.push("circular_clarification");
+  if (input.memoryThreads.filter((t) => t.status === "active").length >= 4) signals.push("support_fatigue_pattern");
+  if (/(doesn't help|not helping|no point)/.test(normalized)) signals.push("nothing_helps_escalation");
+  if (/\b(i\s+guess|whatever|fine)\b/.test(normalized)) signals.push("abrupt_emotional_transition");
+  if (/(first,|second,|third,).*(first,|second,|third,)/.test(input.responseText.toLowerCase())) signals.push("repetitive_response_structure");
+  if (input.warnings.length > 0) signals.push("system_fallback_load");
+  return signals;
+}
+
+export async function POST(request: Request) {
+  const warnings: string[] = [];
+  let continuitySummary: string | null = null;
+  let continuityCue: string | null = null;
+  const supabase = await createSupabaseServerClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const parsed = schema.safeParse(await request.json());
+  if (!parsed.success) return NextResponse.json({ error: "Invalid input" }, { status: 400 });
+  const { data: profile } = await supabase.from("moment_profiles").select("age_range").eq("user_id", user.id).maybeSingle();
+  const trustedAgeRange = normalizeAgeRange(profile?.age_range);
+  const policy = resolveAudiencePolicy(trustedAgeRange);
+  const safety = applyRouteSafetyFilters(`${parsed.data.text} ${parsed.data.selectedStates.join(" ")}`);
+  if (safety.deny) {
+    const safe = { routeLabel: "Emotional Reset", routePath: "/check-in", reflection: "I’m really glad you checked in. This sounds serious and you deserve immediate support.", tinyNextStep: escalationCopy(policy.isMinor), whyThisRoute: "Moment detected language that needs immediate trusted-human support.", continueLabel: "Open Emotional Reset", steps: ["Tell a parent, guardian, school counselor, or another trusted adult exactly what is happening.", "If there is immediate danger, contact local emergency services now."], supportiveNote: "You matter, and you do not need to hold this alone.", followUpActions: [{ label: "Open Check In", href: "/check-in?from=safety" }] };
+    return NextResponse.json({ route: { primaryBrainId: "safety_support_brain", supportingBrainIds: [], routeLabel: "Emotional Reset", routePath: "/check-in", reason: "High-risk language detected.", confidence: "high", audience: "all", category: "emotion" }, response: safe, warnings });
+  }
+
+  const subscription = await getCurrentMomentPlan(user.id);
+  const usage = await getMomentUsageSnapshot(user.id, subscription.plan);
+  if (usage.momentLimit !== null && usage.usedMoments >= usage.momentLimit) {
+    return NextResponse.json({
+      code: "moment_limit_reached",
+      message: "You’ve reached your monthly Moment limit. You can still view your journal and saved support until your limit resets.",
+      usedMoments: usage.usedMoments,
+      momentLimit: usage.momentLimit,
+      remainingMoments: usage.remainingMoments,
+    }, { status: 402 });
+  }
+
+
+  const { data: activeThreads } = await supabase
+    .from("moment_threads")
+    .select("id,user_id,title,summary,primary_brain_id,support_style,emotional_state,status,last_activity_at,created_at,updated_at")
+    .eq("user_id", user.id)
+    .in("status", ["active", "paused"])
+    .order("last_activity_at", { ascending: false })
+    .limit(6);
+
+
+  const followUpAnswers = parsed.data.conversationState?.unresolvedClarification?.followUpHistory.map((entry) => entry.choiceLabel) ?? [];
+  const typedThreads = (activeThreads ?? []) as MomentThread[];
+  continuitySummary = summarizeContinuity(parsed.data.text, typedThreads);
+  const cue = typedThreads.map((thread) => continuityCueFromThread(thread, parsed.data.text)).find((item) => !!item);
+  continuityCue = cue?.prompt ?? null;
+
+  let result;
+  try {
+  result = runMomentOrchestrator({
+    momentText: parsed.data.text,
+    selectedSignals: [...parsed.data.selectedStates, ...followUpAnswers],
+    ageRange: trustedAgeRange,
+    supportStyle: parsed.data.conversationState?.inferredSupportStyle,
+    followUpHistory: parsed.data.conversationState?.unresolvedClarification?.followUpHistory ?? [],
+    knownSupportNeeds: typedThreads.slice(0, 3).map((thread) => thread.summary),
+    profileContext: continuitySummary ?? undefined,
+    recentRouteHistory: typedThreads.slice(0, 4).map((thread) => thread.primary_brain_id),
+    threadId: parsed.data.conversationState?.threadId,
+    sourceSurface: parsed.data.sourceSurface,
+    suggestedIntent: parsed.data.suggestedIntent,
+    optionalBrainHint: parsed.data.optionalBrainHint as "tutor_brain" | "task_start_brain" | "social_boundary_brain" | undefined,
+    audienceHint: parsed.data.audience === "adult" || parsed.data.audience === "teen" || parsed.data.audience === "all" ? parsed.data.audience : undefined,
+  });
+  } catch {
+    const fallback = buildFallbackResponse("Support temporarily shifted into minimal mode.");
+    return NextResponse.json({ route: { primaryBrainId: "emotional_reset_brain", supportingBrainIds: [], routeLabel: "Gentle reset", routePath: "/check-in", reason: "orchestration_fallback", confidence: "low", audience: "all", category: "emotion" }, response: { ...fallback, trustSignal: buildTrustSignal(0), fallbackMode: "orchestrator_failure" }, warnings: ["Orchestration fallback used."] });
+  }
+  const confidenceValue = result.route.confidence === "high" ? 0.95 : result.route.confidence === "medium" ? 0.75 : 0.5;
+  if (result.trace.continuitySuppressedReason) {
+    continuitySummary = null;
+    continuityCue = null;
+  }
+  const safeResponse = sanitizeVisibleResponse(ensureResponseShape(result.response));
+  const { data: routeData, error: routeError } = await supabase.from("moment_routes").insert({ user_id: user.id, primary_brain_id: result.route.primaryBrainId, supporting_brain_ids: result.route.supportingBrainIds, category: result.route.category, audience: result.route.audience, input_summary: summarizeInput(parsed.data.text), route_reason: result.route.reason, confidence: confidenceValue }).select("id").single();
+  const continuation = findThreadContinuation(parsed.data.text, typedThreads, result.route.primaryBrainId);
+  const upsertPayload = buildThreadUpsert(parsed.data.text, result.route, user.id, inferSupportStyle(parsed.data.conversationState?.inferredSupportStyle), continuation?.thread.id);
+  const threadWrite = continuation?.thread.id
+    ? await supabase.from("moment_threads").update(upsertPayload).eq("id", continuation.thread.id).select("id").single()
+    : await supabase.from("moment_threads").insert(upsertPayload).select("id").single();
+  const threadData = threadWrite.data;
+  const threadError = threadWrite.error;
+  if (threadError) warnings.push(`Failed to persist thread continuity: ${threadError.message}`);
+  if (routeError) warnings.push(`Failed to log route event: ${routeError.message}`);
+
+  const artifacts = extractMemoryArtifacts({
+    userText: parsed.data.text,
+    selectedStates: parsed.data.selectedStates,
+    route: result.route,
+    response: safeResponse,
+    supportStyle: parsed.data.conversationState?.inferredSupportStyle,
+    riskSeverity: safety.risk.severity,
+    ageRange: trustedAgeRange,
+  });
+  let entryId: string | null = null;
+  try {
+    entryId = await persistMomentMemory({
+    supabase,
+    userId: user.id,
+    threadId: threadData?.id ?? null,
+    routeId: routeData?.id ?? null,
+    artifacts,
+  });
+  } catch {
+    entryId = null;
+  }
+  if (!entryId) warnings.push("We saved your support response, but memory sync is delayed.");
+
+  const detectedPattern = detectPattern(parsed.data.text);
+  if (detectedPattern) {
+    const { data: existing } = await supabase.from("moment_patterns").select("id,recurrence_count").eq("user_id", user.id).eq("pattern_key", detectedPattern.key).maybeSingle();
+    if (existing) {
+      await supabase.from("moment_patterns").update({ recurrence_count: (existing.recurrence_count ?? 1) + 1, summary: detectedPattern.summary, support_focus: detectedPattern.focus, last_seen_at: new Date().toISOString() }).eq("id", existing.id);
+    } else {
+      await supabase.from("moment_patterns").insert({ user_id: user.id, pattern_key: detectedPattern.key, summary: detectedPattern.summary, support_focus: detectedPattern.focus });
+    }
+  }
+
+  const memorySnapshot = await readMomentMemory(supabase, user.id).catch(() => ({ entries: [], threads: [], goals: [], tinyWins: [], suggestions: [], supportPatterns: [], supportEffectivenessNotes: [] }));
+  const emotionalStateModel = buildEmotionalStateModel({
+    routeInput: {
+      momentText: parsed.data.text,
+      selectedSignals: [...parsed.data.selectedStates, ...followUpAnswers],
+      supportStyle: parsed.data.conversationState?.inferredSupportStyle,
+      followUpHistory: parsed.data.conversationState?.unresolvedClarification?.followUpHistory ?? [],
+      threadId: parsed.data.conversationState?.threadId,
+    sourceSurface: parsed.data.sourceSurface,
+    suggestedIntent: parsed.data.suggestedIntent,
+    optionalBrainHint: parsed.data.optionalBrainHint as "tutor_brain" | "task_start_brain" | "social_boundary_brain" | undefined,
+    audienceHint: parsed.data.audience === "adult" || parsed.data.audience === "teen" || parsed.data.audience === "all" ? parsed.data.audience : undefined,
+    },
+    memorySnapshot,
+    cognition: result.trace.emotionalCognition,
+  });
+  const now = new Date();
+  const rhythmHint = detectEmotionalRhythmHint(parsed.data.text, now);
+  const seasonalCue = detectSeasonalCue(parsed.data.text, now);
+  const styleHint = deriveSupportStyle(memorySnapshot);
+  const trajectoryCue = buildRecoveryTrajectoryCue(parsed.data.text, result.route.primaryBrainId);
+  const journalArcSummary = createJournalArcSummary(memorySnapshot);
+  const unresolvedCount = memorySnapshot.threads.filter((thread) => thread.status === "active").length;
+  const gentlePresence = unresolvedCount >= 3 || /(exhausted|drained|can.t do this|too much)/i.test(parsed.data.text);
+  const loopSignals = detectLoopSignals({ text: parsed.data.text, selectedStates: parsed.data.selectedStates, followUpAnswers, memoryThreads: memorySnapshot.threads, warnings, responseText: `${safeResponse.reflection} ${safeResponse.tinyNextStep} ${safeResponse.steps.join(" ")}` });
+  const shouldSlowDown = gentlePresence || loopSignals.length > 0;
+  const emotionalLoad = result.route.primaryBrainId === "grief_support_brain"
+    ? "grief"
+    : result.route.primaryBrainId === "loneliness_support_brain"
+      ? "lonely"
+      : (gentlePresence || /overloaded|flooded|too much|shutdown|spiral/i.test(parsed.data.text))
+        ? "heavy"
+        : "medium";
+  const suppressedForPacing = result.route.primaryBrainId === "grief_support_brain"
+    || (result.route.primaryBrainId === "tutor_brain" && shouldSlowDown);
+  const supportTools = suppressedForPacing ? [] : recommendMomentTools({
+    route: result.route.primaryBrainId,
+    inputText: parsed.data.text,
+    ageRange: trustedAgeRange,
+    emotionalLoad,
+    memorySnapshot: deriveToolMemory(memorySnapshot),
+  });
+  const adaptedSteps = shouldSlowDown ? safeResponse.steps.slice(0, 1) : safeResponse.steps;
+  const qualityFlags = deriveSupportQualityFlags({
+    steps: adaptedSteps,
+    reflection: safeResponse.reflection,
+    tinyNextStep: safeResponse.tinyNextStep,
+    confidence: result.route.confidence,
+    reducePrompting: result.trace.supportFatigueReduction,
+  });
+  const fallbackPath = (warnings.some((item) => item.includes("memory")) ? "memory_failure" : result.route.confidence === "low" ? "routing_low_confidence" : "none") as "none" | "memory_failure" | "routing_low_confidence";
+  const qaTags = deriveQaTags({ reflection: safeResponse.reflection, tinyNextStep: safeResponse.tinyNextStep, steps: adaptedSteps, selectedStates: parsed.data.selectedStates, continuityCue, supportFatigueReduction: result.trace.supportFatigueReduction, pacingProfile: result.trace.pacingProfile, warnings });
+  const trace = {
+    routedBrain: result.route.primaryBrainId,
+    supportStyle: parsed.data.conversationState?.inferredSupportStyle ?? "calm_reflective",
+    pacingProfile: result.trace.pacingProfile,
+    clarificationUsed: result.trace.clarificationUsed,
+    responseDepth: result.trace.responseDepth,
+    continuationPath: "continue" as const,
+    supportFatigueReduction: result.trace.supportFatigueReduction,
+    fallbackPath,
+    confidence: result.route.confidence,
+    qualityFlags,
+    qaTags,
+    loopSignals,
+    previousDomain: result.trace.previousDomain,
+    currentDomain: result.trace.currentDomain,
+    continuitySuppressedReason: result.trace.continuitySuppressedReason,
+    memoryRelevanceScores: result.trace.unifiedCognition.memoryRelevance,
+  };
+  try {
+    await supabase.from("moment_orchestration_events").insert({ user_id: user.id, thread_id: threadData?.id ?? null, route_id: routeData?.id ?? null, trace_summary: summarizeTrace(trace), trace_metadata: trace });
+  } catch {}
+  return NextResponse.json({
+    route: result.route,
+    response: {
+      ...safeResponse,
+      steps: adaptedSteps,
+      continuitySummary,
+      continuityCue,
+      continuationOptions: ["continue", "pause", "start_fresh"],
+      emotionalRhythmHint: rhythmHint ? `Soft pattern cue (low confidence): ${rhythmHint}` : null,
+      seasonalContextCue: seasonalCue,
+      supportStyleAdaptationCue: `Support pacing is leaning ${styleHint.replace("_", " ")} right now.`,
+      recoveryTrajectoryCue: trajectoryCue,
+      journalArcSummary,
+      emotionalStateModel,
+      emotionalContinuityCue: emotionalStateModel.continuityPrompt,
+      emotionalNarrativeArc: emotionalStateModel.narrativeArc,
+      supportTimingMode: shouldSlowDown ? "gentle_presence" : "normal",
+      trustSignal: buildTrustSignal(memorySnapshot.entries.length),
+      fallbackMode: fallbackPath,
+      qualityFlags,
+    qaTags,
+    loopSignals,
+    supportTools: supportTools.map((tool) => ({ id: tool.id, label: tool.label, description: tool.description })),
+    },
+    warnings: [...result.warnings, ...warnings],
+    memorySnapshot,
+  });
+}
+
+===== FILE: app/dashboard/DashboardClient.tsx =====
+"use client";
+
+import { useMemo, useState } from "react";
+import Link from "next/link";
+import type { MomentPlan } from "@/lib/plans";
+import type { MomentCheckInResponse, MomentRouteResult, OperationalBlock } from "@/features/ai/types";
+import { BRAIN_AUDIENCES, BRAIN_CATEGORIES, MOMENT_BRAIN_IDS, OPERATIONAL_BLOCK_TYPES, ROUTE_LABELS } from "@/features/ai/contracts";
+import type { BrainAudience, BrainCategory, MomentBrainId } from "@/features/ai/brains/types";
+import type { MomentGreetingOutput } from "@/features/moment/greeting/types";
+import type { MomentMemorySnapshot } from "@/features/moment/memory/types";
+import { GreetingSurface } from "./components/GreetingSurface";
+import { IntakeComposer } from "./components/IntakeComposer";
+import { SupportStream } from "./components/SupportStream";
+import { ContinuityPanel } from "./components/ContinuityPanel";
+import { sanitizeUiCue, sanitizeVisibleResponse } from "@/features/ai/responseSanitizer";
+
+type SupportStyle = "calm_reflective" | "gentle_grounding" | "structured_reset" | "action_forward";
+const knownBrainIds = new Set<string>(MOMENT_BRAIN_IDS);
+const knownAudiences = new Set<string>(BRAIN_AUDIENCES);
+const knownCategories = new Set<string>(BRAIN_CATEGORIES);
+const knownBlockTypes = new Set<string>(OPERATIONAL_BLOCK_TYPES);
+const safeLabel = (id: MomentBrainId) => ROUTE_LABELS[id] ?? id.replace(/_brain$/, "").split("_").map((c) => c[0].toUpperCase() + c.slice(1)).join(" ");
+function toSafeRoute(raw: unknown): MomentRouteResult | null { if (!raw || typeof raw !== "object") return null; const route = raw as Record<string, unknown>; const id = typeof route.primaryBrainId === "string" ? route.primaryBrainId : null; if (!id || !knownBrainIds.has(id)) return null; const brainId = id as MomentBrainId; return { primaryBrainId:brainId,supportingBrainIds:[],routeLabel:typeof route.routeLabel==="string"?route.routeLabel:safeLabel(brainId),routePath:typeof route.routePath==="string"?route.routePath:"/check-in",reason:typeof route.reason==="string"?route.reason:"Moment selected support.",confidence:"medium",audience:typeof route.audience === "string" && knownAudiences.has(route.audience)?route.audience as BrainAudience:"all",category:typeof route.category === "string" && knownCategories.has(route.category)?route.category as BrainCategory:"emotion"}; }
+function toSafeBlocks(blocks: unknown, reflection: string, tinyNextStep: string): OperationalBlock[] { return Array.isArray(blocks) ? blocks.filter((b): b is Record<string, unknown> => !!b && typeof b === "object").map((b)=>({ type: typeof b.type === "string" && knownBlockTypes.has(b.type) ? b.type : "support", text: typeof b.text === "string" ? b.text : "" })).filter((b)=>b.text.length>0) as OperationalBlock[] : [{ type:"reflection", text:reflection},{type:"tiny_step",text:tinyNextStep}];}
+function toSafeResponse(raw: unknown, route: MomentRouteResult): MomentCheckInResponse | null { if (!raw || typeof raw !== "object") return null; const response = raw as Record<string, unknown>; const reflection = typeof response.reflection === "string" ? response.reflection : "Thanks for sharing this moment."; const tinyNextStep = typeof response.tinyNextStep === "string" ? response.tinyNextStep : "Take one small step."; const steps = Array.isArray(response.steps) ? response.steps.filter((s): s is string => typeof s === "string") : []; return sanitizeVisibleResponse({ routeLabel: route.routeLabel, routePath: route.routePath, reflection, tinyNextStep, whyThisRoute: typeof response.whyThisRoute === "string" ? response.whyThisRoute : "", continueLabel: "If you want, keep going", steps, supportiveNote: typeof response.supportiveNote === "string" ? response.supportiveNote : "Small steps count.", followUpActions: [], blocks: toSafeBlocks(response.blocks, reflection, tinyNextStep) }); }
+
+export function DashboardClient({ greeting, memory, plan, usage }: { greeting: MomentGreetingOutput; memory: MomentMemorySnapshot | null; plan: MomentPlan; usage: { usedMoments: number; momentLimit: number | null; remainingMoments: number | null } }) {
+  const emptyMemory: MomentMemorySnapshot = { entries: [], threads: [], goals: [], tinyWins: [], suggestions: [], supportPatterns: [], supportEffectivenessNotes: [] };
+  const [memoryState,setMemoryState]=useState(memory ?? emptyMemory);
+  const [savedNote,setSavedNote]=useState<string | null>(null);
+  const [inlineError,setInlineError]=useState<string | null>(null);
+  const [isSubmitting,setIsSubmitting]=useState(false);
+  const [text,setText]=useState("");
+  const [result,setResult]=useState<{route:MomentRouteResult;response:MomentCheckInResponse}|null>(null);
+  const [continuitySummary,setContinuitySummary]=useState<string | null>(null);
+  const [adaptiveCue,setAdaptiveCue]=useState<string | null>(null);
+  const [supportStyle]=useState<SupportStyle>("calm_reflective");
+  const [threadId]=useState(`thread_${Date.now().toString(36)}`);
+  const personalizedOpening=useMemo(()=> "You can start anywhere — one sentence is enough.",[]);
+
+  async function submit(){
+    setInlineError(null);
+    setSavedNote(null);
+    setIsSubmitting(true);
+    try {
+    const res=await fetch('/api/ai/check-in',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({text,selectedStates:[],conversationState:{threadId,selectedEmotionalContext:[],inferredSupportStyle:supportStyle}})});
+    if(!res.ok){
+      if (res.status === 402) {
+        setInlineError("You’ve reached your monthly Moment limit. You can still read your saved moments.");
+        return;
+      }
+      setInlineError("Couldn’t save right now. Your words are still here.");
+      return;
+    }
+    const data=await res.json();
+    const route=toSafeRoute(data.route);
+    if(!route){ setInlineError("We hit a pause. Please try once more."); return; }
+    const response=toSafeResponse(data.response,route);
+    if(!response){ setInlineError("We hit a pause. Please try once more."); return; }
+    setResult({route,response});
+    setContinuitySummary(typeof data.response?.continuitySummary === "string" ? data.response.continuitySummary : null);
+    setAdaptiveCue(null);
+    if(data.memorySnapshot && typeof data.memorySnapshot === "object") setMemoryState(data.memorySnapshot);
+    setSavedNote("Saved quietly.");
+    } catch {
+      setInlineError("Something interrupted this check-in. Please try again.");
+    } finally {
+      setIsSubmitting(false);
+    }
+  }
+
+  return <div className="mx-auto max-w-3xl space-y-6 py-5 sm:space-y-7">
+    <section className="rounded-2xl bg-white/[0.03] px-4 py-3 text-sm text-slate-200">
+      <p>{usage.momentLimit === null ? "Moments are here whenever you need them." : `${usage.usedMoments}/${usage.momentLimit} moments used this month.`}</p>
+      <Link href="/settings?tab=billing" className="mt-1 inline-block text-xs text-violet-200/80 underline">Manage plan</Link>
+    </section>
+    <GreetingSurface headline={greeting.headline} opening={personalizedOpening} text={text} onText={setText} />
+    <IntakeComposer onSubmit={submit} disabled={text.length < 3 || isSubmitting} savedNote={savedNote} />
+    {inlineError ? <p className="rounded-xl bg-rose-500/10 px-3 py-2 text-sm text-rose-100">{inlineError}</p> : null}
+    <ContinuityPanel summary={result ? continuitySummary : null} cue={result && continuitySummary ? "You can keep going from here, or start fresh." : null} />
+    <SupportStream result={result} adaptiveCue={adaptiveCue} />
+  </div>;
+}
+
+===== FILE: app/dashboard/components/SupportStream.tsx =====
+import { SupportFeedbackInline } from "./SupportFeedbackInline";
+import { SupportToolInline } from "./SupportToolInline";
+import { MomentCard } from "@/components/moment/MomentCard";
+import type { CheckInResult } from "./types";
+
+export function SupportStream({ result, adaptiveCue }: { result: CheckInResult | null; adaptiveCue: string | null }) {
+  if (!result) return null;
+
+  const firstStep = result.response.steps.find((step) => step.trim().toLowerCase() !== result.response.tinyNextStep.trim().toLowerCase());
+
+  return (
+    <MomentCard className="p-4 sm:p-6">
+      <div className="space-y-4">
+        {adaptiveCue ? <p className="text-xs leading-6 text-[#d8cfff]">{adaptiveCue}</p> : null}
+        <p className="text-sm leading-7 text-[#f5edff]">{result.response.reflection}</p>
+        <p className="text-sm leading-7 text-[#ece3ff]">{result.response.tinyNextStep}</p>
+        {firstStep ? <p className="text-sm leading-7 text-[#ddd0f3]">{firstStep}</p> : null}
+      </div>
+      <SupportToolInline response={result.response} />
+      <p className="mt-5 max-w-xl text-xs leading-6 text-[#cabfdf]">You can keep going from here, or pause and come back.</p>
+      <div className="mt-4"><SupportFeedbackInline /></div>
+    </MomentCard>
+  );
+}
+
+===== FILE: app/dashboard/components/SupportToolInline.tsx =====
+import type { MomentCheckInResponse } from "@/features/ai/types";
+
+export function SupportToolInline({ response }: { response: MomentCheckInResponse }) {
+  if (!response.supportTools || response.supportTools.length === 0) return null;
+  const primaryTool = response.supportTools[0];
+  return <div className="mt-4 rounded-2xl border border-white/10 bg-white/[0.03] px-3 py-2">
+    <p className="text-xs leading-6 text-[#ddd0f3]">{primaryTool.label}</p>
+  </div>;
+}
+
+===== FILE: app/dashboard/components/IntakeComposer.tsx =====
+import { MomentButton } from "@/components/moment/MomentButton";
+
+export function IntakeComposer({ onSubmit, disabled, savedNote }: { onSubmit: () => void; disabled: boolean; savedNote: string | null }) {
+  return (
+    <div className="pt-1">
+      <MomentButton onClick={onSubmit} disabled={disabled}>Continue</MomentButton>
+      {savedNote ? <p className="mt-2 text-xs text-violet-100/70">{savedNote}</p> : null}
+    </div>
+  );
+}
+
+===== FILE: features/moment/tools/recommend.ts =====
+import type { AgeRange, MomentBrainId } from "@/features/ai/brains/types";
+import type { EmotionalLoad, MomentTool } from "@/features/moment/tools/contracts";
+import { momentToolRegistry } from "@/features/moment/tools/registry";
+
+type ToolMemory = { dismissed: string[]; helpful: string[] };
+
+export function recommendMomentTools(input: { route: MomentBrainId; inputText: string; ageRange?: AgeRange; memorySnapshot?: ToolMemory; supportStyle?: string; emotionalLoad?: EmotionalLoad; }) {
+  const ageRange = input.ageRange ?? "18_plus";
+  const load = input.emotionalLoad ?? "medium";
+  if (load === "grief" || load === "lonely") return [];
+  const base = momentToolRegistry.filter((tool) => tool.supportedBrainIds.includes(input.route) && tool.supportedAgeRanges.includes(ageRange));
+  const dismissed = new Set(input.memorySnapshot?.dismissed ?? []);
+  const helpful = new Set(input.memorySnapshot?.helpful ?? []);
+  const filtered = base.filter((tool) => !(dismissed.has(tool.id) && !helpful.has(tool.id)));
+  const sorted = filtered.sort((a: MomentTool, b: MomentTool) => Number(helpful.has(b.id)) - Number(helpful.has(a.id)));
+  if (load === "heavy" || load === "exhausted") return sorted.slice(0, 1);
+  if (input.route === "tutor_brain" || input.route === "school_overwhelm_brain") return sorted.slice(0, 1);
+  if (input.route === "work_stress_brain" || input.route === "finance_clarity_brain") return sorted.slice(0, 1);
+  return sorted.slice(0, 2);
+}
+
+===== FILE: features/moment/tools/registry.ts =====
+import type { MomentTool } from "@/features/moment/tools/contracts";
+
+const teen = ["under_13", "13_15", "16_17"] as const;
+const allAges = ["under_13", "13_15", "16_17", "18_plus"] as const;
+const adult = ["18_plus"] as const;
+
+export const momentToolRegistry: MomentTool[] = [
+  { id: "explain_another_way", label: "Want to try this a different way?", description: "Reframe the same concept without pressure.", supportedBrainIds: ["tutor_brain", "school_overwhelm_brain"], supportedAgeRanges: [...allAges], triggerSignals: ["don't understand", "confused"], contraindications: ["severe_safety"], outputMode: "inline_prompt" },
+  { id: "first_problem_together", label: "Want to start with one example?", description: "Guide the first question or first sentence.", supportedBrainIds: ["tutor_brain", "task_start_brain"], supportedAgeRanges: [...allAges], triggerSignals: ["freeze", "can't start"], contraindications: ["severe_safety"], outputMode: "micro_steps" },
+  { id: "shrink_assignment", label: "Want to shrink this into one tiny start?", description: "Turn assignment load into one small action.", supportedBrainIds: ["tutor_brain", "school_overwhelm_brain"], supportedAgeRanges: [...allAges], triggerSignals: ["assignment", "too much"], contraindications: ["grief_heavy"], outputMode: "micro_steps" },
+  { id: "study_plan_micro", label: "Want a low-pressure study path?", description: "Create a short, calm study sequence.", supportedBrainIds: ["tutor_brain"], supportedAgeRanges: [...allAges], triggerSignals: ["test prep", "study"], contraindications: ["grief_heavy"], outputMode: "micro_steps" },
+  { id: "stuck_point_finder", label: "Want help finding the exact stuck point?", description: "Identify where understanding breaks.", supportedBrainIds: ["tutor_brain", "school_overwhelm_brain"], supportedAgeRanges: [...allAges], triggerSignals: ["stuck", "not sure where"], contraindications: [], outputMode: "inline_prompt" },
+  { id: "pressure_sort", label: "Want help sorting the pressure?", description: "Sort urgent vs can wait.", supportedBrainIds: ["finance_clarity_brain", "life_admin_brain", "work_stress_brain"], supportedAgeRanges: [...adult], triggerSignals: ["too many", "pressure"], contraindications: ["grief_heavy", "exhaustion_heavy"], outputMode: "micro_steps" },
+  { id: "workload_triage", label: "Want to triage today's workload?", description: "Choose one work move.", supportedBrainIds: ["work_stress_brain"], supportedAgeRanges: [...adult], triggerSignals: ["burnout", "deadline"], contraindications: ["grief_heavy"], outputMode: "micro_steps" },
+  { id: "communication_prep", label: "Want a sentence you can use?", description: "Draft one calm message.", supportedBrainIds: ["relationship_reflection_brain", "social_boundary_brain"], supportedAgeRanges: [...allAges], triggerSignals: ["say", "text"], contraindications: ["high_conflict_escalation"], outputMode: "sentence_starter" },
+  { id: "friend_boundary_sentence", label: "Want a sentence you can use?", description: "Teen-safe friend boundary sentence.", supportedBrainIds: ["social_boundary_brain"], supportedAgeRanges: [...teen], triggerSignals: ["friend", "group chat"], contraindications: ["high_conflict_escalation"], outputMode: "sentence_starter" },
+  { id: "calm_before_homework", label: "Want to calm first before homework?", description: "Ground before school tasks.", supportedBrainIds: ["school_overwhelm_brain", "tutor_brain"], supportedAgeRanges: [...teen], triggerSignals: ["homework", "panic"], contraindications: [], outputMode: "presence" }
+];
+
+===== TARGETED SEARCH =====
+app/settings/page.tsx:69:  const id = String(formData.get("suggestion_id") ?? "");
+app/settings/page.tsx:72:  await supabase.from("moment_suggestions").update({ status }).eq("id", id).eq("user_id", user.id);
+app/settings/page.tsx:80:  const { data: suggestions } = await supabase.from("moment_suggestions").select("id,suggestion_text,status").eq("user_id", user.id).in("status", ["suggested", "accepted"]).order("updated_at", { ascending: false }).limit(6);
+app/settings/page.tsx:124:                {(suggestions ?? []).map((suggestion) => (
+app/settings/page.tsx:125:                  <li key={suggestion.id} className="rounded-xl border border-white/10 bg-white/[0.02] px-3 py-2">
+app/settings/page.tsx:126:                    <p>{suggestion.suggestion_text}</p>
+app/settings/page.tsx:128:                      <form action={updateSuggestionStatus}><input type="hidden" name="suggestion_id" value={suggestion.id} /><input type="hidden" name="status" value="dismissed" /><MomentButton type="submit">Dismiss</MomentButton></form>
+app/settings/page.tsx:129:                      <form action={updateSuggestionStatus}><input type="hidden" name="suggestion_id" value={suggestion.id} /><input type="hidden" name="status" value="archived" /><MomentButton type="submit">Archive</MomentButton></form>
+app/settings/page.tsx:133:                {(suggestions ?? []).length === 0 ? <li>No active suggestions.</li> : null}
+app/dashboard/DashboardClient.tsx:24:function toSafeBlocks(blocks: unknown, reflection: string, tinyNextStep: string): OperationalBlock[] { return Array.isArray(blocks) ? blocks.filter((b): b is Record<string, unknown> => !!b && typeof b === "object").map((b)=>({ type: typeof b.type === "string" && knownBlockTypes.has(b.type) ? b.type : "support", text: typeof b.text === "string" ? b.text : "" })).filter((b)=>b.text.length>0) as OperationalBlock[] : [{ type:"reflection", text:reflection},{type:"tiny_step",text:tinyNextStep}];}
+app/dashboard/DashboardClient.tsx:25:function toSafeResponse(raw: unknown, route: MomentRouteResult): MomentCheckInResponse | null { if (!raw || typeof raw !== "object") return null; const response = raw as Record<string, unknown>; const reflection = typeof response.reflection === "string" ? response.reflection : "Thanks for sharing this moment."; const tinyNextStep = typeof response.tinyNextStep === "string" ? response.tinyNextStep : "Take one small step."; const steps = Array.isArray(response.steps) ? response.steps.filter((s): s is string => typeof s === "string") : []; return sanitizeVisibleResponse({ routeLabel: route.routeLabel, routePath: route.routePath, reflection, tinyNextStep, whyThisRoute: typeof response.whyThisRoute === "string" ? response.whyThisRoute : "", continueLabel: "If you want, keep going", steps, supportiveNote: typeof response.supportiveNote === "string" ? response.supportiveNote : "Small steps count.", followUpActions: [], blocks: toSafeBlocks(response.blocks, reflection, tinyNextStep) }); }
+app/dashboard/DashboardClient.tsx:28:  const emptyMemory: MomentMemorySnapshot = { entries: [], threads: [], goals: [], tinyWins: [], suggestions: [], supportPatterns: [], supportEffectivenessNotes: [] };
+app/dashboard/DashboardClient.tsx:35:  const [continuitySummary,setContinuitySummary]=useState<string | null>(null);
+app/dashboard/DashboardClient.tsx:36:  const [adaptiveCue,setAdaptiveCue]=useState<string | null>(null);
+app/dashboard/DashboardClient.tsx:61:    setContinuitySummary(typeof data.response?.continuitySummary === "string" ? data.response.continuitySummary : null);
+app/dashboard/DashboardClient.tsx:64:    setSavedNote("Saved quietly.");
+app/dashboard/DashboardClient.tsx:80:    <ContinuityPanel summary={result ? continuitySummary : null} cue={result && continuitySummary ? "You can keep going from here, or start fresh." : null} />
+app/dashboard/DashboardClient.tsx:81:    <SupportStream result={result} adaptiveCue={adaptiveCue} />
+app/dashboard/components/SupportStream.tsx:2:import { SupportToolInline } from "./SupportToolInline";
+app/dashboard/components/SupportStream.tsx:6:export function SupportStream({ result, adaptiveCue }: { result: CheckInResult | null; adaptiveCue: string | null }) {
+app/dashboard/components/SupportStream.tsx:9:  const firstStep = result.response.steps.find((step) => step.trim().toLowerCase() !== result.response.tinyNextStep.trim().toLowerCase());
+app/dashboard/components/SupportStream.tsx:14:        {adaptiveCue ? <p className="text-xs leading-6 text-[#d8cfff]">{adaptiveCue}</p> : null}
+app/dashboard/components/SupportStream.tsx:15:        <p className="text-sm leading-7 text-[#f5edff]">{result.response.reflection}</p>
+app/dashboard/components/SupportStream.tsx:16:        <p className="text-sm leading-7 text-[#ece3ff]">{result.response.tinyNextStep}</p>
+app/dashboard/components/SupportStream.tsx:19:      <SupportToolInline response={result.response} />
+app/dashboard/components/SupportToolInline.tsx:3:export function SupportToolInline({ response }: { response: MomentCheckInResponse }) {
+app/dashboard/components/SupportToolInline.tsx:4:  if (!response.supportTools || response.supportTools.length === 0) return null;
+app/dashboard/components/SupportToolInline.tsx:5:  const primaryTool = response.supportTools[0];
+app/dashboard/components/types.ts:12:  continuitySummary: string | null;
+app/api/moment/memory/actions/route.ts:7:  action: z.enum(["accept_suggestion", "dismiss_suggestion", "hide_tiny_win", "pause_thread", "resume_thread", "archive_goal", "pause_goal", "resume_goal", "mark_goal_progress", "mark_goal_struggling"]),
+app/api/moment/memory/actions/route.ts:24:  if (action === "accept_suggestion" || action === "dismiss_suggestion") {
+app/api/moment/memory/actions/route.ts:25:    const status = action === "accept_suggestion" ? "accepted" : "dismissed";
+app/api/moment/memory/actions/route.ts:26:    const { error } = await supabase.from("moment_suggestions").update({ status }).eq("id", id).eq("user_id", user.id);
+app/api/ai/check-in/route.ts:15:import { recommendMomentTools } from "@/features/moment/tools/recommend";
+app/api/ai/check-in/route.ts:107:  const reflection = typeof response.reflection === "string" && response.reflection.trim().length > 0
+app/api/ai/check-in/route.ts:108:    ? response.reflection
+app/api/ai/check-in/route.ts:110:  const tinyNextStep = typeof response.tinyNextStep === "string" && response.tinyNextStep.trim().length > 0
+app/api/ai/check-in/route.ts:111:    ? response.tinyNextStep
+app/api/ai/check-in/route.ts:115:    reflection,
+app/api/ai/check-in/route.ts:116:    tinyNextStep,
+app/api/ai/check-in/route.ts:117:    steps: Array.isArray(response.steps) && response.steps.length > 0 ? response.steps.filter((s) => typeof s === "string" && s.trim().length > 0) : [tinyNextStep],
+app/api/ai/check-in/route.ts:126:    reflection: "Thanks for staying with this. We can keep this gentle.",
+app/api/ai/check-in/route.ts:127:    tinyNextStep: "Take one slower breath and name one thing you need right now.",
+app/api/ai/check-in/route.ts:131:    supportiveNote: "No need to solve this immediately.",
+app/api/ai/check-in/route.ts:132:    followUpActions: [{ label: "Quiet reflection", href: "/check-in" }],
+app/api/ai/check-in/route.ts:149:function deriveQaTags(input: { reflection: string; tinyNextStep: string; steps: string[]; selectedStates: string[]; continuityCue: string | null; supportFatigueReduction: boolean; pacingProfile: string; warnings: string[]; }): QaTag[] {
+app/api/ai/check-in/route.ts:151:  const joined = `${input.reflection} ${input.tinyNextStep} ${input.steps.join(" ")}`.toLowerCase();
+app/api/ai/check-in/route.ts:180:  let continuitySummary: string | null = null;
+app/api/ai/check-in/route.ts:192:    const safe = { routeLabel: "Emotional Reset", routePath: "/check-in", reflection: "I’m really glad you checked in. This sounds serious and you deserve immediate support.", tinyNextStep: escalationCopy(policy.isMinor), whyThisRoute: "Moment detected language that needs immediate trusted-human support.", continueLabel: "Open Emotional Reset", steps: ["Tell a parent, guardian, school counselor, or another trusted adult exactly what is happening.", "If there is immediate danger, contact local emergency services now."], supportiveNote: "You matter, and you do not need to hold this alone.", followUpActions: [{ label: "Open Check In", href: "/check-in?from=safety" }] };
+app/api/ai/check-in/route.ts:220:  continuitySummary = summarizeContinuity(parsed.data.text, typedThreads);
+app/api/ai/check-in/route.ts:233:    profileContext: continuitySummary ?? undefined,
+app/api/ai/check-in/route.ts:247:    continuitySummary = null;
+app/api/ai/check-in/route.ts:295:  const memorySnapshot = await readMomentMemory(supabase, user.id).catch(() => ({ entries: [], threads: [], goals: [], tinyWins: [], suggestions: [], supportPatterns: [], supportEffectivenessNotes: [] }));
+app/api/ai/check-in/route.ts:319:  const loopSignals = detectLoopSignals({ text: parsed.data.text, selectedStates: parsed.data.selectedStates, followUpAnswers, memoryThreads: memorySnapshot.threads, warnings, responseText: `${safeResponse.reflection} ${safeResponse.tinyNextStep} ${safeResponse.steps.join(" ")}` });
+app/api/ai/check-in/route.ts:330:  const supportTools = suppressedForPacing ? [] : recommendMomentTools({
+app/api/ai/check-in/route.ts:340:    reflection: safeResponse.reflection,
+app/api/ai/check-in/route.ts:341:    tinyNextStep: safeResponse.tinyNextStep,
+app/api/ai/check-in/route.ts:346:  const qaTags = deriveQaTags({ reflection: safeResponse.reflection, tinyNextStep: safeResponse.tinyNextStep, steps: adaptedSteps, selectedStates: parsed.data.selectedStates, continuityCue, supportFatigueReduction: result.trace.supportFatigueReduction, pacingProfile: result.trace.pacingProfile, warnings });
+app/api/ai/check-in/route.ts:373:      continuitySummary,
+app/api/ai/check-in/route.ts:390:    supportTools: supportTools.map((tool) => ({ id: tool.id, label: tool.label, description: tool.description })),
+app/page.tsx:124:            <p className="text-sm text-violet-200">Free</p><h3 className="mt-1 text-2xl font-semibold">$0<span className="text-sm text-slate-300">/month</span></h3><p className="mt-2 text-sm text-slate-300">Basic reflection and moment tracking. Limited AI support.</p>
+features/moment/orchestration/observability.ts:18:export function deriveSupportQualityFlags(input: { steps: string[]; reflection: string; tinyNextStep: string; confidence: string; reducePrompting: boolean }) {
+features/moment/orchestration/observability.ts:20:  const loweredReflection = input.reflection.toLowerCase();
+features/moment/orchestration/observability.ts:26:  if (input.tinyNextStep.length < 16 && input.steps.length > 2) flags.push("abrupt_pacing_risk");
+features/moment/orchestration/types.ts:3:export type ResponseBlockType = "reflection" | "tiny_next_step" | "decomposed_steps" | "emotional_friction" | "momentum_builder" | "route_transition" | "recovery_prompt";
+features/moment/orchestration/types.ts:28:  reflection: string;
+features/moment/orchestration/types.ts:29:  tinyNextStep: string;
+features/moment/orchestration/types.ts:31:  supportiveNote: string;
+features/moment/orchestration/engine.ts:7:    { id: "reflection", type: "reflection", title: "What this moment sounds like", body: input.reflection },
+features/moment/orchestration/engine.ts:8:    { id: "tiny", type: "tiny_next_step", title: "Start here", body: input.tinyNextStep },
+features/moment/orchestration/engine.ts:10:    { id: "friction", type: "emotional_friction", title: "Friction check", body: input.supportiveNote },
+features/moment/continuity/emotionalStateModel.ts:5:export type SupportPreference = "presence" | "reflection" | "encouragement" | "practical_help" | "silence_pacing";
+features/moment/continuity/emotionalStateModel.ts:66:          : "reflection";
+features/moment/continuity/engine.ts:25:    relationship_reflection_brain: "Relationship pressure",
+features/moment/memory/persistMomentMemory.ts:25:    tiny_next_step: params.artifacts.entry.tinyNextStep,
+features/moment/memory/persistMomentMemory.ts:29:  if (params.artifacts.suggestions.length > 0) {
+features/moment/memory/persistMomentMemory.ts:30:    await params.supabase.from("moment_suggestions").insert(params.artifacts.suggestions.map((item) => ({
+features/moment/memory/persistMomentMemory.ts:31:      user_id: params.userId, thread_id: params.threadId, entry_id: entryData.id, source: item.source, suggestion_text: item.suggestionText, status: item.status,
+features/moment/memory/persistMomentMemory.ts:49:    accepted_suggestion: params.artifacts.supportEffectiveness.acceptedSuggestion,
+features/moment/memory/extractMemoryArtifacts.ts:32:  const responseSummary = highRisk ? genericSafety : clean(input.response.reflection, 170);
+features/moment/memory/extractMemoryArtifacts.ts:33:  const tinyNextStep = highRisk ? "contact a trusted adult now" : clean(input.response.tinyNextStep, 120);
+features/moment/memory/extractMemoryArtifacts.ts:35:  const suggestions = [input.response.tinyNextStep, ...(input.response.steps ?? []), ...(input.response.blocks ?? []).map((b) => b.text)]
+features/moment/memory/extractMemoryArtifacts.ts:39:    .map((suggestionText) => ({ source: "ai_suggested" as const, suggestionText, status: "suggested" as const }));
+features/moment/memory/extractMemoryArtifacts.ts:57:    emotionalThemes.includes("overwhelm") ? "shorter_choices" : "deeper_reflection_ok",
+features/moment/memory/extractMemoryArtifacts.ts:72:      tinyNextStep,
+features/moment/memory/extractMemoryArtifacts.ts:77:    suggestions,
+features/moment/memory/readMomentMemory.ts:5:  const [{ data: entries }, { data: threads }, { data: goals }, { data: tinyWins }, { data: suggestions }, { data: supportPatterns }, { data: supportEffectivenessNotes }] = await Promise.all([
+features/moment/memory/readMomentMemory.ts:10:    supabase.from("moment_suggestions").select("id,suggestion_text,status,created_at").eq("user_id", userId).in("status", ["suggested", "accepted"]).order("created_at", { ascending: false }).limit(6),
+features/moment/memory/readMomentMemory.ts:16:    entries: (entries ?? []).map((entry) => ({ id: entry.id, inputSummary: entry.input_summary, emotionalState: entry.emotional_state, tinyNextStep: entry.tiny_next_step, createdAt: entry.created_at })),
+features/moment/memory/readMomentMemory.ts:20:    suggestions: (suggestions ?? []).map((suggestion) => ({ id: suggestion.id, suggestionText: suggestion.suggestion_text, status: suggestion.status as SuggestionStatus, createdAt: suggestion.created_at })),
+features/moment/memory/types.ts:20:    tinyNextStep: string;
+features/moment/memory/types.ts:25:  suggestions: Array<{ source: MemorySource; suggestionText: string; status: SuggestionStatus }>;
+features/moment/memory/types.ts:49:  entries: Array<{ id: string; inputSummary: string; emotionalState: string | null; tinyNextStep: string | null; createdAt: string }>;
+features/moment/memory/types.ts:53:  suggestions: Array<{ id: string; suggestionText: string; status: SuggestionStatus; createdAt: string }>;
+features/moment/tools/registry.ts:1:import type { MomentTool } from "@/features/moment/tools/contracts";
+features/moment/tools/registry.ts:15:  { id: "communication_prep", label: "Want a sentence you can use?", description: "Draft one calm message.", supportedBrainIds: ["relationship_reflection_brain", "social_boundary_brain"], supportedAgeRanges: [...allAges], triggerSignals: ["say", "text"], contraindications: ["high_conflict_escalation"], outputMode: "sentence_starter" },
+features/moment/tools/recommend.ts:2:import type { EmotionalLoad, MomentTool } from "@/features/moment/tools/contracts";
+features/moment/tools/recommend.ts:3:import { momentToolRegistry } from "@/features/moment/tools/registry";
+features/moment/tools/recommend.ts:7:export function recommendMomentTools(input: { route: MomentBrainId; inputText: string; ageRange?: AgeRange; memorySnapshot?: ToolMemory; supportStyle?: string; emotionalLoad?: EmotionalLoad; }) {
+features/moment/tools/recommend.ts:11:  const base = momentToolRegistry.filter((tool) => tool.supportedBrainIds.includes(input.route) && tool.supportedAgeRanges.includes(ageRange));
+features/moment/tools/recommend.ts:14:  const filtered = base.filter((tool) => !(dismissed.has(tool.id) && !helpful.has(tool.id)));
+features/moment/ModuleFlowClient.tsx:33:    env.setRecoveryContext(data.response.reflection, title);
+features/moment/ModuleFlowClient.tsx:34:    env.upsertLoop({ id: `${title}-${Date.now()}`, label: title, routePath: apiPath, tinyStep: data.response.tinyNextStep, updatedAt: new Date().toISOString() });
+features/ai/orchestration/unifiedCognition.ts:68:export function computeMemoryRelevance(input: RouteMomentInput, continuitySummary?: string | null, currentDomain?: ResponseDomain): UnifiedCognitionTrace["memoryRelevance"] {
+features/ai/orchestration/unifiedCognition.ts:69:  if (!continuitySummary) return { score: 0, applied: false, suppressionReason: "low_similarity", semanticSimilarity: 0, emotionalSimilarity: 0, domainCompatibility: 0 };
+features/ai/orchestration/unifiedCognition.ts:71:  const continuityText = continuitySummary.toLowerCase();
+features/ai/orchestration/unifiedCognition.ts:88:export function buildUnifiedCognition(input: RouteMomentInput, cognition: EmotionalCognition, continuitySummary?: string | null, primaryBrainId?: MomentBrainId, currentDomain?: ResponseDomain): UnifiedCognitionTrace {
+features/ai/orchestration/unifiedCognition.ts:118:  const memoryRelevance = computeMemoryRelevance(input, continuitySummary, currentDomain);
+features/ai/orchestration/runMomentOrchestrator.ts:15:  response: { routeLabel: string; routePath: string; reflection: string; tinyNextStep: string; whyThisRoute: string; continueLabel: string; steps: string[]; supportiveNote: string; followUpActions: { label: string; href: string }[]; blocks: OperationalBlock[] };
+features/ai/orchestration/runMomentOrchestrator.ts:19:const supportLabels: Record<string, string> = { finance_clarity_brain: "Finance pressure", work_stress_brain: "Trying to stay afloat at work", relationship_reflection_brain: "Relationship strain", school_overwhelm_brain: "School overwhelm", confidence_repair_brain: "Confidence dip", life_admin_brain: "Daily life load", grief_support_brain: "Carrying grief", emotional_presence_brain: "Emotional weight", loneliness_support_brain: "Feeling alone", overwhelm_grounding_brain: "Feeling overwhelmed" };
+features/ai/orchestration/runMomentOrchestrator.ts:21:function getPacingProfile(input: RouteMomentInput, route: MomentRouteResult): PacingProfile { const text = `${input.momentText} ${input.selectedSignals.join(" ")}`.toLowerCase(); if (route.primaryBrainId === "grief_support_brain" || text.includes("grief") || text.includes("loss")) return "grief"; if (route.primaryBrainId === "work_stress_brain" || text.includes("burnout") || text.includes("exhausted")) return "burnout"; if (route.primaryBrainId === "overwhelm_grounding_brain" || text.includes("overwhelm")) return "overwhelm"; if (text.includes("shutdown") || text.includes("numb")) return "shutdown"; if (route.primaryBrainId === "relationship_reflection_brain" || text.includes("conflict") || text.includes("argument")) return "conflict"; return "default"; }
+features/ai/orchestration/runMomentOrchestrator.ts:31:      reflection: warmth,
+features/ai/orchestration/runMomentOrchestrator.ts:32:      tinyNextStep: "Paste the exact problem or prompt, and tell me where you get stuck so we can solve that part first step-by-step.",
+features/ai/orchestration/runMomentOrchestrator.ts:33:      supportiveNote: "Confusion is a normal stage of learning.",
+features/ai/orchestration/runMomentOrchestrator.ts:39:      reflection: "I'm really sorry. Days like this can make the absence feel sharp all over again.",
+features/ai/orchestration/runMomentOrchestrator.ts:40:      tinyNextStep: "If you want, tell me one memory that feels closest right now, and we can stay there.",
+features/ai/orchestration/runMomentOrchestrator.ts:41:      supportiveNote: "You don't need to force progress in this moment.",
+features/ai/orchestration/runMomentOrchestrator.ts:47:      reflection: "That sounds painful, and reacting fast usually comes from feeling hurt.",
+features/ai/orchestration/runMomentOrchestrator.ts:48:      tinyNextStep: "Want to draft one message that is honest and calm without escalating things?",
+features/ai/orchestration/runMomentOrchestrator.ts:49:      supportiveNote: "You can protect yourself without going on the attack.",
+features/ai/orchestration/runMomentOrchestrator.ts:54:    reflection: suppressGriefCadence ? `Got it. ${momentText.trim().slice(0, 80)}` : `I hear how heavy this feels. ${momentText.trim().slice(0, 80)}`,
+features/ai/orchestration/runMomentOrchestrator.ts:55:    tinyNextStep: "Tell me the most urgent part and we'll focus there first.",
+features/ai/orchestration/runMomentOrchestrator.ts:56:    supportiveNote: "Small steps still count.",
+features/ai/orchestration/runMomentOrchestrator.ts:76:  const steps = domainBehavior.askFollowUp ? [natural.tinyNextStep] : [];
+features/ai/orchestration/runMomentOrchestrator.ts:77:  const blocks = [natural.reflection, natural.tinyNextStep]
+features/ai/orchestration/runMomentOrchestrator.ts:79:    .map<OperationalBlock>((text, index) => index === 0 ? { type: "reflection", text } : { type: "gentle_next_step", text });
+features/ai/orchestration/runMomentOrchestrator.ts:93:      reflection: natural.reflection,
+features/ai/orchestration/runMomentOrchestrator.ts:94:      tinyNextStep: natural.tinyNextStep,
+features/ai/orchestration/runMomentOrchestrator.ts:98:      supportiveNote: natural.supportiveNote,
+features/ai/orchestration/runMomentOrchestrator.ts:99:      followUpActions: [{ label: profile === "shutdown" ? "Keep it gentle" : `Open ${routeLabel}`, href: route.routePath }],
+features/ai/runMomentBrain.ts:8:  const reflectionFallbacks = [
+features/ai/runMomentBrain.ts:18:  const reflectionFallback = reflectionFallbacks[Math.floor(Math.random() * reflectionFallbacks.length)];
+features/ai/runMomentBrain.ts:23:    reflection: input.reflection?.trim() || reflectionFallback,
+features/ai/runMomentBrain.ts:24:    tinyNextStep: input.tinyNextStep?.trim() || "Take one tiny step and re-check in.",
+features/ai/runMomentBrain.ts:28:    supportiveNote: input.supportiveNote?.trim() || noteFallback,
+features/ai/runMomentBrain.ts:29:    followUpActions: (input.followUpActions ?? []).slice(0, 3),
+features/ai/runMomentBrain.ts:33:    { type: "momentum_builder", text: safe.tinyNextStep },
+features/ai/runMomentBrain.ts:35:    { type: "recovery_prompt", text: safe.supportiveNote },
+features/ai/runMomentBrain.ts:69:              reflection: { type: "string" },
+features/ai/runMomentBrain.ts:70:              tinyNextStep: { type: "string" },
+features/ai/runMomentBrain.ts:74:              supportiveNote: { type: "string" },
+features/ai/runMomentBrain.ts:75:              followUpActions: {
+features/ai/runMomentBrain.ts:86:            required: ["routeLabel", "routePath", "reflection", "tinyNextStep", "whyThisRoute", "continueLabel", "steps", "supportiveNote", "followUpActions"],
+features/ai/brains/registry.ts:17:  relationship_reflection_brain: { id: "relationship_reflection_brain", label: "Relationship Reflection", audience: "adult", allowedAgeRanges: ["18_plus"], category: "relationship", routePath: "/check-in", description: "Prepares calm communication and boundaries.", safetyBoundaries: [...defaultSafety, "Relationship support is reflection and communication prep only: no manipulation, obsession, explicit intimacy, or roleplay."], inputSignals: ["partner", "spouse", "dating", "breakup", "marriage"], systemPrompt: systemPrompts.relationship_reflection_brain, outputSchemaName: "moment_response_v2" },
+features/ai/brains/registry.ts:24:  loneliness_support_brain: { id: "loneliness_support_brain", label: "Loneliness Support", audience: "all", category: "loneliness", routePath: "/check-in", description: "Supports loneliness and isolation with warmth and reflection.", safetyBoundaries: defaultSafety, inputSignals: ["alone", "lonely", "isolated", "disconnected"], systemPrompt: systemPrompts.loneliness_support_brain, outputSchemaName: "moment_response_v2" },
+features/ai/brains/prompts.ts:4:  school_overwhelm_brain: "Helps with school stress and assignment overload. Avoids pressure and perfection talk. Shape: reflection, school reset, one tiny step, route transition. Tone: simple, low-pressure, school-aware. First step: reduce scope to one class and one visible action. Safety: no diagnosis/therapy claims, no legal/medical/financial advice.",
+features/ai/brains/prompts.ts:5:  tutor_brain: "Helps when schoolwork feels frozen or confusing (math, writing, science, studying, homework, test prep). Avoids shame, speed pressure, and lecturing. Shape: emotional grounding, reflection, school_reset block, tiny solved-first-step. Tone: calm, patient, simple, collaborative, never scolding. First step: normalize stuck feelings, then rewrite one problem in plain words and identify one known value. Include support for 'I don't know where I'm stuck' and freeze/avoidance with reduced-choice starts. Safety: no diagnosis/therapy claims, no legal/medical/financial advice.",
+features/ai/brains/prompts.ts:6:  social_boundary_brain: "Helps with friendship drama, boundaries, and regrouping. Avoids gossip escalation or revenge scripts. Shape: reflection, boundary prompt, tiny boundary line, route transition. Tone: low-pressure, social-aware, respectful. First step: pause responses and define one boundary sentence. Safety: minors limited to friendships, boundaries, trusted adult support, emotional reset; no romantic/sexual detail.",
+features/ai/brains/prompts.ts:7:  task_start_brain: "Helps start when stuck and overwhelmed. Avoids hustle clichés and guilt tactics. Shape: reflection, tiny_step, grounding, route transition. Tone: practical, calm, low-pressure. First step: do a two-minute setup action to lower friction. Safety: no diagnosis/therapy claims, no legal/medical/financial advice.",
+features/ai/brains/prompts.ts:8:  emotional_reset_brain: "Helps regulate overload and regain footing. Avoids clinical labels or therapeutic claims. Shape: reflection, grounding, tiny_step. Tone: calm and compassionate. First step: body reset then one manageable action. Safety: escalate to safety support when high-risk language appears.",
+features/ai/brains/prompts.ts:9:  confidence_repair_brain: "Helps after mistakes or embarrassment. Avoids toxic positivity and comparison language. Shape: reflection, confidence_repair, tiny_step. Tone: grounded and encouraging. First step: gather one proof-of-progress. Safety: no diagnosis/therapy claims, no legal/medical/financial advice.",
+features/ai/brains/prompts.ts:12:  relationship_reflection_brain: "Helps self-reflection, boundary setting, and respectful communication prep. Avoids manipulation, explicit intimacy, romantic roleplay, and coercive scripts. Shape: relationship_reflection, boundary_prompt, tiny next step. Tone: calm, clear, respectful. First step: identify one feeling and one request. Safety: minors routed to friendship-safe support only.",
+features/ai/brains/prompts.ts:15:  decision_reset_brain: "Helps decisions feel less heavy with values and tradeoff framing. Avoids telling the user what to choose. Shape: decision_frame, reflection, tiny_step. Tone: grounded and neutral. First step: compare two options with one tradeoff each.",
+features/ai/brains/prompts.ts:16:  safety_support_brain: "Helps with high-risk language only. Avoids productivity coaching before safety support. Shape: grounding, reflection, immediate trusted-human escalation. Tone: direct, calm, supportive. First step: connect user to trusted adult/emergency support.",
+features/ai/brains/prompts.ts:18:  grief_support_brain: "Supports grief, loss, anniversary/holiday pain, and comparison grief with emotional presence first. Presence > guidance. Avoids fixing, optimization language, productivity framing, and early reframing. Avoid template lines and over-coaching. Shape: witnessing, specific acknowledgment, optional remembrance invite, optional grounding only if asked. Tone: grounded, quiet, human, sparse, and emotionally specific. First step: stay with the pain and name the specific absence before any suggestion.",
+features/ai/brains/prompts.ts:19:  emotional_presence_brain: "Supports sadness and emotional pain with calm, realistic presence. Presence > guidance. Avoids platitudes, therapeutic scripting, and emotionally perfect pacing. Shape: observant reflection, emotional mirroring, optional short follow-up question. Tone: conversational, grounded, gentle, and non-performative.",
+features/ai/brains/prompts.ts:20:  loneliness_support_brain: "Supports loneliness and disconnection with validating language and relational warmth. Avoids over-cheerfulness and prescriptive social tasks. Shape: emotional_presence, reflection, optional soft connection prompt. Tone: calm, kind, non-performative, with natural conversational variation.",
+features/ai/brains/prompts.ts:21:  overwhelm_grounding_brain: "Supports emotional overwhelm when the user needs grounding before action. Avoids immediate productivity framing. Shape: grounding, emotional_presence, reflection, gentle_next_step. Tone: steady, low-pressure, soothing, and brief when overwhelm is high.",
+features/ai/responseSanitizer.ts:40:  const uniqueVisible = dedupeLines([response.reflection, response.tinyNextStep, ...response.steps, response.supportiveNote]);
+features/ai/responseSanitizer.ts:42:  const reflection = dedupeLines([response.reflection])[0] ?? fallback;
+features/ai/responseSanitizer.ts:43:  const tinyNextStep = dedupeLines([response.tinyNextStep]).find((line) => normalize(line) !== normalize(reflection)) ?? "If you want, we can stay with this for a moment.";
+features/ai/responseSanitizer.ts:44:  const steps = dedupeLines(response.steps).filter((line) => normalize(line) !== normalize(reflection) && normalize(line) !== normalize(tinyNextStep)).slice(0, 3);
+features/ai/responseSanitizer.ts:45:  const supportiveNote = dedupeLines([response.supportiveNote]).find((line) => ![reflection, tinyNextStep, ...steps].some((item) => normalize(item) === normalize(line))) ?? "No pressure to do anything right away.";
+features/ai/responseSanitizer.ts:46:  return { ...response, reflection, tinyNextStep, steps, supportiveNote };
+features/ai/contracts.ts:6:export const MOMENT_BRAIN_IDS = ["school_overwhelm_brain", "tutor_brain", "social_boundary_brain", "task_start_brain", "emotional_reset_brain", "confidence_repair_brain", "work_stress_brain", "finance_clarity_brain", "relationship_reflection_brain", "household_overload_brain", "life_admin_brain", "decision_reset_brain", "safety_support_brain", "grief_support_brain", "emotional_presence_brain", "loneliness_support_brain", "overwhelm_grounding_brain"] as const;
+features/ai/contracts.ts:17:  relationship_reflection_brain: "Relationship reflection",
+features/ai/contracts.ts:28:export const OPERATIONAL_BLOCK_TYPES = ["reflection", "tiny_step", "route_transition", "grounding", "boundary_prompt", "decision_frame", "money_clarity", "work_reset", "relationship_reflection", "school_reset", "confidence_repair", "life_admin_sort", "momentum_builder", "recovery_prompt", "next_step", "steps", "support", "emotional_presence", "gentle_next_step"] as const;
+features/ai/types.ts:2:import type { MomentToolId } from "@/features/moment/tools/contracts";
+features/ai/types.ts:37:  reflection: string;
+features/ai/types.ts:38:  tinyNextStep: string;
+features/ai/types.ts:42:  supportiveNote: string;
+features/ai/types.ts:43:  followUpActions: { label: string; href: string }[];
+features/ai/types.ts:45:  supportTools?: { id: MomentToolId; label: string; description: string }[];
+features/ai/mockResponses.ts:4:  school_overwhelm_brain: { routeLabel: "School Overwhelm", routePath: "/check-in", reflection: "School pressure is heavy right now.", tinyNextStep: "Open one assignment and do the first visible action.", whyThisRoute: "You shared school overload signals.", continueLabel: "Continue School Overwhelm", steps: ["Pick one class only.", "Define a 5-minute start.", "Stop or continue after 5 minutes."], supportiveNote: "Small starts count.", followUpActions: [{ label: "Back to dashboard", href: "/dashboard" }] },
+features/ai/mockResponses.ts:5:  tutor_brain: { routeLabel: "Math Reset", routePath: "/math-reset", reflection: "Math feels noisy, not impossible.", tinyNextStep: "Read question one and rewrite it in your own words.", whyThisRoute: "Math friction detected.", continueLabel: "Continue Math Reset", steps: ["Find known values.", "Pick one operation.", "Do only the first step."], supportiveNote: "Clarity first, speed second.", followUpActions: [{ label: "Open Math Reset", href: "/math-reset" }] },
+features/ai/mockResponses.ts:6:  social_boundary_brain: { routeLabel: "Social Boundary", routePath: "/drama-pause", reflection: "Social tension is draining your energy.", tinyNextStep: "Pause replies for 10 minutes.", whyThisRoute: "Boundary support signals detected.", continueLabel: "Continue Social Boundary", steps: ["Name your boundary.", "Write one calm line.", "Mute one thread while you reset."], supportiveNote: "Protecting your energy is wise.", followUpActions: [{ label: "Open Boundary Pause", href: "/drama-pause" }] },
+features/ai/mockResponses.ts:7:  task_start_brain: { routeLabel: "Task Start", routePath: "/stuck", reflection: "Starting feels heavier than it should.", tinyNextStep: "Set a 5-minute timer and do the first visible action.", whyThisRoute: "Task-start friction detected.", continueLabel: "Continue Task Start", steps: ["Open the task.", "Write a rough first line.", "Continue only if easier."], supportiveNote: "Momentum grows from tiny starts.", followUpActions: [{ label: "Open Stuck", href: "/stuck" }] },
+features/ai/mockResponses.ts:8:  emotional_reset_brain: { routeLabel: "Emotional Reset", routePath: "/check-in", reflection: "You’re carrying a lot, and that makes sense.", tinyNextStep: "Take one slow breath and choose one tiny action.", whyThisRoute: "General emotional overload signals detected.", continueLabel: "Continue Emotional Reset", steps: ["Lower pressure.", "Pick one task.", "Start for two minutes."], supportiveNote: "Reset first, then effort.", followUpActions: [{ label: "Open Check In", href: "/check-in" }] },
+features/ai/mockResponses.ts:9:  confidence_repair_brain: { routeLabel: "Confidence Repair", routePath: "/check-in", reflection: "This feels like a confidence dip, not a dead end.", tinyNextStep: "Write one thing you already understand.", whyThisRoute: "Confidence strain language detected.", continueLabel: "Continue Confidence Repair", steps: ["Name the fear.", "Pick a tiny proof-of-progress.", "Finish one small rep."], supportiveNote: "You can rebuild one rep at a time.", followUpActions: [{ label: "Open Check In", href: "/check-in" }] },
+features/ai/mockResponses.ts:10:  work_stress_brain: { routeLabel: "Work Stress", routePath: "/check-in", reflection: "Work pressure is crowding your bandwidth.", tinyNextStep: "Choose one must-do and one can-wait.", whyThisRoute: "Work stress signals detected.", continueLabel: "Continue Work Stress", steps: ["Pick one priority.", "Define done-for-today.", "Block one focus sprint."], supportiveNote: "Clear scope lowers overload.", followUpActions: [{ label: "Open Check In", href: "/check-in" }] },
+features/ai/mockResponses.ts:11:  finance_clarity_brain: { routeLabel: "Finance Clarity", routePath: "/check-in", reflection: "Money stress feels heavy and urgent.", tinyNextStep: "List fixed bills and next due dates.", whyThisRoute: "Money organization signals detected.", continueLabel: "Continue Finance Clarity", steps: ["List fixed costs.", "List flexible costs.", "Write one question to research."], supportiveNote: "Clarity beats panic.", followUpActions: [{ label: "Open Check In", href: "/check-in" }] },
+features/ai/mockResponses.ts:12:  relationship_reflection_brain: { routeLabel: "Relationship Reflection", routePath: "/check-in", reflection: "This relationship tension feels draining.", tinyNextStep: "Draft one boundary sentence.", whyThisRoute: "Relationship reflection signals detected.", continueLabel: "Continue Relationship Reflection", steps: ["Name the core issue.", "Draft one calm ask.", "Pick a safe time to talk."], supportiveNote: "Calm clarity helps.", followUpActions: [{ label: "Open Check In", href: "/check-in" }] },
+features/ai/mockResponses.ts:13:  household_overload_brain: { routeLabel: "Household Overload", routePath: "/check-in", reflection: "Home tasks are stacking up.", tinyNextStep: "Pick one 5-minute household task.", whyThisRoute: "Household overload signals detected.", continueLabel: "Continue Household Overload", steps: ["Choose one zone.", "Do one visible task.", "Stop at 5 minutes if needed."], supportiveNote: "Visible progress counts.", followUpActions: [{ label: "Open Check In", href: "/check-in" }] },
+features/ai/mockResponses.ts:14:  life_admin_brain: { routeLabel: "Life Admin", routePath: "/check-in", reflection: "Admin tasks feel endless today.", tinyNextStep: "Open one form or appointment and do step one.", whyThisRoute: "Life admin signals detected.", continueLabel: "Continue Life Admin", steps: ["Pick one errand.", "Do first micro-step.", "Set one reminder."], supportiveNote: "Small admin wins reduce drag.", followUpActions: [{ label: "Open Check In", href: "/check-in" }] },
+features/ai/mockResponses.ts:15:  decision_reset_brain: { routeLabel: "Decision Reset", routePath: "/check-in", reflection: "This decision feels heavy.", tinyNextStep: "Write two options and one tradeoff each.", whyThisRoute: "Decision friction signals detected.", continueLabel: "Continue Decision Reset", steps: ["Define the decision.", "List options.", "Pick next data point."], supportiveNote: "Decisions get easier when scoped.", followUpActions: [{ label: "Open Check In", href: "/check-in" }] },
+features/ai/mockResponses.ts:16:  safety_support_brain: { routeLabel: "Emotional Reset", routePath: "/check-in", reflection: "You deserve immediate support right now.", tinyNextStep: "Reach out to a trusted adult now.", whyThisRoute: "Safety signals detected.", continueLabel: "Open Emotional Reset", steps: ["Tell a trusted adult exactly what is happening.", "If immediate danger, contact emergency services."], supportiveNote: "You matter and you are not alone.", followUpActions: [{ label: "Open Check In", href: "/check-in" }] },
+features/ai/mockResponses.ts:18:  grief_support_brain: { routeLabel: "Grief Support", routePath: "/check-in", reflection: "That sounds really heavy, and it makes sense this hurts.", tinyNextStep: "You don't need to fix this moment—would grounding, reflection, or quiet space help most?", whyThisRoute: "Grief or loss signals detected.", continueLabel: "Stay with this moment", steps: ["Acknowledge the loss.", "Let the feeling be here.", "Choose gentle grounding or reflection."], supportiveNote: "You can move slowly here.", followUpActions: [{ label: "Keep gentle support", href: "/check-in" }] },
+features/ai/mockResponses.ts:19:  emotional_presence_brain: { routeLabel: "Emotional Presence", routePath: "/check-in", reflection: "You're carrying something painful right now.", tinyNextStep: "Would it help to talk about what hurts most, or just breathe for a moment?", whyThisRoute: "Emotional pain signals detected.", continueLabel: "Stay with this moment", steps: ["Name what feels heaviest.", "Breathe slowly.", "Choose support pace."], supportiveNote: "No rush.", followUpActions: [{ label: "Keep gentle support", href: "/check-in" }] },
+features/ai/mockResponses.ts:20:  loneliness_support_brain: { routeLabel: "Loneliness Support", routePath: "/check-in", reflection: "Feeling alone can ache in a deep way.", tinyNextStep: "If you want, we can reflect on what kind of connection would feel most supportive right now.", whyThisRoute: "Loneliness signals detected.", continueLabel: "Stay with this moment", steps: ["Acknowledge the loneliness.", "Name what you need emotionally.", "Pick a gentle support option."], supportiveNote: "You are not wrong for feeling this.", followUpActions: [{ label: "Keep gentle support", href: "/check-in" }] },
+features/ai/mockResponses.ts:21:  overwhelm_grounding_brain: { routeLabel: "Overwhelm Grounding", routePath: "/check-in", reflection: "This sounds like a lot for one nervous system to hold.", tinyNextStep: "Before any plan, take one slow breath and feel your feet on the floor.", whyThisRoute: "Overwhelm and grounding need detected.", continueLabel: "Ground first", steps: ["Slow exhale.", "Release shoulders.", "Then decide if you want reflection or structure."], supportiveNote: "Grounding first is enough.", followUpActions: [{ label: "Keep gentle support", href: "/check-in" }] },
+features/ai/emotionalRealism.ts:75:function expandPresenceReflection(reflection: string, userText: string, isGrief: boolean): string {
+features/ai/emotionalRealism.ts:76:  const cleaned = reflection.trim();
+features/ai/emotionalRealism.ts:77:  if (!cleaned) return reflection;
+features/ai/emotionalRealism.ts:87:  const combined = [response.reflection, response.tinyNextStep, response.supportiveNote, ...response.steps].join(" ");
+features/ai/emotionalRealism.ts:109:  const cleanedReflection = softenOverGuidance(uniqueSentences(response.reflection))
+features/ai/emotionalRealism.ts:113:  const cleanedNote = softenOverGuidance(uniqueSentences(response.supportiveNote))
+features/ai/emotionalRealism.ts:125:  const tinyNextStep = isGrief
+features/ai/emotionalRealism.ts:127:    : softenOverGuidance(response.tinyNextStep).replace(/one step at a time/gi, "at your own pace");
+features/ai/emotionalRealism.ts:131:    reflection: expandPresenceReflection(cleanedReflection || response.reflection, userText, isGrief),
+features/ai/emotionalRealism.ts:132:    supportiveNote: cleanedNote || response.supportiveNote,
+features/ai/emotionalRealism.ts:134:    tinyNextStep,
+features/ai/emotionalRealism.ts:139:    rewritten.supportiveNote = "I'm here with you in this. We don't need to rush to make it tidy.";
+features/stuck/StuckClient.tsx:22:    reflection: result.summary,
+features/stuck/StuckClient.tsx:23:    tinyNextStep: result.tiny_steps[0] ?? result.five_minute_restart,
+features/stuck/StuckClient.tsx:27:    supportiveNote: result.encouragement,
+features/stuck/StuckClient.tsx:28:    followUpActions: [{ label: "Return to Moment", href: "/dashboard" }],
+features/stuck/StuckClient.tsx:51:  return <div className="space-y-4"><CarriedContextCard searchParams={searchParams} /><MomentCard><form action={onSubmit} className="space-y-3"><MomentTextarea name="task_text" required placeholder={searchParams?.summary ? `Start from carried context: ${searchParams.summary}` : "What task are you stuck on?"} defaultValue={searchParams?.summary ?? ""} /><MomentTextarea name="hardest_part" rows={2} placeholder="Hardest part" /><MomentTextarea name="emotional_state" rows={2} placeholder="How are you feeling?" /><MomentButton type="submit">Get tiny steps</MomentButton></form></MomentCard>{result ? <MomentResponseCard route={result.route ?? defaultStuckRoute} response={result.response} quickActions={result.response.followUpActions ?? []} /> : null}<MomentCard><h3 className="font-semibold">Recent sessions</h3><div className="mt-3 space-y-2">{sessionState.length===0 ? <p className="text-sm text-slate-400">No recent resets yet. Your first stuck reset will appear here.</p> : sessionState.map((s) => <div key={s.id} className="flex items-center justify-between gap-2"><span>{s.task_text}</span><div className="flex items-center gap-2"><MomentBadge>{s.status}</MomentBadge><button className="text-xs text-violet-200" onClick={async ()=>{await fetch(`/api/stuck-sessions/${s.id}/status`,{method:"PATCH",headers:{"content-type":"application/json"},body:JSON.stringify({status:"started"})});setSessionState((prev)=>prev.map((it)=>it.id===s.id?{...it,status:"started"}:it));}}>started</button><button className="text-xs text-violet-200" onClick={async ()=>{await fetch(`/api/stuck-sessions/${s.id}/status`,{method:"PATCH",headers:{"content-type":"application/json"},body:JSON.stringify({status:"still_stuck"})});setSessionState((prev)=>prev.map((it)=>it.id===s.id?{...it,status:"still_stuck"}:it));}}>still stuck</button><button className="text-xs text-violet-200" onClick={async ()=>{await fetch(`/api/stuck-sessions/${s.id}/status`,{method:"PATCH",headers:{"content-type":"application/json"},body:JSON.stringify({status:"done"})});setSessionState((prev)=>prev.map((it)=>it.id===s.id?{...it,status:"done"}:it));}}>done</button></div></div>)}</div></MomentCard></div>;

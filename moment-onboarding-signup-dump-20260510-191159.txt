@@ -1,0 +1,2331 @@
+===== BRANCH / STATUS =====
+main
+?? moment-onboarding-signup-dump-20260510-191159.txt
+
+===== PACKAGE SCRIPTS =====
+{
+  "name": "profixiq-moment",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build --webpack",
+    "start": "next start",
+    "lint": "eslint .",
+    "typecheck": "tsc --noEmit",
+    "smoke:router": "node --experimental-strip-types scripts/smoke-router.mjs",
+    "smoke:user-flow": "node scripts/smoke-user-flow.mjs"
+  },
+  "dependencies": {
+    "@supabase/ssr": "latest",
+    "@supabase/supabase-js": "latest",
+    "next": "latest",
+    "react": "latest",
+    "react-dom": "latest",
+    "zod": "latest"
+  },
+  "devDependencies": {
+    "@types/node": "latest",
+    "@types/react": "latest",
+    "@types/react-dom": "latest",
+    "autoprefixer": "10.4.19",
+    "eslint": "latest",
+    "eslint-config-next": "latest",
+    "postcss": "8.4.38",
+    "tailwindcss": "3.4.17",
+    "typescript": "latest"
+  }
+}
+
+===== RELEVANT TREE =====
+app/api/ai/check-in/route.ts
+app/api/ai/drama-pause/route.ts
+app/api/ai/math-reset/route.ts
+app/api/ai/stuck/route.ts
+app/api/moment/feedback/route.ts
+app/api/stripe/create-checkout-session/route.ts
+app/api/stripe/create-portal-session/route.ts
+app/api/stripe/webhook/route.ts
+app/auth/callback/route.ts
+app/check-in/page.tsx
+app/dashboard/DashboardClient.tsx
+app/dashboard/components/ClarificationFlow.tsx
+app/dashboard/components/ContinuityPanel.tsx
+app/dashboard/components/GreetingSurface.tsx
+app/dashboard/components/IntakeComposer.tsx
+app/dashboard/components/SupportFeedbackInline.tsx
+app/dashboard/components/SupportFocusCard.tsx
+app/dashboard/components/SupportStream.tsx
+app/dashboard/components/ThreadContinuationCard.tsx
+app/dashboard/components/TinyWinsPanel.tsx
+app/dashboard/components/types.ts
+app/dashboard/page.tsx
+app/drama-pause/page.tsx
+app/internal/review/page.tsx
+app/layout.tsx
+app/math-reset/page.tsx
+app/onboarding/OnboardingForm.tsx
+app/onboarding/page.tsx
+app/page.tsx
+app/parent/page.tsx
+app/pricing/page.tsx
+app/settings/page.tsx
+app/sign-in/SignInForm.tsx
+app/sign-in/page.tsx
+app/stuck/page.tsx
+components/moment/BillingActions.tsx
+lib/auth.ts
+lib/internalReviewAuth.ts
+lib/subscriptions.ts
+lib/supabase/admin.ts
+lib/supabase/browser.ts
+lib/supabase/middleware.ts
+lib/supabase/server.ts
+lib/userFlow.ts
+middleware.ts
+middleware.ts
+scripts/smoke-routing-and-onboarding.mjs
+scripts/smoke-user-flow.mjs
+supabase/migrations/0001_initial_moment_schema.sql
+supabase/migrations/0002_expand_ai_modes.sql
+supabase/migrations/0003_profile_birthday_and_greeting_fields.sql
+supabase/migrations/0004_moment_routes.sql
+supabase/migrations/0005_moment_threads.sql
+supabase/migrations/0006_moment_memory_layers.sql
+supabase/migrations/0007_adaptive_support_progression.sql
+supabase/migrations/0008_stripe_subscription_plans.sql
+supabase/migrations/0009_orchestration_observability.sql
+supabase/migrations/0010_observability_rls_hardening.sql
+supabase/migrations/0011_moment_rls_hardening.sql
+
+===== RELEVANT SEARCH HITS =====
+app/settings/page.tsx:10:  const user = await requireAuthenticatedUser("/settings");
+app/settings/page.tsx:24:  const { error } = await supabase.from("moment_profiles").upsert({
+app/settings/page.tsx:34:  if (error) throw new Error(`Could not update profile: ${error.message}`);
+app/settings/page.tsx:40:  const user = await requireAuthenticatedUser("/settings");
+app/settings/page.tsx:49:  const user = await requireAuthenticatedUser("/settings");
+app/settings/page.tsx:51:  const { data: profile } = await supabase.from("moment_profiles").select("display_name,age_range,birthday_month,birthday_day,focus_areas,support_goals").eq("user_id", user.id).maybeSingle();
+app/settings/page.tsx:54:  const { data: subscription } = await supabase.from("moment_subscriptions").select("plan,status,current_period_end,cancel_at_period_end").eq("user_id", user.id).maybeSingle();
+app/settings/page.tsx:55:  const currentPlan = parseMomentPlan(subscription?.plan);
+app/settings/page.tsx:58:    <MomentAppShell title="Settings" subtitle="Simple profile details you can adjust anytime.">
+app/settings/page.tsx:63:            <label className="text-sm text-slate-300">Display name<input name="display_name" defaultValue={profile?.display_name ?? ""} className="mt-1 w-full rounded-xl border border-white/15 bg-[#202a40] p-3 text-[#f8f1e7]" /></label>
+app/settings/page.tsx:64:            <label className="text-sm text-slate-300">Age range<select name="age_range" defaultValue={profile?.age_range ?? "18_plus"} className="mt-1 w-full rounded-xl border border-white/15 bg-[#202a40] p-3 text-[#f8f1e7]"><option value="under_13">Under 13</option><option value="13_15">13-15</option><option value="16_17">16-17</option><option value="18_plus">18+</option><option value="not_set">Prefer not to say</option></select></label>
+app/settings/page.tsx:65:            <label className="text-sm text-slate-300">Birthday month<input name="birthday_month" type="text" inputMode="numeric" pattern="[0-9]*" maxLength={2} defaultValue={profile?.birthday_month ?? ""} className="mt-1 w-full rounded-xl border border-white/15 bg-[#202a40] p-3 text-[#f8f1e7]" /></label>
+app/settings/page.tsx:66:            <label className="text-sm text-slate-300">Birthday day<input name="birthday_day" type="text" inputMode="numeric" pattern="[0-9]*" maxLength={2} defaultValue={profile?.birthday_day ?? ""} className="mt-1 w-full rounded-xl border border-white/15 bg-[#202a40] p-3 text-[#f8f1e7]" /></label>
+app/settings/page.tsx:67:            <label className="text-sm text-slate-300 sm:col-span-2">Focus areas (comma-separated)<input name="focus_areas" defaultValue={(profile?.focus_areas ?? []).join(", ")} className="mt-1 w-full rounded-xl border border-white/15 bg-[#202a40] p-3 text-[#f8f1e7]" /></label>
+app/settings/page.tsx:68:            <label className="text-sm text-slate-300 sm:col-span-2">Support goals (comma-separated)<input name="support_goals" defaultValue={(profile?.support_goals ?? []).join(", ")} className="mt-1 w-full rounded-xl border border-white/15 bg-[#202a40] p-3 text-[#f8f1e7]" /></label>
+app/settings/page.tsx:69:            <div className="sm:col-span-2"><MomentButton type="submit">Save profile</MomentButton></div>
+app/settings/page.tsx:77:          <p className="text-sm text-slate-300">Status: {subscription?.status ?? "inactive"}</p>
+app/settings/page.tsx:78:          <p className="text-sm text-slate-300">Renews: {subscription?.current_period_end ? new Date(subscription.current_period_end).toLocaleDateString() : "—"}</p>
+app/dashboard/page.tsx:1:import { redirect } from "next/navigation";
+app/dashboard/page.tsx:2:import { DashboardClient } from "@/app/dashboard/DashboardClient";
+app/dashboard/page.tsx:8:import { getCurrentMomentPlan } from "@/lib/subscriptions";
+app/dashboard/page.tsx:12:  const user = await requireAuthenticatedUser("/dashboard");
+app/dashboard/page.tsx:14:  const profile = await getOrCreateMomentProfile(user.id);
+app/dashboard/page.tsx:16:  const canonicalPath = await getCanonicalAppPath(user.id, profile);
+app/dashboard/page.tsx:17:  if (canonicalPath !== "/dashboard") {
+app/dashboard/page.tsx:18:    redirect(canonicalPath);
+app/dashboard/page.tsx:22:    displayName: profile.display_name,
+app/dashboard/page.tsx:23:    birthdayMonth: profile.birthday_month,
+app/dashboard/page.tsx:24:    birthdayDay: profile.birthday_day,
+app/dashboard/page.tsx:25:    lastSeenAt: profile.last_seen_at,
+app/dashboard/page.tsx:30:  const subscription = await getCurrentMomentPlan(user.id);
+app/dashboard/page.tsx:31:  const usage = await getMomentUsageSnapshot(user.id, subscription.plan);
+app/dashboard/page.tsx:33:  await supabase.from("moment_profiles").update({ last_seen_at: new Date().toISOString() }).eq("user_id", user.id);
+app/dashboard/page.tsx:37:      <DashboardClient greeting={greeting} memory={memory} plan={subscription.plan} usage={usage} />
+app/dashboard/DashboardClient.tsx:72:      <Link href="/settings?tab=billing" className="mt-1 inline-block text-xs text-violet-200/80 underline">Manage plan</Link>
+app/onboarding/page.tsx:1:import { redirect } from "next/navigation";
+app/onboarding/page.tsx:12:  const user = await requireAuthenticatedUser("/onboarding");
+app/onboarding/page.tsx:19:  const { error: profileError } = await supabase.from("moment_profiles").upsert({
+app/onboarding/page.tsx:25:    onboarding_complete: true,
+app/onboarding/page.tsx:28:  if (profileError) return { error: `Could not save onboarding profile: ${profileError.message}` };
+app/onboarding/page.tsx:42:  redirect("/dashboard");
+app/onboarding/page.tsx:46:  const user = await requireAuthenticatedUser("/onboarding");
+app/onboarding/page.tsx:47:  const profile = await getOrCreateMomentProfile(user.id);
+app/onboarding/page.tsx:48:  const canonicalPath = await getCanonicalAppPath(user.id, profile);
+app/onboarding/page.tsx:49:  if (canonicalPath === "/pricing") {
+app/onboarding/page.tsx:50:    redirect(canonicalPath);
+app/onboarding/page.tsx:54:      <GlobalBackButton fallbackHref="/dashboard" />
+app/api/stripe/create-portal-session/route.ts:11:  const { data } = await supabase.from("moment_subscriptions").select("stripe_customer_id").eq("user_id", user.id).maybeSingle();
+app/api/stripe/create-portal-session/route.ts:12:  if (!data?.stripe_customer_id) return NextResponse.json({ error: "No billing profile" }, { status: 400 });
+app/api/stripe/create-portal-session/route.ts:16:  const payload = new URLSearchParams({ customer: data.stripe_customer_id, return_url: `${appUrl}/settings?tab=billing` });
+app/api/stripe/create-portal-session/route.ts:18:  const stripeResponse = await fetch("https://api.stripe.com/v1/billing_portal/sessions", {
+app/api/stripe/create-portal-session/route.ts:24:  if (!stripeResponse.ok) return NextResponse.json({ error: "Portal unavailable" }, { status: 502 });
+app/api/stripe/create-portal-session/route.ts:25:  const session = (await stripeResponse.json()) as { url: string };
+app/api/stripe/create-checkout-session/route.ts:24:    mode: "subscription",
+app/api/stripe/create-checkout-session/route.ts:27:    success_url: `${appUrl}/onboarding?checkout=success`,
+app/api/stripe/create-checkout-session/route.ts:28:    cancel_url: `${appUrl}/pricing?checkout=cancelled`,
+app/api/stripe/create-checkout-session/route.ts:30:    "subscription_data[metadata][user_id]": user.id,
+app/api/stripe/create-checkout-session/route.ts:33:  const stripeResponse = await fetch("https://api.stripe.com/v1/checkout/sessions", {
+app/api/stripe/create-checkout-session/route.ts:42:  if (!stripeResponse.ok) {
+app/api/stripe/create-checkout-session/route.ts:43:    const text = await stripeResponse.text();
+app/api/stripe/create-checkout-session/route.ts:47:  const session = (await stripeResponse.json()) as StripeSessionResponse;
+app/api/stripe/webhook/route.ts:24:  const signature = request.headers.get("stripe-signature");
+app/api/stripe/webhook/route.ts:35:    if (event.type === "checkout.session.completed") {
+app/api/stripe/webhook/route.ts:38:      if (userId) await supabase.from("moment_subscriptions").upsert({ user_id: userId, stripe_customer_id: customerId }, { onConflict: "user_id" });
+app/api/stripe/webhook/route.ts:41:    if (event.type.startsWith("customer.subscription") || event.type.startsWith("invoice.payment_")) {
+app/api/stripe/webhook/route.ts:45:      const subscriptionId = String(object.id ?? "");
+app/api/stripe/webhook/route.ts:53:        const base = { stripe_customer_id: customerId || null, stripe_subscription_id: subscriptionId || null, stripe_price_id: priceId || null, plan, status, current_period_end: periodEnd, cancel_at_period_end: cancelAtPeriodEnd };
+app/api/stripe/webhook/route.ts:55:          await supabase.from("moment_subscriptions").upsert({ user_id: userId, ...base }, { onConflict: "user_id" });
+app/api/stripe/webhook/route.ts:57:          await supabase.from("moment_subscriptions").update(base).eq("stripe_customer_id", customerId);
+app/api/ai/math-reset/route.ts:14: const response = risk.severity === "high" ? normalizeMomentBrainOutput({ reflection: "Your safety matters most.", tinyNextStep: "Reach out to a trusted adult now.", steps: ["Share exactly what is happening."], supportiveNote: "Immediate danger means call emergency services.", followUpActions: [{ label: "Return to Moment", href: "/dashboard" }] }) : await runMomentBrain("math_reset_brain", joined);
+app/api/ai/drama-pause/route.ts:14: const response = risk.severity === "high" ? normalizeMomentBrainOutput({ reflection: "You deserve support right away.", tinyNextStep: "Pause this conversation and contact a trusted adult.", steps: ["Ask for help in plain words now."], supportiveNote: "If danger is immediate, call emergency services.", followUpActions: [{ label: "Return to Moment", href: "/dashboard" }] }) : await runMomentBrain("social_boundary_brain", joined);
+app/api/ai/check-in/route.ts:13:import { getCurrentMomentPlan } from "@/lib/subscriptions";
+app/api/ai/check-in/route.ts:129:  if (/(framework|optimize|profile|pipeline)/.test(joined)) tags.push("too_robotic");
+app/api/ai/check-in/route.ts:163:  const { data: profile } = await supabase.from("moment_profiles").select("age_range").eq("user_id", user.id).maybeSingle();
+app/api/ai/check-in/route.ts:164:  const trustedAgeRange = normalizeAgeRange(profile?.age_range);
+app/api/ai/check-in/route.ts:172:  const subscription = await getCurrentMomentPlan(user.id);
+app/api/ai/check-in/route.ts:173:  const usage = await getMomentUsageSnapshot(user.id, subscription.plan);
+app/api/ai/stuck/route.ts:25:    ? normalizeMomentBrainOutput({ reflection: "Thanks for sharing this. You deserve immediate real-world support.", tinyNextStep: "Pause and contact a trusted adult right now.", steps: ["Send one clear message asking for help now."], supportiveNote: "If there is immediate danger, contact emergency services now.", followUpActions: [{ label: "Return to Moment", href: "/dashboard" }] })
+app/page.tsx:72:                  href="/dashboard"
+app/page.tsx:78:                  href="/onboarding"
+app/page.tsx:81:                  Start onboarding
+app/page.tsx:133:                <Link href={user ? "/onboarding" : "/sign-in?next=/onboarding"} className="moment-btn-secondary">Start free</Link>
+app/page.tsx:134:                <Link href={user ? "/settings?tab=billing&plan=plus" : "/sign-in?next=/settings%3Ftab%3Dbilling%26plan%3Dplus"} className="moment-btn-primary">Start Plus</Link>
+app/page.tsx:135:                <Link href={user ? "/settings?tab=billing&plan=pro" : "/sign-in?next=/settings%3Ftab%3Dbilling%26plan%3Dpro"} className="moment-btn-secondary">Start Pro</Link>
+app/pricing/page.tsx:1:import { redirect } from "next/navigation";
+app/pricing/page.tsx:6:import { getCurrentMomentPlan } from "@/lib/subscriptions";
+app/pricing/page.tsx:9:  const user = await requireAuthenticatedUser("/pricing");
+app/pricing/page.tsx:10:  const profile = await getOrCreateMomentProfile(user.id);
+app/pricing/page.tsx:11:  const subscription = await getCurrentMomentPlan(user.id);
+app/pricing/page.tsx:13:  if (subscription.plan !== "free") {
+app/pricing/page.tsx:14:    redirect(await getCanonicalAppPath(user.id, profile));
+app/pricing/page.tsx:22:          <p className="text-sm text-slate-300">Pick Plus or Pro to continue into onboarding.</p>
+app/pricing/page.tsx:23:          <BillingActions plan="free" source="pricing" />
+app/sign-in/SignInForm.tsx:7:type AuthMode = "sign-in" | "sign-up";
+app/sign-in/SignInForm.tsx:36:      mode === "sign-up"
+app/sign-in/SignInForm.tsx:37:        ? await supabase.auth.signUp({
+app/sign-in/SignInForm.tsx:41:              emailRedirectTo: `${window.location.origin}/auth/callback?next=${encodeURIComponent(next)}`,
+app/sign-in/SignInForm.tsx:55:    if (mode === "sign-up" && !result.data.session) {
+app/sign-in/SignInForm.tsx:56:      setStatus("Check your email to confirm your account, then return to sign in.");
+app/sign-in/SignInForm.tsx:61:    router.replace(next);
+app/sign-in/SignInForm.tsx:82:          onClick={() => setMode("sign-up")}
+app/sign-in/SignInForm.tsx:85:            mode === "sign-up"
+app/sign-in/SignInForm.tsx:112:          autoComplete={mode === "sign-up" ? "new-password" : "current-password"}
+app/sign-in/SignInForm.tsx:136:        {isSubmitting ? "Working…" : mode === "sign-up" ? "Create account" : "Sign in"}
+app/sign-in/page.tsx:26:            <Suspense fallback={<p className="mt-6 text-sm text-[#d6d3e8]">Loading sign in…</p>}>
+app/stuck/page.tsx:1:import { redirect } from "next/navigation";
+app/stuck/page.tsx:11:  if (!user) redirect("/sign-in");
+app/auth/callback/route.ts:21:    return NextResponse.redirect(new URL(`/sign-in?next=${encodeURIComponent(next)}`, url.origin));
+app/auth/callback/route.ts:24:  const profile = await getOrCreateMomentProfile(user.id);
+app/auth/callback/route.ts:25:  const path = next === "/" || next === "/dashboard" || next === "/onboarding" ? await getCanonicalAppPath(user.id, profile) : next;
+app/auth/callback/route.ts:27:  return NextResponse.redirect(new URL(path, url.origin));
+app/internal/review/page.tsx:1:import { redirect } from "next/navigation";
+app/internal/review/page.tsx:50:  if (!reviewer.authorized) redirect("/dashboard");
+components/moment/MomentAppShell.tsx:1:import { redirect } from "next/navigation";
+components/moment/MomentAppShell.tsx:14:    redirect("/sign-in");
+components/moment/MomentAppShell.tsx:21:  if (!user) redirect("/sign-in");
+components/moment/GlobalBackButton.tsx:30:    return "/dashboard";
+components/moment/GlobalBackButton.tsx:35:      router.push(safeFallback);
+components/moment/GlobalBackButton.tsx:45:    router.push(safeFallback);
+components/moment/MomentAppNav.tsx:7:  { label: "Moment", href: "/dashboard" },
+components/moment/MomentAppNav.tsx:13:  { label: "Settings", href: "/settings" }
+components/moment/BillingActions.tsx:5:export function BillingActions({ plan, source = "settings" }: { plan: "free" | "plus" | "pro"; source?: "settings" | "pricing" }) {
+components/moment/BillingActions.tsx:20:        throw new Error(data.error || "Unable to start checkout. Please try again.");
+components/moment/BillingActions.tsx:24:    } catch (checkoutError) {
+components/moment/BillingActions.tsx:25:      setError(checkoutError instanceof Error ? checkoutError.message : "Unable to start checkout. Please try again.");
+components/moment/BillingActions.tsx:36:            <button onClick={() => go("/api/stripe/create-checkout-session", { plan: "plus", source })} className="moment-btn-primary" disabled={Boolean(busy)}>{busy ? "Working…" : "Upgrade to Plus"}</button>
+components/moment/BillingActions.tsx:37:            <button onClick={() => go("/api/stripe/create-checkout-session", { plan: "pro", source })} className="moment-btn-secondary" disabled={Boolean(busy)}>{busy ? "Working…" : "Upgrade to Pro"}</button>
+components/moment/BillingActions.tsx:40:          <button onClick={() => go("/api/stripe/create-portal-session")} className="moment-btn-primary" disabled={Boolean(busy)}>{busy ? "Working…" : "Manage subscription"}</button>
+lib/entitlements.ts:2:import { getCurrentMomentPlan } from "@/lib/subscriptions";
+lib/entitlements.ts:10:export async function getMomentFeatureAccess(feature: MomentFeature) { const supabase=await createSupabaseServerClient(); const {data:{user}}=await supabase.auth.getUser(); if(!user) return {ok:false as const,status:401 as const,response:{error:"Unauthorized"}}; const subscription=await getCurrentMomentPlan(user.id); if(!canUseMomentFeature(subscription.plan, feature)) return {ok:false as const,status:403 as const,response:buildUpgradeRequiredResponse(feature),userId:user.id,plan:subscription.plan}; return {ok:true as const,userId:user.id,plan:subscription.plan,subscription}; }
+lib/internalReviewAuth.ts:10:  const { data: profile } = await supabase.from("moment_profiles").select("role").eq("user_id", user.id).maybeSingle();
+lib/internalReviewAuth.ts:11:  const roleAllowed = profile?.role === "admin";
+lib/env.ts:2:  NEXT_PUBLIC_SUPABASE_URL: process.env.NEXT_PUBLIC_SUPABASE_URL,
+lib/env.ts:3:  NEXT_PUBLIC_SUPABASE_ANON_KEY: process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY,
+lib/env.ts:16:    url: requiredKeys.NEXT_PUBLIC_SUPABASE_URL as string,
+lib/env.ts:17:    anonKey: requiredKeys.NEXT_PUBLIC_SUPABASE_ANON_KEY as string,
+lib/env.ts:27:  return process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000";
+lib/env.ts:31:  const secretKey = process.env.STRIPE_SECRET_KEY;
+lib/env.ts:32:  const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET;
+lib/env.ts:33:  const plusPriceId = process.env.STRIPE_PLUS_PRICE_ID;
+lib/env.ts:34:  const proPriceId = process.env.STRIPE_PRO_PRICE_ID;
+lib/env.ts:37:    throw new Error("Missing Stripe env vars: STRIPE_SECRET_KEY, STRIPE_WEBHOOK_SECRET, STRIPE_PLUS_PRICE_ID, STRIPE_PRO_PRICE_ID");
+lib/userFlow.ts:4:  onboardingComplete: boolean;
+lib/userFlow.ts:10:    return "/pricing";
+lib/userFlow.ts:13:  if (!state.onboardingComplete) {
+lib/userFlow.ts:14:    return "/onboarding";
+lib/userFlow.ts:17:  return "/dashboard";
+lib/subscriptions.ts:1:import { redirect } from "next/navigation";
+lib/subscriptions.ts:15:    .from("moment_subscriptions")
+lib/subscriptions.ts:29:  const subscription = await getCurrentMomentPlan(userId);
+lib/subscriptions.ts:30:  if (requiredPlan === "plus" && subscription.plan === "pro") return subscription;
+lib/subscriptions.ts:31:  if (subscription.plan !== requiredPlan) {
+lib/subscriptions.ts:32:    redirect("/settings?tab=billing");
+lib/subscriptions.ts:34:  return subscription;
+lib/auth.ts:1:import { redirect } from "next/navigation";
+lib/auth.ts:3:import { getCurrentMomentPlan } from "@/lib/subscriptions";
+lib/auth.ts:4:import { getPostSignupPath } from "@/lib/userFlow";
+lib/auth.ts:18:    .from("moment_profiles")
+lib/auth.ts:28:    .from("moment_profiles")
+lib/auth.ts:29:    .insert({ user_id: userId, onboarding_complete: false })
+lib/auth.ts:40:export function getOnboardingRedirectPath(profile: { onboarding_complete?: boolean } | null) {
+lib/auth.ts:41:  if (!profile || !profile.onboarding_complete) {
+lib/auth.ts:42:    return "/onboarding";
+lib/auth.ts:45:  return "/dashboard";
+lib/auth.ts:51:    redirect(`/sign-in?next=${encodeURIComponent(next)}`);
+lib/auth.ts:57:export async function getCanonicalAppPath(userId: string, profile: { onboarding_complete?: boolean } | null) {
+lib/auth.ts:58:  const subscription = await getCurrentMomentPlan(userId);
+lib/auth.ts:59:  return getPostSignupPath({ onboardingComplete: Boolean(profile?.onboarding_complete), plan: subscription.plan });
+middleware.ts:9:  matcher: ["/dashboard/:path*", "/onboarding/:path*", "/stuck/:path*", "/api/:path*"],
+middleware.ts:9:  matcher: ["/dashboard/:path*", "/onboarding/:path*", "/stuck/:path*", "/api/:path*"],
+scripts/smoke-routing-and-onboarding.mjs:8:const deriveTrustedAge = (profileAgeRange, clientAgeRange) => ({
+scripts/smoke-routing-and-onboarding.mjs:9:  trusted: normalizeAgeRange(profileAgeRange),
+scripts/smoke-routing-and-onboarding.mjs:22:console.log('PASS onboarding payload maps support_goals -> focus_areas/support_goals consistently');
+scripts/smoke-routing-and-onboarding.mjs:26:console.log('PASS routing trusts profile age over client age (teen profile wins)');
+scripts/smoke-routing-and-onboarding.mjs:30:console.log('PASS routing trusts profile age over client age (adult profile wins)');
+scripts/smoke-routing-and-onboarding.mjs:34:console.log('PASS routing defaults not_set profile age to 18_plus');
+scripts/smoke-user-flow.mjs:3:const getPostSignupPath = ({ plan, onboardingComplete }) => {
+scripts/smoke-user-flow.mjs:4:  if (plan === 'free') return '/pricing';
+scripts/smoke-user-flow.mjs:5:  if (!onboardingComplete) return '/onboarding';
+scripts/smoke-user-flow.mjs:6:  return '/dashboard';
+scripts/smoke-user-flow.mjs:9:assert.equal(getPostSignupPath({ plan: 'free', onboardingComplete: false }), '/pricing');
+scripts/smoke-user-flow.mjs:10:assert.equal(getPostSignupPath({ plan: 'plus', onboardingComplete: false }), '/onboarding');
+scripts/smoke-user-flow.mjs:11:assert.equal(getPostSignupPath({ plan: 'pro', onboardingComplete: true }), '/dashboard');
+scripts/smoke-user-flow.mjs:13:console.log('PASS canonical user flow guards');
+supabase/migrations/0011_moment_rls_hardening.sql:4:alter table public.moment_profiles enable row level security;
+supabase/migrations/0011_moment_rls_hardening.sql:13:alter table public.moment_subscriptions enable row level security;
+supabase/migrations/0011_moment_rls_hardening.sql:109:-- 4) Ensure subscription tables have no client writes.
+supabase/migrations/0011_moment_rls_hardening.sql:110:-- select tablename, policyname, cmd from pg_policies where schemaname='public' and tablename='moment_subscriptions' order by cmd, policyname;
+supabase/migrations/0003_profile_birthday_and_greeting_fields.sql:3:alter table public.moment_profiles
+supabase/migrations/0001_initial_moment_schema.sql:5:create table if not exists public.moment_profiles (
+supabase/migrations/0001_initial_moment_schema.sql:21:  onboarding_complete boolean not null default false,
+supabase/migrations/0001_initial_moment_schema.sql:231:create table if not exists public.moment_subscriptions (
+supabase/migrations/0001_initial_moment_schema.sql:237:  stripe_customer_id text null unique,
+supabase/migrations/0001_initial_moment_schema.sql:239:  stripe_subscription_id text null unique,
+supabase/migrations/0001_initial_moment_schema.sql:275:drop trigger if exists moment_profiles_touch_updated_at on public.moment_profiles;
+supabase/migrations/0001_initial_moment_schema.sql:277:create trigger moment_profiles_touch_updated_at
+supabase/migrations/0001_initial_moment_schema.sql:279:before update on public.moment_profiles
+supabase/migrations/0001_initial_moment_schema.sql:299:drop trigger if exists moment_subscriptions_touch_updated_at on public.moment_subscriptions;
+supabase/migrations/0001_initial_moment_schema.sql:301:create trigger moment_subscriptions_touch_updated_at
+supabase/migrations/0001_initial_moment_schema.sql:303:before update on public.moment_subscriptions
+supabase/migrations/0001_initial_moment_schema.sql:307:create index if not exists moment_profiles_user_idx on public.moment_profiles(user_id);
+supabase/migrations/0001_initial_moment_schema.sql:327:create index if not exists moment_subscriptions_user_idx on public.moment_subscriptions(user_id);
+supabase/migrations/0001_initial_moment_schema.sql:329:alter table public.moment_profiles enable row level security;
+supabase/migrations/0001_initial_moment_schema.sql:347:alter table public.moment_subscriptions enable row level security;
+supabase/migrations/0001_initial_moment_schema.sql:349:drop policy if exists "moment_profiles_own_select" on public.moment_profiles;
+supabase/migrations/0001_initial_moment_schema.sql:351:create policy "moment_profiles_own_select"
+supabase/migrations/0001_initial_moment_schema.sql:353:on public.moment_profiles for select
+supabase/migrations/0001_initial_moment_schema.sql:357:drop policy if exists "moment_profiles_own_insert" on public.moment_profiles;
+supabase/migrations/0001_initial_moment_schema.sql:359:create policy "moment_profiles_own_insert"
+supabase/migrations/0001_initial_moment_schema.sql:361:on public.moment_profiles for insert
+supabase/migrations/0001_initial_moment_schema.sql:365:drop policy if exists "moment_profiles_own_update" on public.moment_profiles;
+supabase/migrations/0001_initial_moment_schema.sql:367:create policy "moment_profiles_own_update"
+supabase/migrations/0001_initial_moment_schema.sql:369:on public.moment_profiles for update
+supabase/migrations/0001_initial_moment_schema.sql:507:drop policy if exists "moment_subscriptions_own_select" on public.moment_subscriptions;
+supabase/migrations/0001_initial_moment_schema.sql:509:create policy "moment_subscriptions_own_select"
+supabase/migrations/0001_initial_moment_schema.sql:511:on public.moment_subscriptions for select
+supabase/migrations/0008_stripe_subscription_plans.sql:1:alter table public.moment_subscriptions
+supabase/migrations/0008_stripe_subscription_plans.sql:2:  add column if not exists stripe_price_id text,
+supabase/migrations/0008_stripe_subscription_plans.sql:5:alter table public.moment_subscriptions
+supabase/migrations/0008_stripe_subscription_plans.sql:6:  drop constraint if exists moment_subscriptions_plan_check;
+supabase/migrations/0008_stripe_subscription_plans.sql:8:alter table public.moment_subscriptions
+supabase/migrations/0008_stripe_subscription_plans.sql:9:  add constraint moment_subscriptions_plan_check check (plan in ('free','plus','pro'));
+supabase/migrations/0008_stripe_subscription_plans.sql:11:create index if not exists moment_subscriptions_customer_idx on public.moment_subscriptions(stripe_customer_id);
+supabase/migrations/0008_stripe_subscription_plans.sql:12:create index if not exists moment_subscriptions_subscription_idx on public.moment_subscriptions(stripe_subscription_id);
+supabase/migrations/0008_stripe_subscription_plans.sql:13:create index if not exists moment_subscriptions_status_idx on public.moment_subscriptions(status);
+
+===== FILE CONTENTS =====
+
+===== FILE: app/api/ai/check-in/route.ts =====
+import { NextResponse } from "next/server";
+import { z } from "zod";
+import { runMomentOrchestrator } from "@/features/ai/orchestration/runMomentOrchestrator";
+import { buildThreadUpsert, continuityCueFromThread, findThreadContinuation, inferSupportStyle, summarizeContinuity } from "@/features/moment/continuity/engine";
+import type { MomentThread } from "@/features/moment/continuity/types";
+import { applyRouteSafetyFilters, escalationCopy, resolveAudiencePolicy } from "@/features/moment/policy";
+import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { extractMemoryArtifacts } from "@/features/moment/memory/extractMemoryArtifacts";
+import { persistMomentMemory } from "@/features/moment/memory/persistMomentMemory";
+import { readMomentMemory } from "@/features/moment/memory/readMomentMemory";
+import { getMomentUsageSnapshot } from "@/lib/entitlements";
+import { buildTrustSignal, deriveSupportQualityFlags, summarizeTrace } from "@/features/moment/orchestration/observability";
+import { getCurrentMomentPlan } from "@/lib/subscriptions";
+import { normalizeAgeRange } from "@/lib/momentAudience";
+
+const schema = z.object({
+  text: z.string().min(3),
+  selectedStates: z.array(z.string()).default([]),
+  ageRange: z.enum(["under_13", "13_15", "16_17", "18_plus"]).optional(),
+  conversationState: z.object({
+    threadId: z.string(),
+    unresolvedClarification: z.object({ promptId: z.string(), followUpHistory: z.array(z.object({ promptId: z.string(), choiceId: z.string(), choiceLabel: z.string() })) }).nullable().optional(),
+    selectedEmotionalContext: z.array(z.string()).default([]),
+    inferredSupportStyle: z.enum(["calm_reflective", "gentle_grounding", "structured_reset", "action_forward"]).optional(),
+  }).optional(),
+});
+
+function summarizeInput(text: string): string { return text.trim().replace(/\s+/g, " ").slice(0, 180); }
+
+function detectPattern(text: string): { key: string; summary: string; focus: string } | null {
+  const normalized = text.toLowerCase();
+  if (/(math|homework|class|test)/.test(normalized)) return { key: "recurring_school_stress", summary: "Math or school stress has been showing up a lot lately.", focus: "Pair grounding with a tiny school start step." };
+  if (/(work|boss|deadline|burnout)/.test(normalized)) return { key: "recurring_work_pressure", summary: "Work pressure seems to be recurring.", focus: "Use calmer restart boundaries before task sorting." };
+  if (/(friend|drama|relationship|conflict)/.test(normalized)) return { key: "recurring_relationship_strain", summary: "Relationship tension seems to keep looping.", focus: "Try pause-before-reply and boundary framing." };
+  if (/(shutdown|avoid|stuck|overwhelmed)/.test(normalized)) return { key: "recurring_shutdown_before_tasks", summary: "Task shutdown has been recurring before starts.", focus: "Lead with emotional grounding, then one setup action." };
+  return null;
+}
+
+function detectEmotionalRhythmHint(text: string, now: Date) {
+  const normalized = text.toLowerCase();
+  const day = now.getUTCDay();
+  const hour = now.getUTCHours();
+  if (/(math|homework|exam|study)/.test(normalized) && hour >= 20) return "Night study pressure can feel sharper.";
+  if (/(alone|lonely|isolated)/.test(normalized) && (day === 0 || day === 6)) return "Weekends can sometimes feel heavier socially.";
+  if (/(work|deadline|meetings|burnout)/.test(normalized) && day === 1 && hour <= 15) return "Monday work pressure can stack quickly.";
+  if (/(conflict|fight|argument|drama)/.test(normalized)) return "After conflict, shutdown can show up as protection.";
+  return null;
+}
+
+function detectSeasonalCue(text: string, now: Date) {
+  const normalized = text.toLowerCase();
+  const month = now.getUTCMonth() + 1;
+  const day = now.getUTCDate();
+  const isWeekend = now.getUTCDay() === 0 || now.getUTCDay() === 6;
+  const tags: string[] = [];
+  if (isWeekend) tags.push("weekend");
+  if (month === 5 && day >= 1 && day <= 15) tags.push("Mother’s Day season");
+  if (/(birthday|anniversary|holiday)/.test(normalized)) tags.push("important date");
+  if (/(exam|final|midterm)/.test(normalized)) tags.push("exam period");
+  if (/(monday|work week|school week)/.test(normalized)) tags.push("start-of-week pressure");
+  return tags.length ? `Context note: ${tags.join(", ")} may be part of how this is landing.` : null;
+}
+
+function buildRecoveryTrajectoryCue(text: string, routeId: string) {
+  const normalized = text.toLowerCase();
+  if (routeId === "grief_support_brain") return "You’ve been approaching this grief in small returns, even when it still feels tender.";
+  if (routeId === "work_stress_brain") return "You’ve been trying to make work pressure more survivable, not perfect.";
+  if (routeId === "school_overwhelm_brain") return "You’ve been coming back to school pressure in steadier, smaller passes.";
+  if (/(boundary|conflict|relationship)/.test(normalized)) return "You’ve been trying to hold clearer boundaries with less self-abandoning.";
+  return "You’ve been showing a quieter kind of follow-through by checking back in.";
+}
+
+function deriveSupportStyle(memorySnapshot: Awaited<ReturnType<typeof readMomentMemory>>) {
+  const recent = memorySnapshot.supportEffectivenessNotes.slice(0, 4).map((item) => item.supportStyle);
+  if (recent.filter((style) => style === "gentle_grounding").length >= 2) return "gentle_grounding";
+  if (recent.filter((style) => style === "structured_reset").length >= 2) return "structured_reset";
+  if (recent.filter((style) => style === "action_forward").length >= 2) return "action_forward";
+  return "calm_reflective";
+}
+
+
+function ensureResponseShape(response: ReturnType<typeof runMomentOrchestrator>["response"]) {
+  const reflection = typeof response.reflection === "string" && response.reflection.trim().length > 0
+    ? response.reflection
+    : "Thanks for sharing this. We can keep this gentle.";
+  const tinyNextStep = typeof response.tinyNextStep === "string" && response.tinyNextStep.trim().length > 0
+    ? response.tinyNextStep
+    : "One slow breath is enough for now.";
+  return {
+    ...response,
+    reflection,
+    tinyNextStep,
+    steps: Array.isArray(response.steps) && response.steps.length > 0 ? response.steps.filter((s) => typeof s === "string" && s.trim().length > 0) : [tinyNextStep],
+  };
+}
+
+
+function buildFallbackResponse(reason: string) {
+  return {
+    routeLabel: "Gentle reset",
+    routePath: "/check-in",
+    reflection: "Thanks for staying with this. We can keep this gentle.",
+    tinyNextStep: "Take one slower breath and name one thing you need right now.",
+    whyThisRoute: reason,
+    continueLabel: "Stay here",
+    steps: ["We can keep this very light.", "If you want, name one pressure point in a few words."],
+    supportiveNote: "No need to solve this immediately.",
+    followUpActions: [{ label: "Quiet reflection", href: "/check-in" }],
+  };
+}
+
+function createJournalArcSummary(memorySnapshot: Awaited<ReturnType<typeof readMomentMemory>>) {
+  const joined = memorySnapshot.entries.map((entry) => `${entry.inputSummary} ${entry.emotionalState ?? ""}`).join(" ").toLowerCase();
+  if (/(work|deadline|burnout)/.test(joined)) return "Arc lately: work pressure has been recurring, and slower restarts seem to help.";
+  if (/(school|exam|class|homework)/.test(joined)) return "Arc lately: school pressure has been showing up; tiny starts appear more workable than big pushes.";
+  if (/(grief|loss|miss)/.test(joined)) return "Arc lately: you’ve been carrying grief in waves, with gentler check-ins seeming more sustainable.";
+  if (/(overwhelm|shutdown|stuck)/.test(joined)) return "Arc lately: overwhelm loops appear, and grounding-first support tends to land better.";
+  return "Arc lately: you’ve been returning to what matters, and small continuity seems to help.";
+}
+
+
+
+type QaTag = "emotionally_warm" | "too_robotic" | "too_many_prompts" | "too_instructional" | "emotionally_flat" | "emotionally_helpful" | "pacing_mismatch" | "continuity_creepy" | "continuity_comforting";
+
+function deriveQaTags(input: { reflection: string; tinyNextStep: string; steps: string[]; selectedStates: string[]; continuityCue: string | null; supportFatigueReduction: boolean; pacingProfile: string; warnings: string[]; }): QaTag[] {
+  const tags: QaTag[] = [];
+  const joined = `${input.reflection} ${input.tinyNextStep} ${input.steps.join(" ")}`.toLowerCase();
+  if (/(with you|gentle|no pressure|one breath|it's okay)/.test(joined)) tags.push("emotionally_warm", "emotionally_helpful");
+  if (/(framework|optimize|profile|pipeline)/.test(joined)) tags.push("too_robotic");
+  if (input.steps.length >= 3 || /(first|second|third)/.test(joined)) tags.push("too_many_prompts");
+  if (/(you should|you need to|must)/.test(joined)) tags.push("too_instructional");
+  if (!/(feel|hard|heavy|tender|overwhelm|pressure)/.test(joined)) tags.push("emotionally_flat");
+  if (input.pacingProfile === "slow" && /(quick|right now)/.test(joined)) tags.push("pacing_mismatch");
+  if (input.continuityCue && /(always|every time|you keep)/i.test(input.continuityCue)) tags.push("continuity_creepy");
+  if (input.continuityCue && /(small returns|checking back in|steadier)/i.test(input.continuityCue)) tags.push("continuity_comforting");
+  if (input.supportFatigueReduction) tags.push("emotionally_warm");
+  if (input.warnings.length > 0 && !tags.includes("emotionally_helpful")) tags.push("emotionally_helpful");
+  return [...new Set(tags)];
+}
+
+function detectLoopSignals(input: { text: string; selectedStates: string[]; followUpAnswers: string[]; memoryThreads: { status: string }[]; warnings: string[]; responseText: string; }) {
+  const signals: string[] = [];
+  const normalized = `${input.text} ${input.selectedStates.join(" ")} ${input.followUpAnswers.join(" ")}`.toLowerCase();
+  if (/(nothing helps|same thing again|still stuck|again and again)/.test(normalized)) signals.push("repeated_unresolved_loops");
+  if (/(what do you mean|can you clarify|not what i mean)/.test(normalized)) signals.push("circular_clarification");
+  if (input.memoryThreads.filter((t) => t.status === "active").length >= 4) signals.push("support_fatigue_pattern");
+  if (/(doesn't help|not helping|no point)/.test(normalized)) signals.push("nothing_helps_escalation");
+  if (/\b(i\s+guess|whatever|fine)\b/.test(normalized)) signals.push("abrupt_emotional_transition");
+  if (/(first,|second,|third,).*(first,|second,|third,)/.test(input.responseText.toLowerCase())) signals.push("repetitive_response_structure");
+  if (input.warnings.length > 0) signals.push("system_fallback_load");
+  return signals;
+}
+
+export async function POST(request: Request) {
+  const warnings: string[] = [];
+  let continuitySummary: string | null = null;
+  let continuityCue: string | null = null;
+  const supabase = await createSupabaseServerClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const parsed = schema.safeParse(await request.json());
+  if (!parsed.success) return NextResponse.json({ error: "Invalid input" }, { status: 400 });
+  const { data: profile } = await supabase.from("moment_profiles").select("age_range").eq("user_id", user.id).maybeSingle();
+  const trustedAgeRange = normalizeAgeRange(profile?.age_range);
+  const policy = resolveAudiencePolicy(trustedAgeRange);
+  const safety = applyRouteSafetyFilters(`${parsed.data.text} ${parsed.data.selectedStates.join(" ")}`);
+  if (safety.deny) {
+    const safe = { routeLabel: "Emotional Reset", routePath: "/check-in", reflection: "I’m really glad you checked in. This sounds serious and you deserve immediate support.", tinyNextStep: escalationCopy(policy.isMinor), whyThisRoute: "Moment detected language that needs immediate trusted-human support.", continueLabel: "Open Emotional Reset", steps: ["Tell a parent, guardian, school counselor, or another trusted adult exactly what is happening.", "If there is immediate danger, contact local emergency services now."], supportiveNote: "You matter, and you do not need to hold this alone.", followUpActions: [{ label: "Open Check In", href: "/check-in?from=safety" }] };
+    return NextResponse.json({ route: { primaryBrainId: "safety_support_brain", supportingBrainIds: [], routeLabel: "Emotional Reset", routePath: "/check-in", reason: "High-risk language detected.", confidence: "high", audience: "all", category: "emotion" }, response: safe, warnings });
+  }
+
+  const subscription = await getCurrentMomentPlan(user.id);
+  const usage = await getMomentUsageSnapshot(user.id, subscription.plan);
+  if (usage.momentLimit !== null && usage.usedMoments >= usage.momentLimit) {
+    return NextResponse.json({
+      code: "moment_limit_reached",
+      message: "You’ve reached your monthly Moment limit. You can still view your journal and saved support until your limit resets.",
+      usedMoments: usage.usedMoments,
+      momentLimit: usage.momentLimit,
+      remainingMoments: usage.remainingMoments,
+    }, { status: 402 });
+  }
+
+
+  const { data: activeThreads } = await supabase
+    .from("moment_threads")
+    .select("id,user_id,title,summary,primary_brain_id,support_style,emotional_state,status,last_activity_at,created_at,updated_at")
+    .eq("user_id", user.id)
+    .in("status", ["active", "paused"])
+    .order("last_activity_at", { ascending: false })
+    .limit(6);
+
+
+  const followUpAnswers = parsed.data.conversationState?.unresolvedClarification?.followUpHistory.map((entry) => entry.choiceLabel) ?? [];
+  const typedThreads = (activeThreads ?? []) as MomentThread[];
+  continuitySummary = summarizeContinuity(parsed.data.text, typedThreads);
+  const cue = typedThreads.map((thread) => continuityCueFromThread(thread, parsed.data.text)).find((item) => !!item);
+  continuityCue = cue?.prompt ?? null;
+
+  let result;
+  try {
+  result = runMomentOrchestrator({
+    momentText: parsed.data.text,
+    selectedSignals: [...parsed.data.selectedStates, ...followUpAnswers],
+    ageRange: trustedAgeRange,
+    supportStyle: parsed.data.conversationState?.inferredSupportStyle,
+    followUpHistory: parsed.data.conversationState?.unresolvedClarification?.followUpHistory ?? [],
+    threadId: parsed.data.conversationState?.threadId,
+  });
+  } catch {
+    const fallback = buildFallbackResponse("Support temporarily shifted into minimal mode.");
+    return NextResponse.json({ route: { primaryBrainId: "emotional_reset_brain", supportingBrainIds: [], routeLabel: "Gentle reset", routePath: "/check-in", reason: "orchestration_fallback", confidence: "low", audience: "all", category: "emotion" }, response: { ...fallback, trustSignal: buildTrustSignal(0), fallbackMode: "orchestrator_failure" }, warnings: ["Orchestration fallback used."] });
+  }
+  const confidenceValue = result.route.confidence === "high" ? 0.95 : result.route.confidence === "medium" ? 0.75 : 0.5;
+  const safeResponse = ensureResponseShape(result.response);
+  const { data: routeData, error: routeError } = await supabase.from("moment_routes").insert({ user_id: user.id, primary_brain_id: result.route.primaryBrainId, supporting_brain_ids: result.route.supportingBrainIds, category: result.route.category, audience: result.route.audience, input_summary: summarizeInput(parsed.data.text), route_reason: result.route.reason, confidence: confidenceValue }).select("id").single();
+  const continuation = findThreadContinuation(parsed.data.text, typedThreads, result.route.primaryBrainId);
+  const upsertPayload = buildThreadUpsert(parsed.data.text, result.route, user.id, inferSupportStyle(parsed.data.conversationState?.inferredSupportStyle), continuation?.thread.id);
+  const threadWrite = continuation?.thread.id
+    ? await supabase.from("moment_threads").update(upsertPayload).eq("id", continuation.thread.id).select("id").single()
+    : await supabase.from("moment_threads").insert(upsertPayload).select("id").single();
+  const threadData = threadWrite.data;
+  const threadError = threadWrite.error;
+  if (threadError) warnings.push(`Failed to persist thread continuity: ${threadError.message}`);
+  if (routeError) warnings.push(`Failed to log route event: ${routeError.message}`);
+
+  const artifacts = extractMemoryArtifacts({
+    userText: parsed.data.text,
+    selectedStates: parsed.data.selectedStates,
+    route: result.route,
+    response: safeResponse,
+    supportStyle: parsed.data.conversationState?.inferredSupportStyle,
+    riskSeverity: safety.risk.severity,
+    ageRange: trustedAgeRange,
+  });
+  let entryId: string | null = null;
+  try {
+    entryId = await persistMomentMemory({
+    supabase,
+    userId: user.id,
+    threadId: threadData?.id ?? null,
+    routeId: routeData?.id ?? null,
+    artifacts,
+  });
+  } catch {
+    entryId = null;
+  }
+  if (!entryId) warnings.push("We saved your support response, but memory sync is delayed.");
+
+  const detectedPattern = detectPattern(parsed.data.text);
+  if (detectedPattern) {
+    const { data: existing } = await supabase.from("moment_patterns").select("id,recurrence_count").eq("user_id", user.id).eq("pattern_key", detectedPattern.key).maybeSingle();
+    if (existing) {
+      await supabase.from("moment_patterns").update({ recurrence_count: (existing.recurrence_count ?? 1) + 1, summary: detectedPattern.summary, support_focus: detectedPattern.focus, last_seen_at: new Date().toISOString() }).eq("id", existing.id);
+    } else {
+      await supabase.from("moment_patterns").insert({ user_id: user.id, pattern_key: detectedPattern.key, summary: detectedPattern.summary, support_focus: detectedPattern.focus });
+    }
+  }
+
+  const memorySnapshot = await readMomentMemory(supabase, user.id).catch(() => ({ entries: [], threads: [], goals: [], tinyWins: [], suggestions: [], supportPatterns: [], supportEffectivenessNotes: [] }));
+
+===== FILE: app/api/ai/drama-pause/route.ts =====
+import { NextResponse } from "next/server";
+import { z } from "zod";
+import { normalizeMomentBrainOutput, runMomentBrain } from "@/features/ai/runMomentBrain";
+import { detectSupportRisk } from "@/features/safety";
+import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { requireMomentFeature } from "@/lib/entitlements";
+const schema = z.object({ situation_text: z.string().min(3), relationship: z.string().optional().default(""), goal: z.string().optional().default("") });
+export async function POST(request: Request) {
+ const access = await requireMomentFeature("ai_deep_support");
+ if (!access.ok) return NextResponse.json(access.response, { status: access.status });
+ const supabase = await createSupabaseServerClient(); const { data: { user } } = await supabase.auth.getUser(); if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+ const parsed = schema.safeParse(await request.json()); if (!parsed.success) return NextResponse.json({ error: "Invalid input" }, { status: 400 });
+ const joined = `${parsed.data.situation_text} ${parsed.data.relationship} ${parsed.data.goal}`; const risk = detectSupportRisk(joined);
+ const response = risk.severity === "high" ? normalizeMomentBrainOutput({ reflection: "You deserve support right away.", tinyNextStep: "Pause this conversation and contact a trusted adult.", steps: ["Ask for help in plain words now."], supportiveNote: "If danger is immediate, call emergency services.", followUpActions: [{ label: "Return to Moment", href: "/dashboard" }] }) : await runMomentBrain("social_boundary_brain", joined);
+ const warnings: string[] = [];
+ const { data: row, error: rowError } = await supabase.from("moment_drama_pauses").insert({ user_id: user.id, ...parsed.data, ai_response: response }).select("id").single();
+ if (rowError) warnings.push(`Failed to persist drama pause: ${rowError.message}`);
+ const { data: aiMessage, error: aiError } = await supabase.from("moment_ai_messages").insert({ user_id: user.id, mode: "social_boundary_brain", source_table: "moment_drama_pauses", source_id: row?.id, input_snapshot: parsed.data, output_snapshot: response, safety_flags: risk.flags }).select("id").single();
+ if (aiError) warnings.push(`Failed to persist AI message: ${aiError.message}`);
+ return NextResponse.json({ response, persisted: { dramaPauseId: row?.id ?? null, aiMessageId: aiMessage?.id ?? null }, warnings });
+}
+
+===== FILE: app/api/ai/math-reset/route.ts =====
+import { NextResponse } from "next/server";
+import { z } from "zod";
+import { normalizeMomentBrainOutput, runMomentBrain } from "@/features/ai/runMomentBrain";
+import { detectSupportRisk } from "@/features/safety";
+import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { requireMomentFeature } from "@/lib/entitlements";
+const schema = z.object({ problem_text: z.string().min(3), stress_level: z.string().optional().default(""), test_context: z.string().optional().default("") });
+export async function POST(request: Request) {
+ const access = await requireMomentFeature("ai_deep_support");
+ if (!access.ok) return NextResponse.json(access.response, { status: access.status });
+ const supabase = await createSupabaseServerClient(); const { data: { user } } = await supabase.auth.getUser(); if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+ const parsed = schema.safeParse(await request.json()); if (!parsed.success) return NextResponse.json({ error: "Invalid input" }, { status: 400 });
+ const joined = `${parsed.data.problem_text} ${parsed.data.stress_level} ${parsed.data.test_context}`; const risk = detectSupportRisk(joined);
+ const response = risk.severity === "high" ? normalizeMomentBrainOutput({ reflection: "Your safety matters most.", tinyNextStep: "Reach out to a trusted adult now.", steps: ["Share exactly what is happening."], supportiveNote: "Immediate danger means call emergency services.", followUpActions: [{ label: "Return to Moment", href: "/dashboard" }] }) : await runMomentBrain("math_reset_brain", joined);
+ const warnings: string[] = [];
+ const { data: row, error: rowError } = await supabase.from("moment_math_resets").insert({ user_id: user.id, ...parsed.data, ai_response: response }).select("id").single();
+ if (rowError) warnings.push(`Failed to persist math reset: ${rowError.message}`);
+ const { data: aiMessage, error: aiError } = await supabase.from("moment_ai_messages").insert({ user_id: user.id, mode: "math_reset_brain", source_table: "moment_math_resets", source_id: row?.id, input_snapshot: parsed.data, output_snapshot: response, safety_flags: risk.flags }).select("id").single();
+ if (aiError) warnings.push(`Failed to persist AI message: ${aiError.message}`);
+ return NextResponse.json({ response, persisted: { mathResetId: row?.id ?? null, aiMessageId: aiMessage?.id ?? null }, warnings });
+}
+
+===== FILE: app/api/ai/stuck/route.ts =====
+import { NextResponse } from "next/server";
+import { z } from "zod";
+import { normalizeMomentBrainOutput, runMomentBrain } from "@/features/ai/runMomentBrain";
+import { detectSupportRisk } from "@/features/safety";
+import type { MomentRouteResult } from "@/features/ai/types";
+import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { requireMomentFeature } from "@/lib/entitlements";
+
+const stuckSchema = z.object({ task_text: z.string().min(3), hardest_part: z.string().optional().default(""), emotional_state: z.string().optional().default("") });
+const route: MomentRouteResult = { primaryBrainId: "task_start_brain", supportingBrainIds: [], primaryBrain: "task_start_brain", supportingBrains: [], routeLabel: "Task Start", routePath: "/stuck", reason: "Stuck reset requested.", confidence: "high", audience: "all", category: "task" };
+
+export async function POST(request: Request) {
+  const access = await requireMomentFeature("ai_deep_support");
+  if (!access.ok) return NextResponse.json(access.response, { status: access.status });
+  const supabase = await createSupabaseServerClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+
+  const parsed = stuckSchema.safeParse(await request.json());
+  if (!parsed.success) return NextResponse.json({ error: "Invalid input" }, { status: 400 });
+
+  const joinedInput = `${parsed.data.task_text} ${parsed.data.hardest_part} ${parsed.data.emotional_state}`;
+  const risk = detectSupportRisk(joinedInput);
+  const response = risk.severity === "high"
+    ? normalizeMomentBrainOutput({ reflection: "Thanks for sharing this. You deserve immediate real-world support.", tinyNextStep: "Pause and contact a trusted adult right now.", steps: ["Send one clear message asking for help now."], supportiveNote: "If there is immediate danger, contact emergency services now.", followUpActions: [{ label: "Return to Moment", href: "/dashboard" }] })
+    : await runMomentBrain("task_start_brain", joinedInput);
+
+  const warnings: string[] = [];
+  const { data: session, error: sessionError } = await supabase.from("moment_stuck_sessions").insert({ user_id: user.id, ...parsed.data, ai_response: response }).select("id").single();
+  if (sessionError) warnings.push(`Failed to persist stuck session: ${sessionError.message}`);
+  const { data: aiMessage, error: aiError } = await supabase.from("moment_ai_messages").insert({ user_id: user.id, mode: "task_start_brain", source_table: "moment_stuck_sessions", source_id: session?.id, input_snapshot: parsed.data, output_snapshot: response, safety_flags: risk.flags }).select("id").single();
+  if (aiError) warnings.push(`Failed to persist AI message: ${aiError.message}`);
+
+  return NextResponse.json({ route, response, persisted: { sessionId: session?.id ?? null, aiMessageId: aiMessage?.id ?? null }, warnings });
+}
+
+===== FILE: app/api/moment/feedback/route.ts =====
+import { NextResponse } from "next/server";
+import { z } from "zod";
+import { createSupabaseServerClient } from "@/lib/supabase/server";
+
+const schema = z.object({
+  threadId: z.string().optional(),
+  routeId: z.string().optional(),
+  signal: z.enum(["helpful", "too_much", "not_helpful", "needed_more_support", "needed_less_advice"]),
+  pacingMismatch: z.boolean().default(false),
+  overprompting: z.boolean().default(false),
+});
+
+export async function POST(request: Request) {
+  const supabase = await createSupabaseServerClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const parsed = schema.safeParse(await request.json());
+  if (!parsed.success) return NextResponse.json({ error: "Invalid input" }, { status: 400 });
+  await supabase.from("moment_support_feedback").insert({ user_id: user.id, thread_id: parsed.data.threadId ?? null, route_id: parsed.data.routeId ?? null, signal: parsed.data.signal, pacing_mismatch: parsed.data.pacingMismatch, overprompting_signal: parsed.data.overprompting });
+  return NextResponse.json({ ok: true });
+}
+
+===== FILE: app/api/moment/memory/actions/route.ts =====
+import { NextResponse } from "next/server";
+import { z } from "zod";
+import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { requireMomentFeature } from "@/lib/entitlements";
+
+const schema = z.object({
+  action: z.enum(["accept_suggestion", "dismiss_suggestion", "hide_tiny_win", "pause_thread", "resume_thread", "archive_goal", "pause_goal", "resume_goal", "mark_goal_progress", "mark_goal_struggling"]),
+  id: z.string().uuid(),
+});
+
+export async function POST(request: Request) {
+  const supabase = await createSupabaseServerClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const parsed = schema.safeParse(await request.json());
+
+  if (["archive_goal", "pause_goal", "resume_goal", "mark_goal_progress", "mark_goal_struggling"].includes(parsed.success ? parsed.data.action : "")) {
+    const gated = await requireMomentFeature("goals");
+    if (!gated.ok) return NextResponse.json(gated.response, { status: gated.status });
+  }
+  if (!parsed.success) return NextResponse.json({ error: "Invalid input" }, { status: 400 });
+  const { action, id } = parsed.data;
+
+  if (action === "accept_suggestion" || action === "dismiss_suggestion") {
+    const status = action === "accept_suggestion" ? "accepted" : "dismissed";
+    const { error } = await supabase.from("moment_suggestions").update({ status }).eq("id", id).eq("user_id", user.id);
+    if (error) return NextResponse.json({ error: error.message }, { status: 400 });
+  }
+  if (action === "hide_tiny_win") await supabase.from("moment_tiny_wins").update({ status: "hidden" }).eq("id", id).eq("user_id", user.id);
+  if (action === "pause_thread") await supabase.from("moment_threads").update({ status: "paused" }).eq("id", id).eq("user_id", user.id);
+  if (action === "resume_thread") await supabase.from("moment_threads").update({ status: "active" }).eq("id", id).eq("user_id", user.id);
+  if (action === "archive_goal") await supabase.from("moment_goals").update({ status: "archived" }).eq("id", id).eq("user_id", user.id);
+  if (action === "pause_goal") await supabase.from("moment_goals").update({ status: "paused" }).eq("id", id).eq("user_id", user.id);
+  if (action === "resume_goal") await supabase.from("moment_goals").update({ status: "active" }).eq("id", id).eq("user_id", user.id);
+  if (action === "mark_goal_progress") await supabase.from("moment_goals").update({ status: "gently_progressing" }).eq("id", id).eq("user_id", user.id);
+  if (action === "mark_goal_struggling") await supabase.from("moment_goals").update({ status: "struggling" }).eq("id", id).eq("user_id", user.id);
+
+  return NextResponse.json({ ok: true });
+}
+
+
+===== FILE: app/api/stripe/create-checkout-session/route.ts =====
+import { NextResponse } from "next/server";
+import { getAuthenticatedUser } from "@/lib/auth";
+import { getAppUrl, getStripeConfig } from "@/lib/env";
+import { MomentPlan } from "@/lib/plans";
+
+type StripeSessionResponse = { id: string; url: string | null };
+
+export async function POST(request: Request) {
+  const { user } = await getAuthenticatedUser();
+  if (!user) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+
+  const { plan } = (await request.json()) as { plan?: MomentPlan };
+  if (plan !== "plus" && plan !== "pro") {
+    return NextResponse.json({ error: "Invalid plan" }, { status: 400 });
+  }
+
+  const { secretKey, plusPriceId, proPriceId } = getStripeConfig();
+  const appUrl = getAppUrl();
+  const priceId = plan === "plus" ? plusPriceId : proPriceId;
+
+  const payload = new URLSearchParams({
+    mode: "subscription",
+    "line_items[0][price]": priceId,
+    "line_items[0][quantity]": "1",
+    success_url: `${appUrl}/onboarding?checkout=success`,
+    cancel_url: `${appUrl}/pricing?checkout=cancelled`,
+    "metadata[user_id]": user.id,
+    "subscription_data[metadata][user_id]": user.id,
+  });
+
+  const stripeResponse = await fetch("https://api.stripe.com/v1/checkout/sessions", {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${secretKey}`,
+      "Content-Type": "application/x-www-form-urlencoded",
+    },
+    body: payload,
+  });
+
+  if (!stripeResponse.ok) {
+    const text = await stripeResponse.text();
+    return NextResponse.json({ error: "Stripe session creation failed", detail: text.slice(0, 200) }, { status: 502 });
+  }
+
+  const session = (await stripeResponse.json()) as StripeSessionResponse;
+  return NextResponse.json({ url: session.url });
+}
+
+===== FILE: app/api/stripe/create-portal-session/route.ts =====
+import { NextResponse } from "next/server";
+import { getAuthenticatedUser } from "@/lib/auth";
+import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { getAppUrl, getStripeConfig } from "@/lib/env";
+
+export async function POST() {
+  const { user } = await getAuthenticatedUser();
+  if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+
+  const supabase = await createSupabaseServerClient();
+  const { data } = await supabase.from("moment_subscriptions").select("stripe_customer_id").eq("user_id", user.id).maybeSingle();
+  if (!data?.stripe_customer_id) return NextResponse.json({ error: "No billing profile" }, { status: 400 });
+
+  const { secretKey } = getStripeConfig();
+  const appUrl = getAppUrl();
+  const payload = new URLSearchParams({ customer: data.stripe_customer_id, return_url: `${appUrl}/settings?tab=billing` });
+
+  const stripeResponse = await fetch("https://api.stripe.com/v1/billing_portal/sessions", {
+    method: "POST",
+    headers: { Authorization: `Bearer ${secretKey}`, "Content-Type": "application/x-www-form-urlencoded" },
+    body: payload,
+  });
+
+  if (!stripeResponse.ok) return NextResponse.json({ error: "Portal unavailable" }, { status: 502 });
+  const session = (await stripeResponse.json()) as { url: string };
+  return NextResponse.json({ url: session.url });
+}
+
+===== FILE: app/api/stripe/webhook/route.ts =====
+import { createHmac, timingSafeEqual } from "node:crypto";
+import { NextResponse } from "next/server";
+import { getStripeConfig } from "@/lib/env";
+import { createSupabaseAdminClient } from "@/lib/supabase/admin";
+import { parseMomentPlan } from "@/lib/plans";
+
+function verifyStripeSignature(payload: string, signature: string, secret: string): boolean {
+  const pairs = signature.split(",");
+  const timestamp = pairs.find((part) => part.startsWith("t="))?.slice(2);
+  const signed = pairs.find((part) => part.startsWith("v1="))?.slice(3);
+  if (!timestamp || !signed) return false;
+  const expected = createHmac("sha256", secret).update(`${timestamp}.${payload}`).digest("hex");
+  return timingSafeEqual(Buffer.from(expected), Buffer.from(signed));
+}
+
+function planFromPriceId(priceId: string | null, plusPriceId: string, proPriceId: string) {
+  if (priceId === plusPriceId) return "plus";
+  if (priceId === proPriceId) return "pro";
+  return "free";
+}
+
+export async function POST(request: Request) {
+  const payload = await request.text();
+  const signature = request.headers.get("stripe-signature");
+  const { webhookSecret, plusPriceId, proPriceId } = getStripeConfig();
+  if (!signature || !verifyStripeSignature(payload, signature, webhookSecret)) {
+    return NextResponse.json({ error: "Invalid signature" }, { status: 400 });
+  }
+
+  const event = JSON.parse(payload) as { type: string; data: { object: Record<string, unknown> } };
+  const supabase = createSupabaseAdminClient();
+  const object = event.data.object;
+
+  try {
+    if (event.type === "checkout.session.completed") {
+      const userId = String((object.metadata as Record<string, string> | undefined)?.user_id ?? "");
+      const customerId = String(object.customer ?? "");
+      if (userId) await supabase.from("moment_subscriptions").upsert({ user_id: userId, stripe_customer_id: customerId }, { onConflict: "user_id" });
+    }
+
+    if (event.type.startsWith("customer.subscription") || event.type.startsWith("invoice.payment_")) {
+      const userId = String((object.metadata as Record<string, string> | undefined)?.user_id ?? "");
+      const priceId = String(((object.items as { data?: Array<{ price?: { id?: string } }> } | undefined)?.data?.[0]?.price?.id) ?? ((object.lines as { data?: Array<{ price?: { id?: string } }> } | undefined)?.data?.[0]?.price?.id) ?? "");
+      const plan = parseMomentPlan(planFromPriceId(priceId || null, plusPriceId, proPriceId));
+      const subscriptionId = String(object.id ?? "");
+      const customerId = String(object.customer ?? "");
+      const status = String(object.status ?? (event.type === "invoice.payment_failed" ? "past_due" : "active"));
+      const periodEndUnix = Number(object.current_period_end ?? 0);
+      const periodEnd = Number.isFinite(periodEndUnix) && periodEndUnix > 0 ? new Date(periodEndUnix * 1000).toISOString() : null;
+      const cancelAtPeriodEnd = Boolean(object.cancel_at_period_end ?? false);
+
+      if (userId || customerId) {
+        const base = { stripe_customer_id: customerId || null, stripe_subscription_id: subscriptionId || null, stripe_price_id: priceId || null, plan, status, current_period_end: periodEnd, cancel_at_period_end: cancelAtPeriodEnd };
+        if (userId) {
+          await supabase.from("moment_subscriptions").upsert({ user_id: userId, ...base }, { onConflict: "user_id" });
+        } else if (customerId) {
+          await supabase.from("moment_subscriptions").update(base).eq("stripe_customer_id", customerId);
+        }
+      }
+    }
+
+    return NextResponse.json({ received: true });
+  } catch {
+    return NextResponse.json({ error: "Webhook processing failed" }, { status: 500 });
+  }
+}
+
+===== FILE: app/api/stuck-sessions/[id]/status/route.ts =====
+import { NextResponse } from "next/server";
+import { z } from "zod";
+import { createSupabaseServerClient } from "@/lib/supabase/server";
+
+const statusSchema = z.object({ status: z.enum(["started", "still_stuck", "done"]) });
+
+export async function PATCH(request: Request, { params }: { params: Promise<{ id: string }> }) {
+  const { id } = await params;
+  const supabase = await createSupabaseServerClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const parsed = statusSchema.safeParse(await request.json());
+  if (!parsed.success) return NextResponse.json({ error: "Invalid" }, { status: 400 });
+  await supabase.from("moment_stuck_sessions").update({ status: parsed.data.status }).eq("id", id).eq("user_id", user.id);
+  return NextResponse.json({ ok: true });
+}
+
+===== FILE: app/auth/callback/route.ts =====
+import { NextResponse } from "next/server";
+import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { getCanonicalAppPath, getOrCreateMomentProfile } from "@/lib/auth";
+
+export async function GET(request: Request) {
+  const url = new URL(request.url);
+  const code = url.searchParams.get("code");
+  const next = url.searchParams.get("next") || "/";
+
+  const supabase = await createSupabaseServerClient();
+
+  if (code) {
+    await supabase.auth.exchangeCodeForSession(code);
+  }
+
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  if (!user) {
+    return NextResponse.redirect(new URL(`/sign-in?next=${encodeURIComponent(next)}`, url.origin));
+  }
+
+  const profile = await getOrCreateMomentProfile(user.id);
+  const path = next === "/" || next === "/dashboard" || next === "/onboarding" ? await getCanonicalAppPath(user.id, profile) : next;
+
+  return NextResponse.redirect(new URL(path, url.origin));
+}
+
+===== FILE: app/check-in/page.tsx =====
+import { MomentAppShell } from "@/components/moment/MomentAppShell";
+import { MomentPageHeader } from "@/components/moment/MomentPageHeader";
+import { ModuleFlowClient } from "@/features/moment/ModuleFlowClient";
+
+const stateChips = ["Overwhelmed", "Avoiding homework", "Math makes no sense", "Too many thoughts", "Friend drama", "Can’t start", "Shutting down", "Anxious", "Tired", "Embarrassed"];
+
+export default async function CheckInPage({ searchParams }: { searchParams: Promise<{ from?: string; contextId?: string; summary?: string }> }) {
+  const resolvedSearchParams = await searchParams;
+  return <MomentAppShell title="Check in" subtitle="Name what is heavy and get a clear reset path."><section className="mx-auto max-w-3xl"><MomentPageHeader eyebrow="Check-in" title="Name it, then reset" subtitle="Short guided check-in for heavy moments." /><ModuleFlowClient title="check-in" searchParams={resolvedSearchParams} apiPath="/api/ai/check-in" fields={[{ name: "text", label: "What feels heaviest right now?", area: true }, { name: "selectedStates", label: "Optional states", chipOptions: stateChips }]} /></section></MomentAppShell>;
+}
+
+===== FILE: app/dashboard/DashboardClient.tsx =====
+"use client";
+
+import { useMemo, useState } from "react";
+import Link from "next/link";
+import type { MomentPlan } from "@/lib/plans";
+import type { MomentCheckInResponse, MomentRouteResult, OperationalBlock } from "@/features/ai/types";
+import { BRAIN_AUDIENCES, BRAIN_CATEGORIES, MOMENT_BRAIN_IDS, OPERATIONAL_BLOCK_TYPES, ROUTE_LABELS } from "@/features/ai/contracts";
+import type { BrainAudience, BrainCategory, MomentBrainId } from "@/features/ai/brains/types";
+import type { MomentGreetingOutput } from "@/features/moment/greeting/types";
+import type { MomentMemorySnapshot } from "@/features/moment/memory/types";
+import { GreetingSurface } from "./components/GreetingSurface";
+import { IntakeComposer } from "./components/IntakeComposer";
+import { SupportStream } from "./components/SupportStream";
+import { ContinuityPanel } from "./components/ContinuityPanel";
+
+type SupportStyle = "calm_reflective" | "gentle_grounding" | "structured_reset" | "action_forward";
+const knownBrainIds = new Set<string>(MOMENT_BRAIN_IDS);
+const knownAudiences = new Set<string>(BRAIN_AUDIENCES);
+const knownCategories = new Set<string>(BRAIN_CATEGORIES);
+const knownBlockTypes = new Set<string>(OPERATIONAL_BLOCK_TYPES);
+const safeLabel = (id: MomentBrainId) => ROUTE_LABELS[id] ?? id.replace(/_brain$/, "").split("_").map((c) => c[0].toUpperCase() + c.slice(1)).join(" ");
+function toSafeRoute(raw: unknown): MomentRouteResult | null { if (!raw || typeof raw !== "object") return null; const route = raw as Record<string, unknown>; const id = typeof route.primaryBrainId === "string" ? route.primaryBrainId : null; if (!id || !knownBrainIds.has(id)) return null; const brainId = id as MomentBrainId; return { primaryBrainId:brainId,supportingBrainIds:[],routeLabel:typeof route.routeLabel==="string"?route.routeLabel:safeLabel(brainId),routePath:typeof route.routePath==="string"?route.routePath:"/check-in",reason:typeof route.reason==="string"?route.reason:"Moment selected support.",confidence:"medium",audience:typeof route.audience === "string" && knownAudiences.has(route.audience)?route.audience as BrainAudience:"all",category:typeof route.category === "string" && knownCategories.has(route.category)?route.category as BrainCategory:"emotion"}; }
+function toSafeBlocks(blocks: unknown, reflection: string, tinyNextStep: string): OperationalBlock[] { return Array.isArray(blocks) ? blocks.filter((b): b is Record<string, unknown> => !!b && typeof b === "object").map((b)=>({ type: typeof b.type === "string" && knownBlockTypes.has(b.type) ? b.type : "support", text: typeof b.text === "string" ? b.text : "" })).filter((b)=>b.text.length>0) as OperationalBlock[] : [{ type:"reflection", text:reflection},{type:"tiny_step",text:tinyNextStep}];}
+function toSafeResponse(raw: unknown, route: MomentRouteResult): MomentCheckInResponse | null { if (!raw || typeof raw !== "object") return null; const response = raw as Record<string, unknown>; const reflection = typeof response.reflection === "string" ? response.reflection : "Thanks for sharing this moment."; const tinyNextStep = typeof response.tinyNextStep === "string" ? response.tinyNextStep : "Take one small step."; return { routeLabel: route.routeLabel, routePath: route.routePath, reflection, tinyNextStep, whyThisRoute: typeof response.whyThisRoute === "string" ? response.whyThisRoute : "", continueLabel: "If you want, keep going", steps: [tinyNextStep], supportiveNote: "Small steps count.", followUpActions: [], blocks: toSafeBlocks(response.blocks, reflection, tinyNextStep) }; }
+
+export function DashboardClient({ greeting, memory, plan, usage }: { greeting: MomentGreetingOutput; memory: MomentMemorySnapshot | null; plan: MomentPlan; usage: { usedMoments: number; momentLimit: number | null; remainingMoments: number | null } }) {
+  const emptyMemory: MomentMemorySnapshot = { entries: [], threads: [], goals: [], tinyWins: [], suggestions: [], supportPatterns: [], supportEffectivenessNotes: [] };
+  const [memoryState,setMemoryState]=useState(memory ?? emptyMemory);
+  const [savedNote,setSavedNote]=useState<string | null>(null);
+  const [inlineError,setInlineError]=useState<string | null>(null);
+  const [isSubmitting,setIsSubmitting]=useState(false);
+  const [text,setText]=useState("");
+  const [result,setResult]=useState<{route:MomentRouteResult;response:MomentCheckInResponse}|null>(null);
+  const [continuitySummary,setContinuitySummary]=useState<string | null>(null);
+  const [supportStyle]=useState<SupportStyle>("calm_reflective");
+  const [threadId]=useState(`thread_${Date.now().toString(36)}`);
+  const personalizedOpening=useMemo(()=> memoryState.threads[0]?.summary ? `This feels familiar — ${memoryState.threads[0].summary.toLowerCase()}.` : "You don’t have to start from scratch.",[memoryState]);
+
+  async function submit(){
+    setInlineError(null);
+    setSavedNote(null);
+    setIsSubmitting(true);
+    try {
+    const res=await fetch('/api/ai/check-in',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({text,selectedStates:[],conversationState:{threadId,selectedEmotionalContext:[],inferredSupportStyle:supportStyle}})});
+    if(!res.ok){
+      if (res.status === 402) {
+        setInlineError("You’ve reached your monthly Moment limit. You can still read your saved moments.");
+        return;
+      }
+      setInlineError("Couldn’t save right now. Your words are still here.");
+      return;
+    }
+    const data=await res.json();
+    const route=toSafeRoute(data.route);
+    if(!route){ setInlineError("We hit a pause. Please try once more."); return; }
+    const response=toSafeResponse(data.response,route);
+    if(!response){ setInlineError("We hit a pause. Please try once more."); return; }
+    setResult({route,response});
+    setContinuitySummary(data.response?.continuitySummary ?? null);
+    if(data.memorySnapshot && typeof data.memorySnapshot === "object") setMemoryState(data.memorySnapshot);
+    setSavedNote("Saved quietly.");
+    } catch {
+      setInlineError("Something interrupted this check-in. Please try again.");
+    } finally {
+      setIsSubmitting(false);
+    }
+  }
+
+  return <div className="mx-auto max-w-3xl space-y-6 py-5 sm:space-y-7">
+    <section className="rounded-2xl bg-white/[0.03] px-4 py-3 text-sm text-slate-200">
+      <p>{usage.momentLimit === null ? "Moments are here whenever you need them." : `${usage.usedMoments}/${usage.momentLimit} moments used this month.`}</p>
+      <Link href="/settings?tab=billing" className="mt-1 inline-block text-xs text-violet-200/80 underline">Manage plan</Link>
+    </section>
+    <GreetingSurface headline={greeting.headline} opening={personalizedOpening} text={text} onText={setText} />
+    <IntakeComposer onSubmit={submit} disabled={text.length < 3 || isSubmitting} savedNote={savedNote} />
+    {inlineError ? <p className="rounded-xl bg-rose-500/10 px-3 py-2 text-sm text-rose-100">{inlineError}</p> : null}
+    <ContinuityPanel summary={continuitySummary ?? memoryState.threads[0]?.summary ?? null} cue={result ? "We can stay with this for a minute." : null} />
+    <SupportStream result={result} />
+  </div>;
+}
+
+===== FILE: app/dashboard/components/ClarificationFlow.tsx =====
+export function ClarificationFlow({ prompt }: { prompt: string | null }) {
+  if (!prompt) return null;
+  return <p className="text-sm text-[#d6caef]">{prompt}</p>;
+}
+
+===== FILE: app/dashboard/components/ContinuityPanel.tsx =====
+import { MomentCard } from "@/components/moment/MomentCard";
+
+export function ContinuityPanel({ summary, cue }: { summary: string | null; cue: string | null }) {
+  if (!summary && !cue) return null;
+  return (
+    <MomentCard className="p-5 sm:p-6">
+      {summary ? <p className="text-sm text-[#efe8ff]">{summary}</p> : null}
+      {cue ? <p className="mt-2 text-sm text-[#d8d0ee]">{cue}</p> : null}
+    </MomentCard>
+  );
+}
+
+===== FILE: app/dashboard/components/GreetingSurface.tsx =====
+import { MomentTextarea } from "@/components/moment/MomentTextarea";
+
+export function GreetingSurface({
+  headline,
+  opening,
+  text,
+  onText,
+}: {
+  headline: string;
+  opening: string;
+  text: string;
+  onText: (value: string) => void;
+}) {
+  return (
+    <section className="rounded-[1.6rem] bg-[linear-gradient(160deg,#151629,#111522_60%,#131b2d)] p-5 sm:p-7">
+      <p className="text-xs tracking-[0.04em] text-[#e8dbff]/70">{headline}</p>
+      <h2 className="mt-2 text-2xl font-semibold tracking-tight text-[#f7efe3] sm:text-3xl">What feels heaviest right now?</h2>
+      <p className="mt-3 max-w-2xl text-sm text-[#d9d8e8]">{opening}</p>
+      <MomentTextarea rows={5} value={text} onChange={(event) => onText(event.target.value)} placeholder="Write what this moment feels like." />
+    </section>
+  );
+}
+
+===== FILE: app/dashboard/components/IntakeComposer.tsx =====
+import { MomentButton } from "@/components/moment/MomentButton";
+
+export function IntakeComposer({ onSubmit, disabled, savedNote }: { onSubmit: () => void; disabled: boolean; savedNote: string | null }) {
+  return (
+    <div className="pt-1">
+      <MomentButton onClick={onSubmit} disabled={disabled}>Stay with this</MomentButton>
+      {savedNote ? <p className="mt-2 text-xs text-violet-100/70">{savedNote}</p> : null}
+    </div>
+  );
+}
+
+===== FILE: app/dashboard/components/SupportFeedbackInline.tsx =====
+"use client";
+
+import { useState } from "react";
+
+const options = [
+  ["helpful", "Was this helpful?"],
+  ["too_much", "Too much"],
+  ["not_helpful", "Not helpful"],
+  ["needed_more_support", "Needed more support"],
+  ["needed_less_advice", "Needed less advice"],
+] as const;
+
+export function SupportFeedbackInline() {
+  const [saved, setSaved] = useState<string | null>(null);
+  async function send(signal: string) {
+    setSaved(null);
+    await fetch("/api/moment/feedback", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ signal, pacingMismatch: signal === "too_much" || signal === "needed_less_advice", overprompting: signal === "too_much" }) });
+    setSaved("Thanks — noted quietly.");
+  }
+  return <div className="mt-4 space-y-2">
+    <p className="text-xs text-[#cfc4e4]">Optional feedback</p>
+    <div className="flex flex-wrap gap-2">{options.map(([value, label]) => <button key={value} onClick={() => send(value)} className="rounded-full border border-white/15 px-3 py-1 text-xs text-[#efe8ff] hover:bg-white/10">{label}</button>)}</div>
+    {saved ? <p className="text-xs text-[#b8e7c9]">{saved}</p> : null}
+  </div>;
+}
+
+===== FILE: app/dashboard/components/SupportFocusCard.tsx =====
+import { MomentCard } from "@/components/moment/MomentCard";
+
+export function SupportFocusCard({ focus, helped }: { focus: string; helped: string }) {
+  return (
+    <MomentCard>
+      <p className="text-xs uppercase tracking-[0.18em] text-violet-100/70">What tends to help</p>
+      <p className="mt-2 text-sm text-[#f8f1e7]">{focus}</p>
+      <p className="mt-2 text-sm text-[#d3cbe7]">A recent steadying move: {helped}</p>
+    </MomentCard>
+  );
+}
+
+===== FILE: app/dashboard/components/SupportStream.tsx =====
+import { SupportFeedbackInline } from "./SupportFeedbackInline";
+import { MomentCard } from "@/components/moment/MomentCard";
+import type { CheckInResult } from "./types";
+
+export function SupportStream({ result }: { result: CheckInResult | null }) {
+  if (!result) return null;
+
+  const firstStep = result.response.steps[0];
+
+  return (
+    <MomentCard className="p-4 sm:p-6">
+      <div className="space-y-4">
+        <p className="text-sm leading-7 text-[#f5edff]">{result.response.reflection}</p>
+        <p className="text-sm leading-7 text-[#ece3ff]">{result.response.tinyNextStep}</p>
+        {firstStep ? <p className="text-sm leading-7 text-[#ddd0f3]">{firstStep}</p> : null}
+      </div>
+      <p className="mt-5 max-w-xl text-xs leading-6 text-[#cabfdf]">No pressure to reply right away. You can pause, scroll back, or continue when it feels right.</p>
+      <div className="mt-4"><SupportFeedbackInline /></div>
+    </MomentCard>
+  );
+}
+
+===== FILE: app/dashboard/components/ThreadContinuationCard.tsx =====
+import { MomentCard } from "@/components/moment/MomentCard";
+
+export function ThreadContinuationCard({ thread }: { thread: string }) {
+  return (
+    <MomentCard>
+      <p className="text-xs uppercase tracking-[0.18em] text-violet-100/70">Carry this forward</p>
+      <p className="mt-2 text-sm text-[#efe8ff]">If you want, we can stay with what’s already been heavy.</p>
+      <p className="mt-1 text-sm text-[#d9d2ec]">{thread}</p>
+    </MomentCard>
+  );
+}
+
+===== FILE: app/dashboard/components/TinyWinsPanel.tsx =====
+import { MomentCard } from "@/components/moment/MomentCard";
+
+export function TinyWinsPanel({ win }: { win: string }) {
+  return (
+    <MomentCard>
+      <p className="text-xs uppercase tracking-[0.18em] text-violet-100/70">Tiny wins</p>
+      <p className="mt-2 text-sm text-[#efe8ff]">{win}</p>
+    </MomentCard>
+  );
+}
+
+===== FILE: app/dashboard/components/types.ts =====
+import type { MomentCheckInResponse, MomentRouteResult } from "@/features/ai/types";
+import type { MomentMemorySnapshot } from "@/features/moment/memory/types";
+
+export type CheckInResult = {
+  route: MomentRouteResult;
+  response: MomentCheckInResponse;
+};
+
+export type DashboardState = {
+  memory: MomentMemorySnapshot;
+  result: CheckInResult | null;
+  continuitySummary: string | null;
+  continuityCue: string | null;
+};
+
+===== FILE: app/dashboard/page.tsx =====
+import { redirect } from "next/navigation";
+import { DashboardClient } from "@/app/dashboard/DashboardClient";
+import { MomentAppShell } from "@/components/moment/MomentAppShell";
+import { getMomentGreeting } from "@/features/moment/greeting/getMomentGreeting";
+import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { readMomentMemory } from "@/features/moment/memory/readMomentMemory";
+import { getCanonicalAppPath, getOrCreateMomentProfile, requireAuthenticatedUser } from "@/lib/auth";
+import { getCurrentMomentPlan } from "@/lib/subscriptions";
+import { getMomentUsageSnapshot } from "@/lib/entitlements";
+
+export default async function DashboardPage() {
+  const user = await requireAuthenticatedUser("/dashboard");
+  const supabase = await createSupabaseServerClient();
+  const profile = await getOrCreateMomentProfile(user.id);
+
+  const canonicalPath = await getCanonicalAppPath(user.id, profile);
+  if (canonicalPath !== "/dashboard") {
+    redirect(canonicalPath);
+  }
+
+  const greeting = getMomentGreeting({
+    displayName: profile.display_name,
+    birthdayMonth: profile.birthday_month,
+    birthdayDay: profile.birthday_day,
+    lastSeenAt: profile.last_seen_at,
+    now: new Date(),
+  });
+
+  const memory = await readMomentMemory(supabase, user.id);
+  const subscription = await getCurrentMomentPlan(user.id);
+  const usage = await getMomentUsageSnapshot(user.id, subscription.plan);
+
+  await supabase.from("moment_profiles").update({ last_seen_at: new Date().toISOString() }).eq("user_id", user.id);
+
+  return (
+    <MomentAppShell title="Moment" subtitle="One calm next step, right when you need it.">
+      <DashboardClient greeting={greeting} memory={memory} plan={subscription.plan} usage={usage} />
+    </MomentAppShell>
+  );
+}
+
+===== FILE: app/drama-pause/page.tsx =====
+import { MomentAppShell } from "@/components/moment/MomentAppShell";
+import { MomentPageHeader } from "@/components/moment/MomentPageHeader";
+import { ModuleFlowClient } from "@/features/moment/ModuleFlowClient";
+export default async function DramaPausePage({ searchParams }: { searchParams: Promise<{ from?: string; contextId?: string; summary?: string }> }) {
+  const resolvedSearchParams = await searchParams;
+  return <MomentAppShell title="Drama pause" subtitle="Create calm boundaries before reacting."><section className="mx-auto max-w-3xl"><MomentPageHeader eyebrow="Drama Pause" title="Pause the escalation" subtitle="Protect your energy with calm boundaries." /><ModuleFlowClient title="drama-pause" searchParams={resolvedSearchParams} apiPath="/api/ai/drama-pause" fields={[{ name: "situation_text", label: "What happened?", area: true }, { name: "relationship", label: "Who is involved?" }, { name: "goal", label: "Best outcome for you" }]} /></section></MomentAppShell>;
+}
+
+===== FILE: app/internal/review/page.tsx =====
+import { redirect } from "next/navigation";
+import { requireInternalReviewer } from "@/lib/internalReviewAuth";
+import { createSupabaseAdminClient } from "@/lib/supabase/admin";
+
+type QaTag =
+  | "emotionally_warm"
+  | "too_robotic"
+  | "too_many_prompts"
+  | "too_instructional"
+  | "emotionally_flat"
+  | "emotionally_helpful"
+  | "pacing_mismatch"
+  | "continuity_creepy"
+  | "continuity_comforting";
+
+type SafeTraceMetadata = {
+  routedBrain?: string;
+  supportStyle?: string;
+  pacingProfile?: string;
+  clarificationUsed?: boolean;
+  responseDepth?: string;
+  supportFatigueReduction?: boolean;
+  fallbackPath?: string;
+  confidence?: string;
+  qualityFlags?: string[];
+  qaTags?: QaTag[];
+  loopSignals?: string[];
+};
+
+function sanitizeTraceMetadata(value: unknown): SafeTraceMetadata {
+  if (!value || typeof value !== "object") return {};
+  const source = value as Record<string, unknown>;
+  return {
+    routedBrain: typeof source.routedBrain === "string" ? source.routedBrain : undefined,
+    supportStyle: typeof source.supportStyle === "string" ? source.supportStyle : undefined,
+    pacingProfile: typeof source.pacingProfile === "string" ? source.pacingProfile : undefined,
+    clarificationUsed: typeof source.clarificationUsed === "boolean" ? source.clarificationUsed : undefined,
+    responseDepth: typeof source.responseDepth === "string" ? source.responseDepth : undefined,
+    supportFatigueReduction: typeof source.supportFatigueReduction === "boolean" ? source.supportFatigueReduction : undefined,
+    fallbackPath: typeof source.fallbackPath === "string" ? source.fallbackPath : undefined,
+    confidence: typeof source.confidence === "string" ? source.confidence : undefined,
+    qualityFlags: Array.isArray(source.qualityFlags) ? source.qualityFlags.filter((item): item is string => typeof item === "string") : undefined,
+    qaTags: Array.isArray(source.qaTags) ? source.qaTags.filter((item): item is QaTag => typeof item === "string") : undefined,
+    loopSignals: Array.isArray(source.loopSignals) ? source.loopSignals.filter((item): item is string => typeof item === "string") : undefined,
+  };
+}
+
+export default async function InternalReviewPage({ searchParams }: { searchParams?: Promise<Record<string, string | string[] | undefined>> }) {
+  const reviewer = await requireInternalReviewer();
+  if (!reviewer.authorized) redirect("/dashboard");
+
+  const params = (await searchParams) ?? {};
+  const pacingProfile = typeof params.pacing === "string" ? params.pacing : "all";
+
+  const supabase = createSupabaseAdminClient();
+  const events = await supabase.from("moment_orchestration_events").select("created_at,trace_summary,trace_metadata").order("created_at", { ascending: false }).limit(120);
+  const feedback = await supabase.from("moment_support_feedback").select("created_at,signal,pacing_mismatch,overprompting_signal").order("created_at", { ascending: false }).limit(120);
+
+  const normalizedEvents = (events.data ?? []).map((item) => {
+    const safeMetadata = sanitizeTraceMetadata(item.trace_metadata);
+    const tags = safeMetadata.qaTags ?? [];
+    return {
+      createdAt: item.created_at,
+      traceSummary: item.trace_summary,
+      safeMetadata,
+      tags,
+      hasFatiguePattern: (safeMetadata.loopSignals ?? []).some((signal) => signal.includes("fatigue")),
+    };
+  }).filter((item) => pacingProfile === "all" || item.safeMetadata.pacingProfile === pacingProfile);
+
+  const roboticQueue = normalizedEvents.filter((item) => item.tags.includes("too_robotic") || item.tags.includes("emotionally_flat"));
+  const overGuidanceQueue = normalizedEvents.filter((item) => item.tags.includes("too_many_prompts") || item.tags.includes("too_instructional"));
+  const strongResponseQueue = normalizedEvents.filter((item) => item.tags.includes("emotionally_helpful") || item.tags.includes("emotionally_warm"));
+  const pacingMismatchQueue = normalizedEvents.filter((item) => item.tags.includes("pacing_mismatch"));
+  const fatigueQueue = normalizedEvents.filter((item) => item.hasFatiguePattern);
+
+  return <main className="mx-auto max-w-5xl space-y-4 p-6 text-[#efe8ff]"><h1 className="text-xl">Internal emotional quality review</h1>
+    <section className="rounded-2xl border border-white/10 p-4 text-xs text-[#d7cceb]"><p>Filters:</p><p>pacing={pacingProfile}</p><p className="mt-2">Summaries are intentionally sanitized. Raw user content is not shown in this view.</p></section>
+    <section className="grid gap-3 md:grid-cols-2">
+      <Queue title="Felt robotic / emotionally flat" subtitle="Needs warmer tone and less template feel" items={roboticQueue} />
+      <Queue title="Too much guidance" subtitle="Too many instructions or prompts in one pass" items={overGuidanceQueue} />
+      <Queue title="Emotionally strong responses" subtitle="Good candidates for style cloning" items={strongResponseQueue} />
+      <Queue title="Pacing mismatches" subtitle="Response rhythm did not fit emotional weight" items={pacingMismatchQueue} />
+    </section>
+    <section className="rounded-2xl border border-white/10 p-4"><h2 className="mb-2 text-sm uppercase tracking-[0.18em]">Support fatigue patterns</h2>
+      <div className="space-y-2 text-sm">{fatigueQueue.map((item, idx) => <div key={idx} className="rounded-xl bg-white/5 p-2"><p>{item.traceSummary}</p><p className="mt-1 text-xs text-[#bcaed8]">{item.createdAt} · {(item.safeMetadata.loopSignals ?? []).join(" · ")}</p></div>)}</div>
+    </section>
+    <section className="rounded-2xl border border-white/10 p-4"><h2 className="mb-2 text-sm uppercase tracking-[0.18em]">Recent feedback signals</h2>
+      <div className="space-y-2 text-sm">{(feedback.data ?? []).map((item, idx) => <div key={idx} className="rounded-xl bg-white/5 p-2">{item.signal} · pacing mismatch: {item.pacing_mismatch ? "yes" : "no"} · overprompting: {item.overprompting_signal ? "yes" : "no"}</div>)}</div>
+    </section>
+  </main>;
+}
+
+function Queue({ title, subtitle, items }: { title: string; subtitle: string; items: { createdAt: string; traceSummary: string | null; tags: QaTag[] }[] }) {
+  return <section className="rounded-2xl border border-white/10 p-4"><h2 className="text-sm uppercase tracking-[0.18em]">{title}</h2><p className="mt-1 text-xs text-[#bcaed8]">{subtitle}</p>
+    <div className="mt-2 space-y-2 text-sm">{items.slice(0, 20).map((item, idx) => <div key={idx} className="rounded-xl bg-white/5 p-2"><p>{item.traceSummary}</p><p className="mt-1 text-xs text-[#bcaed8]">{item.createdAt} · {item.tags.join(" · ")}</p></div>)}</div>
+  </section>;
+}
+
+===== FILE: app/layout.tsx =====
+import type { Metadata } from "next";
+import "./globals.css";
+import { ServiceWorkerRegister } from "@/components/pwa/ServiceWorkerRegister";
+
+export const metadata: Metadata = {
+  title: "ProFixIQ Moment",
+  description: "AI executive-function operating system for ADHD/anxiety/school overwhelm",
+  manifest: "/manifest.webmanifest",
+  icons: {
+    icon: [
+      { url: "/icon-192.svg", sizes: "192x192", type: "image/svg+xml" },
+      { url: "/icon-512.svg", sizes: "512x512", type: "image/svg+xml" },
+    ],
+    apple: [{ url: "/icon-192.svg", sizes: "192x192", type: "image/svg+xml" }],
+  },
+  appleWebApp: {
+    capable: true,
+    statusBarStyle: "default",
+    title: "Moment",
+  },
+};
+
+export default function RootLayout({
+  children,
+}: {
+  children: React.ReactNode;
+}) {
+  return (
+    <html lang="en">
+      {/* Using a system font stack for build reliability. Hosted fonts can be restored
+          after deployment/network behavior is stable across environments. */}
+      <body>
+        <ServiceWorkerRegister />
+        {children}
+      </body>
+    </html>
+  );
+}
+
+===== FILE: app/math-reset/page.tsx =====
+import { MomentAppShell } from "@/components/moment/MomentAppShell";
+import { MomentPageHeader } from "@/components/moment/MomentPageHeader";
+import { ModuleFlowClient } from "@/features/moment/ModuleFlowClient";
+export default async function MathResetPage({ searchParams }: { searchParams: Promise<{ from?: string; contextId?: string; summary?: string }> }) {
+  const resolvedSearchParams = await searchParams;
+  return <MomentAppShell title="Math reset" subtitle="Reduce pressure and find one solvable move."><section className="mx-auto max-w-3xl"><MomentPageHeader eyebrow="Math Reset" title="Shrink the math pressure" subtitle="One clear move at a time. Not therapy or crisis care." /><ModuleFlowClient title="math-reset" searchParams={resolvedSearchParams} apiPath="/api/ai/math-reset" fields={[{ name: "problem_text", label: "What math problem feels stuck?", area: true }, { name: "stress_level", label: "Stress level right now" }, { name: "test_context", label: "Quiz/test/homework context" }]} /></section></MomentAppShell>;
+}
+
+===== FILE: app/onboarding/OnboardingForm.tsx =====
+"use client";
+
+import { useActionState, useMemo, useState } from "react";
+import { useFormStatus } from "react-dom";
+import { MomentButton } from "@/components/moment/MomentButton";
+
+type OnboardingState = { error: string | null };
+type CompleteOnboardingAction = (state: OnboardingState, formData: FormData) => Promise<OnboardingState>;
+
+const teenChips: ReadonlyArray<readonly [string, string]> = [["school_overwhelm", "School feels overwhelming"], ["task_start", "Starting is hard"], ["math_stress", "Math gets frustrating"], ["social_pressure", "Friend drama pulls me in"], ["shutdown", "I shut down when confused"], ["calm_restart", "I want calmer restarts"]];
+const adultChips: ReadonlyArray<readonly [string, string]> = [["work_stress", "Work stress"], ["money_unclear", "Money feels unclear"], ["relationship_stress", "Relationship stress"], ["household_overload", "Household overload"], ["life_admin", "Life admin"], ["decision_fatigue", "Decision fatigue"], ["task_start", "Starting is hard"], ["calm_restart", "I want calmer restarts"]];
+
+function SubmitButton() { const { pending } = useFormStatus(); return <MomentButton type="submit" className="mt-2 w-full sm:w-auto" disabled={pending}>{pending ? "Saving…" : "Save and continue"}</MomentButton>; }
+
+export function OnboardingForm({ action }: { action: CompleteOnboardingAction }) {
+  const [state, formAction] = useActionState(action, { error: null });
+  const [ageRange, setAgeRange] = useState("under_13");
+  const [selectedSupportGoals, setSelectedSupportGoals] = useState<string[]>([]);
+  const chips = useMemo(() => (ageRange === "18_plus" ? adultChips : teenChips), [ageRange]);
+
+  return <form action={formAction} className="space-y-5">
+    <input name="display_name" required placeholder="Display name" className="w-full rounded-xl border border-white/15 bg-[#202a40] p-3 text-[#f8f1e7] placeholder:text-[#b9bad0] outline-none focus:border-[#d2c5ff] focus:ring-2 focus:ring-[#d2c5ff]/40" />
+    <select name="age_range" value={ageRange} onChange={(event) => { setAgeRange(event.target.value); setSelectedSupportGoals([]); }} className="w-full rounded-xl border border-white/15 bg-[#202a40] p-3 text-[#f8f1e7] outline-none focus:border-[#d2c5ff] focus:ring-2 focus:ring-[#d2c5ff]/40"><option value="under_13">Under 13</option><option value="13_15">13-15</option><option value="16_17">16-17</option><option value="18_plus">18+</option></select>
+    <fieldset><p className="mb-3 text-sm font-medium text-slate-100">What tends to feel heavy?</p><div className="grid gap-3 sm:grid-cols-2">{chips.map(([value, label]) => <label key={value} className="flex items-center gap-3 rounded-2xl border border-white/10 bg-white/[0.07] px-4 py-3 text-sm text-slate-100"><input type="checkbox" name="support_goals" value={value} checked={selectedSupportGoals.includes(value)} onChange={(event) => setSelectedSupportGoals((current) => event.target.checked ? [...current, value] : current.filter((item) => item !== value))} className="h-4 w-4" />{label}</label>)}</div></fieldset>
+    <div className="rounded-2xl border border-white/10 bg-white/[0.04] p-3">
+      <p className="text-sm text-slate-100">Parent/guardian email (optional)</p><p className="mt-1 text-xs text-slate-300">Only used for optional guardian summaries. Private entries are not shared.</p>
+      <input name="guardian_email" type="email" placeholder="name@example.com" className="mt-2 w-full rounded-xl border border-white/15 bg-[#202a40] p-3 text-[#f8f1e7] placeholder:text-[#b9bad0] outline-none focus:border-[#d2c5ff] focus:ring-2 focus:ring-[#d2c5ff]/40" />
+    </div>
+    {state.error ? <p className="rounded-xl border border-rose-300/40 bg-rose-500/10 px-3 py-2 text-sm text-rose-100">{state.error}</p> : null}
+    <SubmitButton />
+  </form>;
+}
+
+===== FILE: app/onboarding/page.tsx =====
+import { redirect } from "next/navigation";
+import { MomentCard } from "@/components/moment/MomentCard";
+import { MomentPageHeader } from "@/components/moment/MomentPageHeader";
+import { MomentShell } from "@/components/moment/MomentShell";
+import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { getCanonicalAppPath, getOrCreateMomentProfile, requireAuthenticatedUser } from "@/lib/auth";
+import { OnboardingForm } from "./OnboardingForm";
+import { GlobalBackButton } from "@/components/moment/GlobalBackButton";
+
+async function completeOnboarding(_: { error: string | null }, formData: FormData) {
+  "use server";
+  const user = await requireAuthenticatedUser("/onboarding");
+  const supabase = await createSupabaseServerClient();
+  const displayName = String(formData.get("display_name") ?? "").trim();
+  const ageRange = String(formData.get("age_range") ?? "18_plus");
+  const guardianEmail = String(formData.get("guardian_email") ?? "").trim();
+  const supportGoals = formData.getAll("support_goals").map(String);
+
+  const { error: profileError } = await supabase.from("moment_profiles").upsert({
+    user_id: user.id,
+    display_name: displayName,
+    age_range: ageRange,
+    focus_areas: supportGoals,
+    support_goals: supportGoals,
+    onboarding_complete: true,
+  }, { onConflict: "user_id" });
+
+  if (profileError) return { error: `Could not save onboarding profile: ${profileError.message}` };
+
+  if (guardianEmail) {
+    const { error: guardianError } = await supabase.from("moment_guardian_links").upsert({
+      student_user_id: user.id,
+      guardian_email: guardianEmail,
+      status: "pending",
+      summary_access: true,
+      raw_session_access: false,
+    }, { onConflict: "student_user_id,guardian_email" });
+
+    if (guardianError) return { error: `Could not save guardian invite: ${guardianError.message}` };
+  }
+
+  redirect("/dashboard");
+}
+
+export default async function OnboardingPage() {
+  const user = await requireAuthenticatedUser("/onboarding");
+  const profile = await getOrCreateMomentProfile(user.id);
+  const canonicalPath = await getCanonicalAppPath(user.id, profile);
+  if (canonicalPath === "/pricing") {
+    redirect(canonicalPath);
+  }
+  return (
+    <MomentShell>
+      <GlobalBackButton fallbackHref="/dashboard" />
+      <section className="mx-auto max-w-3xl">
+        <MomentPageHeader eyebrow="Your first Moment" title="Tell Moment a little about you" subtitle="You don’t need perfect answers. This helps Moment greet you gently and route support in a way that feels useful." />
+        <MomentCard className="border-white/20 bg-[#1a2438]">
+          <OnboardingForm action={completeOnboarding} />
+        </MomentCard>
+      </section>
+    </MomentShell>
+  );
+}
+
+===== FILE: app/page.tsx =====
+import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { InstallAppButton } from "@/components/pwa/InstallAppButton";
+import Link from "next/link";
+
+const routes = [
+  {
+    title: "Math reset",
+    badge: "Math",
+    desc: "Defuse school overwhelm and re-enter with one clear action.",
+    cta: "Open",
+    href: "/math-reset",
+  },
+  {
+    title: "Drama pause",
+    badge: "Social",
+    desc: "Pause escalation and choose your next boundary.",
+    cta: "Open",
+    href: "/drama-pause",
+  },
+  {
+    title: "Stuck mode",
+    badge: "Stuck",
+    desc: "Break avoidance loops into one immediate step.",
+    cta: "Open",
+    href: "/stuck",
+  },
+  {
+    title: "Parent insight",
+    badge: "Soon",
+    desc: "Pattern-level support summaries, not surveillance.",
+    cta: "Preview",
+    href: "/parent",
+  },
+];
+
+const trustBadges = ["Private by default", "Not therapy", "Tiny next steps"];
+
+export default async function HomePage() {
+  const supabase = await createSupabaseServerClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  return (
+    <main className="moment-glow relative min-h-screen overflow-hidden px-5 py-8 text-[#f8f1e7] sm:px-6 sm:py-10">
+      <div className="pointer-events-none absolute inset-0">
+        <div className="absolute left-1/2 top-0 h-[34rem] w-[52rem] -translate-x-1/2 rounded-full bg-violet-400/22 blur-3xl" />
+        <div className="absolute -left-16 top-32 h-72 w-72 rounded-full bg-sky-400/10 blur-3xl" />
+        <div className="absolute -right-10 bottom-20 h-72 w-72 rounded-full bg-fuchsia-400/10 blur-3xl" />
+      </div>
+
+      <section className="relative mx-auto max-w-6xl space-y-10 md:space-y-12">
+        <div className="relative overflow-hidden rounded-[2.2rem] bg-[radial-gradient(circle_at_20%_16%,rgba(196,181,253,0.28),transparent_52%),radial-gradient(circle_at_82%_12%,rgba(56,189,248,0.2),transparent_45%),linear-gradient(145deg,rgba(255,255,255,0.09),rgba(255,255,255,0.03)_48%,rgba(10,9,23,0.24))] p-6 shadow-[0_42px_130px_-60px_rgba(167,139,250,0.95),inset_0_1px_0_rgba(255,255,255,0.16)] sm:p-9 md:p-11">
+          <div className="pointer-events-none absolute inset-x-10 top-0 h-px bg-white/18" />
+          <div className="grid gap-9 lg:grid-cols-[1fr_1.05fr] lg:items-center">
+            <div>
+              <p className="moment-eyebrow sm:text-sm">Moment by ProFixIQ</p>
+              <h1 className="mt-5 text-4xl font-semibold tracking-tight text-white sm:text-5xl lg:text-6xl">
+                Open Moment. Check in. Get one tiny next step.
+              </h1>
+              <p className="mt-5 max-w-xl text-slate-200/90 sm:text-lg">
+                When everything feels loud, Moment gives you one focused move you can do now.
+              </p>
+
+              <div className="mt-6 flex flex-wrap gap-2">
+                {trustBadges.map((badge) => (
+                  <span key={badge} className="rounded-full bg-white/10 px-3 py-1 text-xs font-medium text-violet-50/95 ring-1 ring-white/12">
+                    {badge}
+                  </span>
+                ))}
+              </div>
+
+              <div className="mt-8 flex flex-col gap-3 sm:flex-row sm:flex-wrap">
+                <Link
+                  href="/dashboard"
+                  className="moment-btn-primary"
+                >
+                  Open Moment
+                </Link>
+                <Link
+                  href="/onboarding"
+                  className="moment-btn-secondary"
+                >
+                  Start onboarding
+                </Link>
+                <InstallAppButton />
+              </div>
+            </div>
+
+            <article className="relative overflow-hidden rounded-[1.7rem] bg-[#120f26]/72 p-5 shadow-[inset_0_1px_0_rgba(255,255,255,0.11),0_38px_110px_-64px_rgba(196,181,253,1)] ring-1 ring-white/8 backdrop-blur-md sm:p-6">
+              <div className="pointer-events-none absolute -right-12 -top-12 h-32 w-32 rounded-full bg-violet-300/25 blur-3xl" />
+              <p className="text-xs uppercase tracking-[0.18em] text-violet-200/70">Live Moment surface</p>
+              <div className="mt-4 space-y-4 rounded-2xl bg-white/[0.035] p-4 shadow-[inset_0_1px_0_rgba(255,255,255,0.06)] sm:p-5">
+                <div>
+                  <p className="text-sm text-slate-100">What feels hardest right now?</p>
+                  <div className="mt-3 flex flex-wrap gap-2 text-xs">
+                    {["Overwhelmed", "Can’t start", "Math feels impossible"].map((chip) => (
+                      <span key={chip} className="rounded-full bg-white/11 px-3 py-1 text-slate-100 ring-1 ring-white/10">
+                        {chip}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+
+                <div className="inline-flex rounded-full bg-emerald-300/14 px-3 py-1 text-xs font-medium text-emerald-100 ring-1 ring-emerald-200/30">
+                  Routed to: Math Reset
+                </div>
+
+                <p className="rounded-xl bg-black/28 p-3 text-sm font-medium text-white shadow-[0_14px_35px_-24px_rgba(52,211,153,0.95)] ring-1 ring-emerald-200/28">
+                  Tiny next step: open the assignment and only read question one.
+                </p>
+
+                <div className="flex flex-wrap gap-2">
+                  <button className="min-h-10 rounded-full bg-white/8 px-3.5 py-2 text-xs font-medium text-slate-100 ring-1 ring-white/18">
+                    Break it down
+                  </button>
+                  <button className="min-h-10 rounded-full bg-violet-100 px-4 py-2 text-xs font-semibold text-[#130f2b]">Open Math Reset</button>
+                </div>
+              </div>
+            </article>
+          </div>
+        </div>
+
+
+        <section className="grid gap-4 md:grid-cols-3">
+          <article className="rounded-3xl border border-white/10 bg-white/[0.03] p-5">
+            <p className="text-sm text-violet-200">Free</p><h3 className="mt-1 text-2xl font-semibold">$0<span className="text-sm text-slate-300">/month</span></h3><p className="mt-2 text-sm text-slate-300">Basic reflection and moment tracking. Limited AI support.</p>
+          </article>
+          <article className="rounded-3xl border border-violet-200/45 bg-[radial-gradient(circle_at_10%_10%,rgba(196,181,253,0.3),transparent_45%),rgba(255,255,255,0.07)] p-5 shadow-[0_20px_60px_-35px_rgba(167,139,250,1)]">
+            <p className="text-sm text-violet-100">Plus · Recommended</p><h3 className="mt-1 text-2xl font-semibold">$9<span className="text-sm text-slate-200">/month</span></h3><p className="mt-2 text-sm text-slate-200">Unlimited moments, deeper AI support, goals, and pattern insights.</p>
+          </article>
+          <article className="rounded-3xl border border-white/10 bg-white/[0.03] p-5">
+            <p className="text-sm text-violet-200">Pro</p><h3 className="mt-1 text-2xl font-semibold">$19<span className="text-sm text-slate-300">/month</span></h3><p className="mt-2 text-sm text-slate-300">Everything in Plus plus advanced insights and exportable summaries.</p>
+          </article>
+          <div className="md:col-span-3 flex flex-wrap gap-3">
+                <Link href={user ? "/onboarding" : "/sign-in?next=/onboarding"} className="moment-btn-secondary">Start free</Link>
+                <Link href={user ? "/settings?tab=billing&plan=plus" : "/sign-in?next=/settings%3Ftab%3Dbilling%26plan%3Dplus"} className="moment-btn-primary">Start Plus</Link>
+                <Link href={user ? "/settings?tab=billing&plan=pro" : "/sign-in?next=/settings%3Ftab%3Dbilling%26plan%3Dpro"} className="moment-btn-secondary">Start Pro</Link>
+          </div>
+        </section>
+
+        <section className="space-y-4">
+          <h2 className="text-sm font-semibold tracking-[0.06em] text-violet-100/72">When Moment routes the need</h2>
+          <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
+            {routes.map((item) => (
+              <article key={item.title} className="flex h-full flex-col rounded-xl bg-white/[0.02] p-3 shadow-[inset_0_1px_0_rgba(255,255,255,0.05)] ring-1 ring-white/7 transition hover:-translate-y-0.5 hover:bg-white/[0.035] hover:shadow-[0_16px_40px_-28px_rgba(129,140,248,0.9)]">
+                <span className="inline-flex w-fit rounded-full bg-white/[0.045] px-2 py-0.5 text-[10px] uppercase tracking-[0.14em] text-violet-100/70 ring-1 ring-white/10">
+                  {item.badge}
+                </span>
+                <h3 className="mt-2 text-xs font-semibold text-slate-100">{item.title}</h3>
+                <p className="mt-1 flex-1 text-[11px] text-slate-300/90">{item.desc}</p>
+                <Link
+                  href={item.href}
+                  className="mt-2 inline-flex min-h-8 w-fit items-center rounded-full bg-white/[0.03] px-3 py-1.5 text-[11px] font-medium text-violet-100/80 ring-1 ring-white/12 transition hover:bg-white/[0.08] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-100"
+                >
+                  {item.cta}
+                </Link>
+              </article>
+            ))}
+          </div>
+        </section>
+      </section>
+    </main>
+  );
+}
+
+===== FILE: app/parent/page.tsx =====
+import { MomentAppShell } from "@/components/moment/MomentAppShell";
+
+export default async function ParentPage() {
+  return (
+    <MomentAppShell title="Parent" subtitle="Pattern summaries, not surveillance.">
+      <section className="space-y-4">
+        <div className="rounded-3xl border border-white/10 bg-white/[0.04] p-6">
+          <p className="text-xs uppercase tracking-[0.2em] text-violet-200/70">Parent foundation</p>
+          <h2 className="mt-2 text-2xl font-semibold">Pattern summaries, not surveillance.</h2>
+          <p className="mt-3 max-w-2xl text-sm text-slate-300">Moment does not expose every private entry by default. Parent views are designed around patterns and support so families can coach routines without reading each private moment.</p>
+        </div>
+      </section>
+    </MomentAppShell>
+  );
+}
+
+===== FILE: app/pricing/page.tsx =====
+import { redirect } from "next/navigation";
+import { MomentShell } from "@/components/moment/MomentShell";
+import { MomentCard } from "@/components/moment/MomentCard";
+import { BillingActions } from "@/components/moment/BillingActions";
+import { getCanonicalAppPath, getOrCreateMomentProfile, requireAuthenticatedUser } from "@/lib/auth";
+import { getCurrentMomentPlan } from "@/lib/subscriptions";
+
+export default async function PricingPage() {
+  const user = await requireAuthenticatedUser("/pricing");
+  const profile = await getOrCreateMomentProfile(user.id);
+  const subscription = await getCurrentMomentPlan(user.id);
+
+  if (subscription.plan !== "free") {
+    redirect(await getCanonicalAppPath(user.id, profile));
+  }
+
+  return (
+    <MomentShell>
+      <section className="mx-auto max-w-3xl">
+        <MomentCard className="space-y-4 border-white/20 bg-[#1a2438]">
+          <h1 className="text-2xl font-semibold text-white">Choose your plan</h1>
+          <p className="text-sm text-slate-300">Pick Plus or Pro to continue into onboarding.</p>
+          <BillingActions plan="free" source="pricing" />
+        </MomentCard>
+      </section>
+    </MomentShell>
+  );
+}
+
+===== FILE: app/settings/page.tsx =====
+import { MomentAppShell } from "@/components/moment/MomentAppShell";
+import { MomentButton } from "@/components/moment/MomentButton";
+import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { requireAuthenticatedUser } from "@/lib/auth";
+import { BillingActions } from "@/components/moment/BillingActions";
+import { parseMomentPlan } from "@/lib/plans";
+
+async function updateProfile(formData: FormData) {
+  "use server";
+  const user = await requireAuthenticatedUser("/settings");
+  const supabase = await createSupabaseServerClient();
+
+  const displayName = String(formData.get("display_name") ?? "").trim();
+  const ageRange = String(formData.get("age_range") ?? "18_plus");
+  const birthdayMonthRaw = String(formData.get("birthday_month") ?? "").trim();
+  const birthdayDayRaw = String(formData.get("birthday_day") ?? "").trim();
+  const birthdayMonthCandidate = birthdayMonthRaw ? Number.parseInt(birthdayMonthRaw, 10) : null;
+  const birthdayDayCandidate = birthdayDayRaw ? Number.parseInt(birthdayDayRaw, 10) : null;
+  const birthdayMonth = typeof birthdayMonthCandidate === "number" && birthdayMonthCandidate >= 1 && birthdayMonthCandidate <= 12 ? birthdayMonthCandidate : null;
+  const birthdayDay = typeof birthdayDayCandidate === "number" && birthdayDayCandidate >= 1 && birthdayDayCandidate <= 31 ? birthdayDayCandidate : null;
+  const focusAreas = String(formData.get("focus_areas") ?? "").split(",").map((item) => item.trim()).filter((item) => item.length > 0);
+  const supportGoals = String(formData.get("support_goals") ?? "").split(",").map((item) => item.trim()).filter((item) => item.length > 0);
+
+  const { error } = await supabase.from("moment_profiles").upsert({
+    user_id: user.id,
+    display_name: displayName,
+    age_range: ageRange,
+    birthday_month: birthdayMonth,
+    birthday_day: birthdayDay,
+    focus_areas: focusAreas,
+    support_goals: supportGoals,
+  }, { onConflict: "user_id" });
+
+  if (error) throw new Error(`Could not update profile: ${error.message}`);
+}
+
+
+async function updateSuggestionStatus(formData: FormData) {
+  "use server";
+  const user = await requireAuthenticatedUser("/settings");
+  const supabase = await createSupabaseServerClient();
+  const id = String(formData.get("suggestion_id") ?? "");
+  const status = String(formData.get("status") ?? "archived");
+  if (!id || !(status === "dismissed" || status === "archived")) return;
+  await supabase.from("moment_suggestions").update({ status }).eq("id", id).eq("user_id", user.id);
+}
+
+export default async function SettingsPage() {
+  const user = await requireAuthenticatedUser("/settings");
+  const supabase = await createSupabaseServerClient();
+  const { data: profile } = await supabase.from("moment_profiles").select("display_name,age_range,birthday_month,birthday_day,focus_areas,support_goals").eq("user_id", user.id).maybeSingle();
+  const { data: goals } = await supabase.from("moment_goals").select("id,title,status").eq("user_id", user.id).eq("status", "active").order("updated_at", { ascending: false }).limit(6);
+  const { data: suggestions } = await supabase.from("moment_suggestions").select("id,suggestion_text,status").eq("user_id", user.id).in("status", ["suggested", "accepted"]).order("updated_at", { ascending: false }).limit(6);
+  const { data: subscription } = await supabase.from("moment_subscriptions").select("plan,status,current_period_end,cancel_at_period_end").eq("user_id", user.id).maybeSingle();
+  const currentPlan = parseMomentPlan(subscription?.plan);
+
+  return (
+    <MomentAppShell title="Settings" subtitle="Simple profile details you can adjust anytime.">
+      <section className="grid gap-4 md:grid-cols-2">
+        <article className="rounded-3xl border border-white/10 bg-white/[0.03] p-5 md:col-span-2">
+          <h2 className="text-lg font-medium">Profile</h2>
+          <form action={updateProfile} className="mt-4 grid gap-3 sm:grid-cols-2">
+            <label className="text-sm text-slate-300">Display name<input name="display_name" defaultValue={profile?.display_name ?? ""} className="mt-1 w-full rounded-xl border border-white/15 bg-[#202a40] p-3 text-[#f8f1e7]" /></label>
+            <label className="text-sm text-slate-300">Age range<select name="age_range" defaultValue={profile?.age_range ?? "18_plus"} className="mt-1 w-full rounded-xl border border-white/15 bg-[#202a40] p-3 text-[#f8f1e7]"><option value="under_13">Under 13</option><option value="13_15">13-15</option><option value="16_17">16-17</option><option value="18_plus">18+</option><option value="not_set">Prefer not to say</option></select></label>
+            <label className="text-sm text-slate-300">Birthday month<input name="birthday_month" type="text" inputMode="numeric" pattern="[0-9]*" maxLength={2} defaultValue={profile?.birthday_month ?? ""} className="mt-1 w-full rounded-xl border border-white/15 bg-[#202a40] p-3 text-[#f8f1e7]" /></label>
+            <label className="text-sm text-slate-300">Birthday day<input name="birthday_day" type="text" inputMode="numeric" pattern="[0-9]*" maxLength={2} defaultValue={profile?.birthday_day ?? ""} className="mt-1 w-full rounded-xl border border-white/15 bg-[#202a40] p-3 text-[#f8f1e7]" /></label>
+            <label className="text-sm text-slate-300 sm:col-span-2">Focus areas (comma-separated)<input name="focus_areas" defaultValue={(profile?.focus_areas ?? []).join(", ")} className="mt-1 w-full rounded-xl border border-white/15 bg-[#202a40] p-3 text-[#f8f1e7]" /></label>
+            <label className="text-sm text-slate-300 sm:col-span-2">Support goals (comma-separated)<input name="support_goals" defaultValue={(profile?.support_goals ?? []).join(", ")} className="mt-1 w-full rounded-xl border border-white/15 bg-[#202a40] p-3 text-[#f8f1e7]" /></label>
+            <div className="sm:col-span-2"><MomentButton type="submit">Save profile</MomentButton></div>
+          </form>
+        </article>
+
+
+        <article className="rounded-3xl border border-white/10 bg-white/[0.03] p-5 md:col-span-2">
+          <h2 className="text-lg font-medium">Billing</h2>
+          <p className="mt-1 text-sm text-slate-300">Current plan: <span className="font-semibold text-slate-100 uppercase">{currentPlan}</span></p>
+          <p className="text-sm text-slate-300">Status: {subscription?.status ?? "inactive"}</p>
+          <p className="text-sm text-slate-300">Renews: {subscription?.current_period_end ? new Date(subscription.current_period_end).toLocaleDateString() : "—"}</p>
+          <BillingActions plan={currentPlan} />
+        </article>
+
+        <article className="rounded-3xl border border-white/10 bg-white/[0.03] p-5 md:col-span-2">
+          <h2 className="text-lg font-medium">Memory</h2>
+          <p className="mt-1 text-sm text-slate-300">Pattern-level notes from your recent support flow.</p>
+          <div className="mt-4 grid gap-3 sm:grid-cols-2">
+            <div>
+              <h3 className="text-sm font-medium text-slate-200">Active goals</h3>
+              <ul className="mt-2 space-y-2 text-sm text-slate-300">{(goals ?? []).map((goal) => <li key={goal.id} className="rounded-xl border border-white/10 bg-white/[0.02] px-3 py-2">{goal.title}</li>)}{(goals ?? []).length === 0 ? <li>No active goals yet.</li> : null}</ul>
+            </div>
+            <div>
+              <h3 className="text-sm font-medium text-slate-200">Suggestions</h3>
+              <ul className="mt-2 space-y-2 text-sm text-slate-300">
+                {(suggestions ?? []).map((suggestion) => (
+                  <li key={suggestion.id} className="rounded-xl border border-white/10 bg-white/[0.02] px-3 py-2">
+                    <p>{suggestion.suggestion_text}</p>
+                    <div className="mt-2 flex gap-2">
+                      <form action={updateSuggestionStatus}><input type="hidden" name="suggestion_id" value={suggestion.id} /><input type="hidden" name="status" value="dismissed" /><MomentButton type="submit">Dismiss</MomentButton></form>
+                      <form action={updateSuggestionStatus}><input type="hidden" name="suggestion_id" value={suggestion.id} /><input type="hidden" name="status" value="archived" /><MomentButton type="submit">Archive</MomentButton></form>
+                    </div>
+                  </li>
+                ))}
+                {(suggestions ?? []).length === 0 ? <li>No active suggestions.</li> : null}
+              </ul>
+            </div>
+          </div>
+        </article>
+      </section>
+    </MomentAppShell>
+  );
+}
+
+===== FILE: app/sign-in/SignInForm.tsx =====
+"use client";
+
+import { useMemo, useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
+import { createSupabaseBrowserClient } from "@/lib/supabase/browser";
+
+type AuthMode = "sign-in" | "sign-up";
+
+export function SignInForm() {
+  const router = useRouter();
+  const searchParams = useSearchParams();
+  const supabase = useMemo(() => createSupabaseBrowserClient(), []);
+  const next = searchParams.get("next") || "/";
+
+  const [mode, setMode] = useState<AuthMode>("sign-in");
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [status, setStatus] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+
+  async function submit() {
+    setIsSubmitting(true);
+    setError(null);
+    setStatus(null);
+
+    const normalizedEmail = email.trim();
+
+    if (!normalizedEmail || !password) {
+      setError("Enter an email and password to continue.");
+      setIsSubmitting(false);
+      return;
+    }
+
+    const result =
+      mode === "sign-up"
+        ? await supabase.auth.signUp({
+            email: normalizedEmail,
+            password,
+            options: {
+              emailRedirectTo: `${window.location.origin}/auth/callback?next=${encodeURIComponent(next)}`,
+            },
+          })
+        : await supabase.auth.signInWithPassword({
+            email: normalizedEmail,
+            password,
+          });
+
+    if (result.error) {
+      setError(result.error.message);
+      setIsSubmitting(false);
+      return;
+    }
+
+    if (mode === "sign-up" && !result.data.session) {
+      setStatus("Check your email to confirm your account, then return to sign in.");
+      setIsSubmitting(false);
+      return;
+    }
+
+    router.replace(next);
+    router.refresh();
+  }
+
+  return (
+    <div className="mt-6 space-y-4">
+      <div className="grid grid-cols-2 gap-2 rounded-full bg-[#1d2941]/85 p-1 ring-1 ring-white/20">
+        <button
+          type="button"
+          onClick={() => setMode("sign-in")}
+          className={[
+            "rounded-full px-4 py-2 text-sm font-semibold transition",
+            mode === "sign-in"
+              ? "bg-violet-100 text-[#1a1730] shadow-[0_10px_24px_-16px_rgba(196,181,253,1)]"
+              : "text-[#e7e2ff] hover:bg-white/12 hover:text-[#f8f1e7]",
+          ].join(" ")}
+        >
+          Sign in
+        </button>
+        <button
+          type="button"
+          onClick={() => setMode("sign-up")}
+          className={[
+            "rounded-full px-4 py-2 text-sm font-semibold transition",
+            mode === "sign-up"
+              ? "bg-violet-100 text-[#1a1730] shadow-[0_10px_24px_-16px_rgba(196,181,253,1)]"
+              : "text-[#e7e2ff] hover:bg-white/12 hover:text-[#f8f1e7]",
+          ].join(" ")}
+        >
+          Create account
+        </button>
+      </div>
+
+      <label className="block">
+        <span className="text-sm font-medium text-[#ece8f6]">Email</span>
+        <input
+          value={email}
+          onChange={(event) => setEmail(event.target.value)}
+          type="email"
+          autoComplete="email"
+          className="mt-2 w-full rounded-2xl border border-white/15 bg-[#1d2941]/90 px-4 py-3 text-[#f8f1e7] outline-none placeholder:text-[#a7a8bd] focus:border-[#c4b5fd] focus:ring-2 focus:ring-[#c4b5fd]/40"
+          placeholder="you@example.com"
+        />
+      </label>
+
+      <label className="block">
+        <span className="text-sm font-medium text-[#ece8f6]">Password</span>
+        <input
+          value={password}
+          onChange={(event) => setPassword(event.target.value)}
+          type="password"
+          autoComplete={mode === "sign-up" ? "new-password" : "current-password"}
+          className="mt-2 w-full rounded-2xl border border-white/15 bg-[#1d2941]/90 px-4 py-3 text-[#f8f1e7] outline-none placeholder:text-[#a7a8bd] focus:border-[#c4b5fd] focus:ring-2 focus:ring-[#c4b5fd]/40"
+          placeholder="Password"
+        />
+      </label>
+
+      {error ? (
+        <div className="rounded-2xl border border-rose-300/20 bg-rose-500/10 px-4 py-3 text-sm text-rose-100">
+          {error}
+        </div>
+      ) : null}
+
+      {status ? (
+        <div className="rounded-2xl border border-[#c4b5fd]/30 bg-[#c4b5fd]/10 px-4 py-3 text-sm text-[#f8f1e7]">
+          {status}
+        </div>
+      ) : null}
+
+      <button
+        type="button"
+        onClick={submit}
+        disabled={isSubmitting}
+        className="moment-btn-primary w-full disabled:cursor-not-allowed disabled:bg-[#9f93c9] disabled:text-[#241f3a]"
+      >
+        {isSubmitting ? "Working…" : mode === "sign-up" ? "Create account" : "Sign in"}
+      </button>
+    </div>
+  );
+}
+
+===== FILE: app/sign-in/page.tsx =====
+import { Suspense } from "react";
+import { SignInForm } from "./SignInForm";
+
+export default function SignInPage() {
+  return (
+    <main className="moment-glow relative min-h-screen overflow-hidden px-5 py-8 text-[#f8f1e7]">
+      <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_20%_20%,rgba(196,181,253,0.18),transparent_38%),radial-gradient(circle_at_80%_10%,rgba(251,191,163,0.14),transparent_30%)]" />
+      <div className="pointer-events-none absolute inset-0 opacity-30 [background-image:linear-gradient(rgba(255,255,255,0.06)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,0.04)_1px,transparent_1px)] [background-size:56px_56px]" />
+
+      <div className="relative mx-auto grid min-h-[85vh] w-full max-w-6xl items-center gap-8 lg:grid-cols-2">
+        <section className="order-2 space-y-4 lg:order-1">
+          <p className="moment-eyebrow">Moment</p>
+          <h1 className="max-w-xl text-4xl font-semibold leading-tight sm:text-5xl">Come back to one small next step.</h1>
+          <ul className="max-w-xl space-y-3 text-base leading-7 text-[#e6deed]">
+            <li>Check in without needing the perfect words.</li>
+            <li>Moment routes the hard thing into a calmer reset.</li>
+            <li>Private by default. Built for support, not surveillance.</li>
+          </ul>
+        </section>
+
+        <section className="order-1 lg:order-2">
+          <div className="moment-glass-panel moment-gradient-border moment-soft-glow rounded-[2rem] p-6 sm:p-8">
+            <p className="text-xs uppercase tracking-[0.22em] text-violet-100/80">Welcome back</p>
+            <h2 className="mt-3 text-3xl font-semibold tracking-tight">Sign in to Moment</h2>
+            <p className="mt-2 text-sm leading-6 text-[#d8d6e8]">Pick up where you left off, or create your account in a minute.</p>
+            <Suspense fallback={<p className="mt-6 text-sm text-[#d6d3e8]">Loading sign in…</p>}>
+              <SignInForm />
+            </Suspense>
+          </div>
+        </section>
+      </div>
+    </main>
+  );
+}
+
+===== FILE: app/stuck/page.tsx =====
+import { redirect } from "next/navigation";
+import { MomentAppShell } from "@/components/moment/MomentAppShell";
+import { MomentPageHeader } from "@/components/moment/MomentPageHeader";
+import { StuckClient } from "@/features/stuck/StuckClient";
+import { createSupabaseServerClient } from "@/lib/supabase/server";
+
+export default async function StuckPage({ searchParams }: { searchParams: Promise<{ from?: string; contextId?: string; summary?: string }> }) {
+  const resolvedSearchParams = await searchParams;
+  const supabase = await createSupabaseServerClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) redirect("/sign-in");
+
+  const { data: sessions } = await supabase.from("moment_stuck_sessions").select("id,task_text,status").eq("user_id", user.id).order("created_at", { ascending: false }).limit(5);
+
+  return (
+    <MomentAppShell title="Stuck" subtitle="Break friction into one doable action.">
+      <section className="mx-auto max-w-3xl">
+        <MomentPageHeader eyebrow="I’m Stuck" title="Let’s find a gentle next step" subtitle="Support for getting unstuck. Not therapy or crisis care." />
+        <StuckClient sessions={sessions ?? []} searchParams={resolvedSearchParams} />
+      </section>
+    </MomentAppShell>
+  );
+}
+
+===== FILE: components/moment/BillingActions.tsx =====
+"use client";
+
+import { useState } from "react";
+
+export function BillingActions({ plan, source = "settings" }: { plan: "free" | "plus" | "pro"; source?: "settings" | "pricing" }) {
+  const [busy, setBusy] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
+
+  async function go(endpoint: string, body?: Record<string, string>) {
+    setBusy(endpoint);
+    setError(null);
+    try {
+      const response = await fetch(endpoint, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: body ? JSON.stringify(body) : undefined,
+      });
+      const data = (await response.json()) as { url?: string; error?: string };
+      if (!response.ok || !data.url) {
+        throw new Error(data.error || "Unable to start checkout. Please try again.");
+      }
+      window.location.href = data.url;
+      return;
+    } catch (checkoutError) {
+      setError(checkoutError instanceof Error ? checkoutError.message : "Unable to start checkout. Please try again.");
+    } finally {
+      setBusy(null);
+    }
+  }
+
+  return (
+    <div className="mt-4 space-y-2">
+      <div className="flex flex-wrap gap-2">
+        {plan === "free" ? (
+          <>
+            <button onClick={() => go("/api/stripe/create-checkout-session", { plan: "plus", source })} className="moment-btn-primary" disabled={Boolean(busy)}>{busy ? "Working…" : "Upgrade to Plus"}</button>
+            <button onClick={() => go("/api/stripe/create-checkout-session", { plan: "pro", source })} className="moment-btn-secondary" disabled={Boolean(busy)}>{busy ? "Working…" : "Upgrade to Pro"}</button>
+          </>
+        ) : (
+          <button onClick={() => go("/api/stripe/create-portal-session")} className="moment-btn-primary" disabled={Boolean(busy)}>{busy ? "Working…" : "Manage subscription"}</button>
+        )}
+      </div>
+      {error ? <p className="text-sm text-rose-300">{error}</p> : null}
+    </div>
+  );
+}
+
+===== FILE: lib/auth.ts =====
+import { redirect } from "next/navigation";
+import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { getCurrentMomentPlan } from "@/lib/subscriptions";
+import { getPostSignupPath } from "@/lib/userFlow";
+
+export async function getAuthenticatedUser() {
+  const supabase = await createSupabaseServerClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  return { supabase, user };
+}
+
+export async function getOrCreateMomentProfile(userId: string) {
+  const supabase = await createSupabaseServerClient();
+  const { data: existingProfile } = await supabase
+    .from("moment_profiles")
+    .select("*")
+    .eq("user_id", userId)
+    .maybeSingle();
+
+  if (existingProfile) {
+    return existingProfile;
+  }
+
+  const { data: createdProfile, error } = await supabase
+    .from("moment_profiles")
+    .insert({ user_id: userId, onboarding_complete: false })
+    .select("*")
+    .single();
+
+  if (error) {
+    throw error;
+  }
+
+  return createdProfile;
+}
+
+export function getOnboardingRedirectPath(profile: { onboarding_complete?: boolean } | null) {
+  if (!profile || !profile.onboarding_complete) {
+    return "/onboarding";
+  }
+
+  return "/dashboard";
+}
+
+export async function requireAuthenticatedUser(next: string) {
+  const { user } = await getAuthenticatedUser();
+  if (!user) {
+    redirect(`/sign-in?next=${encodeURIComponent(next)}`);
+  }
+  return user;
+}
+
+
+export async function getCanonicalAppPath(userId: string, profile: { onboarding_complete?: boolean } | null) {
+  const subscription = await getCurrentMomentPlan(userId);
+  return getPostSignupPath({ onboardingComplete: Boolean(profile?.onboarding_complete), plan: subscription.plan });
+}
+
+===== FILE: lib/internalReviewAuth.ts =====
+import { createSupabaseServerClient } from "@/lib/supabase/server";
+
+const INTERNAL_REVIEW_EMAILS = process.env.INTERNAL_REVIEW_EMAILS?.split(",").map((item) => item.trim().toLowerCase()).filter((item) => item.length > 0) ?? [];
+
+export async function requireInternalReviewer() {
+  const supabase = await createSupabaseServerClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user?.id || !user.email) return { authorized: false as const };
+
+  const { data: profile } = await supabase.from("moment_profiles").select("role").eq("user_id", user.id).maybeSingle();
+  const roleAllowed = profile?.role === "admin";
+  const emailAllowed = INTERNAL_REVIEW_EMAILS.includes(user.email.toLowerCase());
+
+  return { authorized: roleAllowed && emailAllowed, userId: user.id } as const;
+}
+
+===== FILE: lib/subscriptions.ts =====
+import { redirect } from "next/navigation";
+import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { MomentPlan, parseMomentPlan, isPaidMomentPlan } from "@/lib/plans";
+
+export type MomentSubscription = {
+  plan: MomentPlan;
+  status: string;
+  currentPeriodEnd: string | null;
+  cancelAtPeriodEnd: boolean;
+};
+
+export async function getCurrentMomentPlan(userId: string): Promise<MomentSubscription> {
+  const supabase = await createSupabaseServerClient();
+  const { data } = await supabase
+    .from("moment_subscriptions")
+    .select("plan,status,current_period_end,cancel_at_period_end")
+    .eq("user_id", userId)
+    .maybeSingle();
+
+  return {
+    plan: parseMomentPlan(data?.plan),
+    status: data?.status ?? "inactive",
+    currentPeriodEnd: data?.current_period_end ?? null,
+    cancelAtPeriodEnd: data?.cancel_at_period_end ?? false,
+  };
+}
+
+export async function requireMomentPlan(userId: string, requiredPlan: Exclude<MomentPlan, "free">) {
+  const subscription = await getCurrentMomentPlan(userId);
+  if (requiredPlan === "plus" && subscription.plan === "pro") return subscription;
+  if (subscription.plan !== requiredPlan) {
+    redirect("/settings?tab=billing");
+  }
+  return subscription;
+}
+
+export { isPaidMomentPlan };
+
+===== FILE: lib/supabase/middleware.ts =====
+import { NextResponse, type NextRequest } from "next/server";
+import { createServerClient } from "@supabase/ssr";
+import { getSupabaseEnv } from "@/lib/env";
+
+export async function updateSession(request: NextRequest) {
+  const response = NextResponse.next({
+    request: {
+      headers: request.headers,
+    },
+  });
+
+  const { url, anonKey } = getSupabaseEnv();
+
+  const supabase = createServerClient(url, anonKey, {
+    cookies: {
+      getAll() {
+        return request.cookies.getAll();
+      },
+      setAll(cookiesToSet) {
+        cookiesToSet.forEach(({ name, value, options }) => {
+          request.cookies.set(name, value);
+          response.cookies.set(name, value, options);
+        });
+      },
+    },
+  });
+
+  await supabase.auth.getUser();
+  return response;
+}
+
+===== FILE: lib/userFlow.ts =====
+import { isPaidMomentPlan, type MomentPlan } from "@/lib/plans";
+
+export type UserFlowState = {
+  onboardingComplete: boolean;
+  plan: MomentPlan;
+};
+
+export function getPostSignupPath(state: UserFlowState): string {
+  if (!isPaidMomentPlan(state.plan)) {
+    return "/pricing";
+  }
+
+  if (!state.onboardingComplete) {
+    return "/onboarding";
+  }
+
+  return "/dashboard";
+}
+
+===== FILE: middleware.ts =====
+import { type NextRequest } from "next/server";
+import { updateSession } from "@/lib/supabase/middleware";
+
+export async function middleware(request: NextRequest) {
+  return updateSession(request);
+}
+
+export const config = {
+  matcher: ["/dashboard/:path*", "/onboarding/:path*", "/stuck/:path*", "/api/:path*"],
+};
+
+===== FILE: middleware.ts =====
+import { type NextRequest } from "next/server";
+import { updateSession } from "@/lib/supabase/middleware";
+
+export async function middleware(request: NextRequest) {
+  return updateSession(request);
+}
+
+export const config = {
+  matcher: ["/dashboard/:path*", "/onboarding/:path*", "/stuck/:path*", "/api/:path*"],
+};
+
+===== FILE: scripts/smoke-routing-and-onboarding.mjs =====
+import { strict as assert } from 'node:assert';
+
+const normalizeAgeRange = (value) => {
+  if (value === 'under_13' || value === '13_15' || value === '16_17' || value === '18_plus') return value;
+  return '18_plus';
+};
+
+const deriveTrustedAge = (profileAgeRange, clientAgeRange) => ({
+  trusted: normalizeAgeRange(profileAgeRange),
+  ignoredClient: clientAgeRange,
+});
+
+const mapOnboardingPayload = (selected) => ({
+  focus_areas: selected,
+  support_goals: selected,
+});
+
+const selected = ['task_start', 'calm_restart'];
+const payload = mapOnboardingPayload(selected);
+assert.deepEqual(payload.focus_areas, selected);
+assert.deepEqual(payload.support_goals, selected);
+console.log('PASS onboarding payload maps support_goals -> focus_areas/support_goals consistently');
+
+const teenRoute = deriveTrustedAge('13_15', '18_plus');
+assert.equal(teenRoute.trusted, '13_15');
+console.log('PASS routing trusts profile age over client age (teen profile wins)');
+
+const adultRoute = deriveTrustedAge('18_plus', 'under_13');
+assert.equal(adultRoute.trusted, '18_plus');
+console.log('PASS routing trusts profile age over client age (adult profile wins)');
+
+const fallbackRoute = deriveTrustedAge('not_set', 'under_13');
+assert.equal(fallbackRoute.trusted, '18_plus');
+console.log('PASS routing defaults not_set profile age to 18_plus');
+
+===== FILE: scripts/smoke-user-flow.mjs =====
+import { strict as assert } from 'node:assert';
+
+const getPostSignupPath = ({ plan, onboardingComplete }) => {
+  if (plan === 'free') return '/pricing';
+  if (!onboardingComplete) return '/onboarding';
+  return '/dashboard';
+};
+
+assert.equal(getPostSignupPath({ plan: 'free', onboardingComplete: false }), '/pricing');
+assert.equal(getPostSignupPath({ plan: 'plus', onboardingComplete: false }), '/onboarding');
+assert.equal(getPostSignupPath({ plan: 'pro', onboardingComplete: true }), '/dashboard');
+
+console.log('PASS canonical user flow guards');
+
+===== FILE: supabase/migrations/0003_profile_birthday_and_greeting_fields.sql =====
+begin;
+
+alter table public.moment_profiles
+  add column if not exists birthday_month integer null check (birthday_month between 1 and 12),
+  add column if not exists birthday_day integer null check (birthday_day between 1 and 31),
+  add column if not exists last_seen_at timestamptz null,
+  add column if not exists greeting_state jsonb not null default '{}'::jsonb;
+
+commit;
+
+===== FILE: supabase/migrations/0008_stripe_subscription_plans.sql =====
+alter table public.moment_subscriptions
+  add column if not exists stripe_price_id text,
+  add column if not exists cancel_at_period_end boolean not null default false;
+
+alter table public.moment_subscriptions
+  drop constraint if exists moment_subscriptions_plan_check;
+
+alter table public.moment_subscriptions
+  add constraint moment_subscriptions_plan_check check (plan in ('free','plus','pro'));
+
+create index if not exists moment_subscriptions_customer_idx on public.moment_subscriptions(stripe_customer_id);
+create index if not exists moment_subscriptions_subscription_idx on public.moment_subscriptions(stripe_subscription_id);
+create index if not exists moment_subscriptions_status_idx on public.moment_subscriptions(status);

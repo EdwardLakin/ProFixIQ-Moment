@@ -86,7 +86,7 @@ export function computeMemoryRelevance(input: RouteMomentInput, continuitySummar
 }
 
 export function buildUnifiedCognition(input: RouteMomentInput, cognition: EmotionalCognition, continuitySummary?: string | null, primaryBrainId?: MomentBrainId, currentDomain?: ResponseDomain): UnifiedCognitionTrace {
-  const text = `${input.momentText} ${input.selectedSignals.join(" ")} ${(input.knownSupportNeeds ?? []).join(" ")}`.toLowerCase();
+  const text = `${input.momentText} ${input.selectedSignals.join(" ")}`.toLowerCase();
   const weights: CapabilityMap = { ...BASE_WEIGHTS };
 
   if (containsAny(text, ["math", "homework", "study", "class", "science", "essay", "problem", "quiz"]) || primaryBrainId === "tutor_brain") {

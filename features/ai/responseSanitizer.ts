@@ -40,9 +40,9 @@ export function sanitizeVisibleResponse(response: MomentCheckInResponse): Moment
   const uniqueVisible = dedupeLines([response.reflection, response.tinyNextStep, ...response.steps, response.supportiveNote]);
   const fallback = uniqueVisible[0] ?? "Thanks for sharing this with me.";
   const reflection = dedupeLines([response.reflection])[0] ?? fallback;
-  const tinyNextStep = dedupeLines([response.tinyNextStep]).find((line) => normalize(line) !== normalize(reflection)) ?? "If you want, we can stay with this for a moment.";
+  const tinyNextStep = dedupeLines([response.tinyNextStep]).find((line) => normalize(line) !== normalize(reflection)) ?? "";
   const steps = dedupeLines(response.steps).filter((line) => normalize(line) !== normalize(reflection) && normalize(line) !== normalize(tinyNextStep)).slice(0, 3);
-  const supportiveNote = dedupeLines([response.supportiveNote]).find((line) => ![reflection, tinyNextStep, ...steps].some((item) => normalize(item) === normalize(line))) ?? "No pressure to do anything right away.";
+  const supportiveNote = dedupeLines([response.supportiveNote]).find((line) => ![reflection, tinyNextStep, ...steps].some((item) => normalize(item) === normalize(line))) ?? "";
   return { ...response, reflection, tinyNextStep, steps, supportiveNote };
 }
 

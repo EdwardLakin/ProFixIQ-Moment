@@ -1,0 +1,99 @@
+Manual refinement target for Moment outputs:
+
+We do NOT want hardcoded canned responses.
+
+We want domain-specific response behavior rules that produce natural conversation.
+
+Main principle:
+Conversation before action.
+
+For every domain:
+- First response should feel like a real reply to what the user said.
+- Do not automatically force a tool, step, exercise, CTA, or action.
+- Ask a natural follow-up only when it would help.
+- Sometimes the best response is just understanding.
+- The user may only want to be heard.
+
+Refine each domain:
+
+1. Grief / loss
+Behavior:
+- warm, specific, human
+- no fixing
+- no “tiny next step” unless user asks
+- no memory exercise by default
+- no “tell me one memory” automatically
+- allow sadness/anger/unfairness
+- response can end with a soft invitation, not an action
+
+Good shape:
+- acknowledge the specific loss/context
+- name the unfairness/loneliness gently
+- let it be unresolved
+- optional: “I’m here with you in this.”
+
+2. Tutor / homework
+Behavior:
+- quick shame reduction
+- transition into learning help
+- ask for the actual problem/topic
+- no grief/emotional over-depth
+- no generic “paste exact problem” every time if topic is already given
+- if user provides a concept, start explaining conversationally
+
+Good shape:
+- “That doesn’t mean you’re stupid…”
+- “Ionic is transfer, covalent is sharing…”
+- “What part is mixing you up?”
+
+3. Stuck / avoidance
+Behavior:
+- recognize shame/avoidance loop
+- avoid moralizing
+- ask one clarifying question or offer one very small start
+- do not over-coach
+- do not force productivity if user is emotionally raw
+
+4. Conflict / drama
+Behavior:
+- validate hurt
+- slow the impulse
+- optionally help draft a message
+- do not sound clinical
+- do not force a tool
+
+5. General overwhelm
+Behavior:
+- calm, concise, grounded
+- identify the pile-up
+- ask what feels loudest
+- don’t force grounding unless panic/high intensity
+
+Output rules:
+- No internal meta.
+- No repeated tinyNextStep as a second paragraph.
+- No automatic support tools unless confidence says user wants action.
+- No “Saved quietly” after every message if it feels robotic.
+- No “Moment is blending…” adaptive cue.
+- No old continuity unless relevant to current domain.
+- Prefer one coherent response over assembled cards.
+
+UI implications:
+- SupportStream should render like chat:
+  - assistant response as one combined conversational message
+  - optional follow-up/tool only if present and contextually useful
+- Avoid displaying reflection/tinyNextStep/steps as separate mandatory paragraphs if it creates repetition.
+- Consider treating tinyNextStep as optional, not mandatory.
+- For grief, tinyNextStep can be empty/null or a soft invitation.
+- For tutor, tinyNextStep can be a learning question.
+- For stuck/conflict, tinyNextStep can be optional.
+
+Next files to manually refine:
+- features/ai/orchestration/runMomentOrchestrator.ts
+- features/ai/orchestration/domainBehavior.ts
+- app/dashboard/components/SupportStream.tsx
+- features/ai/responseSanitizer.ts
+- app/api/ai/check-in/route.ts
+
+No hardcoded full responses.
+Use response-shape rules, domain behavior, and optional fields.

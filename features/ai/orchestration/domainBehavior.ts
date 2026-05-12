@@ -9,6 +9,7 @@ export type DomainBehavior = {
   guidanceTiming: "presence_first" | "quick_validate_then_tutor" | "validate_then_decompose" | "validate_then_slow_reaction" | "calm_then_prioritize" | "safety_first";
   responseLength: "short" | "medium";
   askFollowUp: boolean;
+  offerTool: boolean;
   tutorMode: boolean;
   avoidAdviceFirst: boolean;
   bannedPhrases: string[];
@@ -19,7 +20,7 @@ const TUTOR_TOKENS = ["math", "homework", "science", "tutor", "study", "studying
 const hasAny = (text: string, terms: string[]) => terms.some((term) => text.includes(term));
 
 export function classifyResponseDomain(input: RouteMomentInput, routeId: MomentBrainId): ResponseDomain {
-  const normalized = `${input.momentText} ${input.selectedSignals.join(" ")} ${(input.knownSupportNeeds ?? []).join(" ")}`.toLowerCase();
+  const normalized = `${input.momentText} ${input.selectedSignals.join(" ")}`.toLowerCase();
   if (routeId === "safety_support_brain") return "safety";
   if (routeId === "grief_support_brain" || hasAny(normalized, ["died", "death", "passed away", "grief", "loss", "miss her", "miss him", "moms"])) return "grief_loss";
   if (routeId === "tutor_brain" || hasAny(normalized, TUTOR_TOKENS)) return "tutor";
@@ -45,18 +46,18 @@ export function behaviorForDomain(domain: ResponseDomain): DomainBehavior {
 
   switch (domain) {
     case "grief_loss":
-      return { domain, emotionalTemperature: "high", guidanceTiming: "presence_first", responseLength: "medium", askFollowUp: true, tutorMode: false, avoidAdviceFirst: true, bannedPhrases: banned };
+      return { domain, emotionalTemperature: "high", guidanceTiming: "presence_first", responseLength: "medium", askFollowUp: true, offerTool: false, tutorMode: false, avoidAdviceFirst: true, bannedPhrases: banned };
     case "tutor":
-      return { domain, emotionalTemperature: "steady", guidanceTiming: "quick_validate_then_tutor", responseLength: "short", askFollowUp: true, tutorMode: true, avoidAdviceFirst: false, bannedPhrases: banned };
+      return { domain, emotionalTemperature: "steady", guidanceTiming: "quick_validate_then_tutor", responseLength: "short", askFollowUp: true, offerTool: false, tutorMode: true, avoidAdviceFirst: false, bannedPhrases: banned };
     case "stuck_avoidance":
-      return { domain, emotionalTemperature: "medium", guidanceTiming: "validate_then_decompose", responseLength: "short", askFollowUp: true, tutorMode: false, avoidAdviceFirst: false, bannedPhrases: banned };
+      return { domain, emotionalTemperature: "medium", guidanceTiming: "validate_then_decompose", responseLength: "short", askFollowUp: true, offerTool: true, tutorMode: false, avoidAdviceFirst: false, bannedPhrases: banned };
     case "conflict":
-      return { domain, emotionalTemperature: "medium", guidanceTiming: "validate_then_slow_reaction", responseLength: "short", askFollowUp: true, tutorMode: false, avoidAdviceFirst: false, bannedPhrases: banned };
+      return { domain, emotionalTemperature: "medium", guidanceTiming: "validate_then_slow_reaction", responseLength: "short", askFollowUp: true, offerTool: true, tutorMode: false, avoidAdviceFirst: false, bannedPhrases: banned };
     case "general_overwhelm":
-      return { domain, emotionalTemperature: "steady", guidanceTiming: "calm_then_prioritize", responseLength: "short", askFollowUp: true, tutorMode: false, avoidAdviceFirst: false, bannedPhrases: banned };
+      return { domain, emotionalTemperature: "steady", guidanceTiming: "calm_then_prioritize", responseLength: "short", askFollowUp: true, offerTool: true, tutorMode: false, avoidAdviceFirst: false, bannedPhrases: banned };
     case "safety":
-      return { domain, emotionalTemperature: "steady", guidanceTiming: "safety_first", responseLength: "short", askFollowUp: false, tutorMode: false, avoidAdviceFirst: false, bannedPhrases: banned };
+      return { domain, emotionalTemperature: "steady", guidanceTiming: "safety_first", responseLength: "short", askFollowUp: false, offerTool: false, tutorMode: false, avoidAdviceFirst: false, bannedPhrases: banned };
     default:
-      return { domain, emotionalTemperature: "medium", guidanceTiming: "calm_then_prioritize", responseLength: "short", askFollowUp: true, tutorMode: false, avoidAdviceFirst: false, bannedPhrases: banned };
+      return { domain, emotionalTemperature: "medium", guidanceTiming: "calm_then_prioritize", responseLength: "short", askFollowUp: true, offerTool: true, tutorMode: false, avoidAdviceFirst: false, bannedPhrases: banned };
   }
 }

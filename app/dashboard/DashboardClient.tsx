@@ -2,7 +2,6 @@
 
 import { useMemo, useState } from "react";
 import Link from "next/link";
-import type { MomentPlan } from "@/lib/plans";
 import type { MomentCheckInResponse, MomentRouteResult, OperationalBlock } from "@/features/ai/types";
 import { BRAIN_AUDIENCES, BRAIN_CATEGORIES, MOMENT_BRAIN_IDS, OPERATIONAL_BLOCK_TYPES, ROUTE_LABELS } from "@/features/ai/contracts";
 import type { BrainAudience, BrainCategory, MomentBrainId } from "@/features/ai/brains/types";
@@ -12,7 +11,7 @@ import { GreetingSurface } from "./components/GreetingSurface";
 import { IntakeComposer } from "./components/IntakeComposer";
 import { SupportStream } from "./components/SupportStream";
 import { ContinuityPanel } from "./components/ContinuityPanel";
-import { sanitizeUiCue, sanitizeVisibleResponse } from "@/features/ai/responseSanitizer";
+import { sanitizeVisibleResponse } from "@/features/ai/responseSanitizer";
 
 type SupportStyle = "calm_reflective" | "gentle_grounding" | "structured_reset" | "action_forward";
 const knownBrainIds = new Set<string>(MOMENT_BRAIN_IDS);
@@ -24,9 +23,9 @@ function toSafeRoute(raw: unknown): MomentRouteResult | null { if (!raw || typeo
 function toSafeBlocks(blocks: unknown, reflection: string, tinyNextStep: string): OperationalBlock[] { return Array.isArray(blocks) ? blocks.filter((b): b is Record<string, unknown> => !!b && typeof b === "object").map((b)=>({ type: typeof b.type === "string" && knownBlockTypes.has(b.type) ? b.type : "support", text: typeof b.text === "string" ? b.text : "" })).filter((b)=>b.text.length>0) as OperationalBlock[] : [{ type:"reflection", text:reflection},{type:"tiny_step",text:tinyNextStep}];}
 function toSafeResponse(raw: unknown, route: MomentRouteResult): MomentCheckInResponse | null { if (!raw || typeof raw !== "object") return null; const response = raw as Record<string, unknown>; const reflection = typeof response.reflection === "string" ? response.reflection : "Thanks for sharing this moment."; const tinyNextStep = typeof response.tinyNextStep === "string" ? response.tinyNextStep : "Take one small step."; const steps = Array.isArray(response.steps) ? response.steps.filter((s): s is string => typeof s === "string") : []; return sanitizeVisibleResponse({ routeLabel: route.routeLabel, routePath: route.routePath, reflection, tinyNextStep, whyThisRoute: typeof response.whyThisRoute === "string" ? response.whyThisRoute : "", continueLabel: "If you want, keep going", steps, supportiveNote: typeof response.supportiveNote === "string" ? response.supportiveNote : "Small steps count.", followUpActions: [], blocks: toSafeBlocks(response.blocks, reflection, tinyNextStep) }); }
 
-export function DashboardClient({ greeting, memory, plan, usage, journalContextEnabled }: { greeting: MomentGreetingOutput; memory: MomentMemorySnapshot | null; plan: MomentPlan; usage: { usedMoments: number; momentLimit: number | null; remainingMoments: number | null }; journalContextEnabled: boolean }) {
+export function DashboardClient({ greeting, memory, plan: _plan, usage, journalContextEnabled }: { greeting: MomentGreetingOutput; memory: MomentMemorySnapshot | null; plan: "free" | "plus" | "pro"; usage: { usedMoments: number; momentLimit: number | null; remainingMoments: number | null }; journalContextEnabled: boolean }) {
   const emptyMemory: MomentMemorySnapshot = { entries: [], threads: [], goals: [], tinyWins: [], suggestions: [], supportPatterns: [], supportEffectivenessNotes: [] };
-  const [memoryState,setMemoryState]=useState(memory ?? emptyMemory);
+  const [,setMemoryState]=useState(memory ?? emptyMemory);
   const [savedNote,setSavedNote]=useState<string | null>(null);
   const [inlineError,setInlineError]=useState<string | null>(null);
   const [isSubmitting,setIsSubmitting]=useState(false);
@@ -36,7 +35,7 @@ export function DashboardClient({ greeting, memory, plan, usage, journalContextE
   const [adaptiveCue,setAdaptiveCue]=useState<string | null>(null);
   const [supportStyle]=useState<SupportStyle>("calm_reflective");
   const [threadId]=useState(`thread_${Date.now().toString(36)}`);
-  const personalizedOpening=useMemo(()=> (journalContextEnabled && memoryState.threads[0]?.summary) ? `I can hold continuity with what you shared before: ${memoryState.threads[0].summary.toLowerCase()}.` : "You can start anywhere — one sentence is enough.",[memoryState,journalContextEnabled]);
+  const personalizedOpening=useMemo(()=> "You can start anywhere — one sentence is enough.",[]);
 
   async function submit(){
     setInlineError(null);
@@ -58,18 +57,10 @@ export function DashboardClient({ greeting, memory, plan, usage, journalContextE
     const response=toSafeResponse(data.response,route);
     if(!response){ setInlineError("We hit a pause. Please try once more."); return; }
     setResult({route,response});
-    setContinuitySummary(data.response?.continuitySummary ?? null);
-    const timingMode = typeof data.response?.supportTimingMode === "string" ? data.response.supportTimingMode : null;
-    const styleCue = sanitizeUiCue(typeof data.response?.supportStyleAdaptationCue === "string" ? data.response.supportStyleAdaptationCue : null);
-    const blendCue = route.primaryBrainId === "tutor_brain"
-      ? "Moment is blending emotional support with practical decomposition right now."
-      : route.primaryBrainId === "social_boundary_brain"
-        ? "Moment is balancing emotional processing with boundary clarity."
-        : null;
-    const pacingCue = timingMode === "gentle_presence" ? "I’ll keep this slower and lighter while we get our footing." : null;
-    setAdaptiveCue(sanitizeUiCue(pacingCue ?? blendCue ?? styleCue));
+    setContinuitySummary(typeof data.response?.continuitySummary === "string" ? data.response.continuitySummary : null);
+    setAdaptiveCue(null);
     if(data.memorySnapshot && typeof data.memorySnapshot === "object") setMemoryState(data.memorySnapshot);
-    setSavedNote("Saved quietly.");
+    setSavedNote(null);
     } catch {
       setInlineError("Something interrupted this check-in. Please try again.");
     } finally {
@@ -85,7 +76,7 @@ export function DashboardClient({ greeting, memory, plan, usage, journalContextE
     <section className="rounded-2xl border border-white/10 bg-white/[0.03] px-4 py-3 text-sm text-slate-200"><p className="font-medium">Journal</p><p className="text-slate-300">Your moments, organized by date.</p><Link href="/dashboard/journal" className="mt-2 inline-block text-xs underline">Open Journal</Link></section><GreetingSurface headline={greeting.headline} opening={personalizedOpening} text={text} onText={setText} />
     <IntakeComposer onSubmit={submit} disabled={text.length < 3 || isSubmitting} savedNote={savedNote} />
     {inlineError ? <p className="rounded-xl bg-rose-500/10 px-3 py-2 text-sm text-rose-100">{inlineError}</p> : null}
-    {journalContextEnabled ? <ContinuityPanel summary={continuitySummary ?? memoryState.threads[0]?.summary ?? null} cue={result ? "We can stay with this and adjust as your needs change." : null} /> : <p className="rounded-xl bg-white/[0.03] px-3 py-2 text-xs text-slate-300">Journal context is off. Moment will still save entries, but won’t read past journal context.</p>}
+    {journalContextEnabled ? <ContinuityPanel summary={result ? continuitySummary : null} cue={result && continuitySummary ? "You can keep going from here, or start fresh." : null} /> : <p className="rounded-xl bg-white/[0.03] px-3 py-2 text-xs text-slate-300">Journal context is off. Moment will still save entries, but won’t read past journal context.</p>}
     <SupportStream result={result} adaptiveCue={adaptiveCue} />
   </div>;
 }

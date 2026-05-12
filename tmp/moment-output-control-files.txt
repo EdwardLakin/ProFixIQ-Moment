@@ -1,0 +1,866 @@
+===== FILE: features/ai/orchestration/runMomentOrchestrator.ts =====
+import { routeMoment } from "@/features/ai/router/routeMoment";
+import type { RouteMomentInput } from "@/features/ai/router/types";
+import type { MomentRouteResult, OperationalBlock } from "@/features/ai/types";
+import { buildEmotionalCognition, type EmotionalCognition } from "@/features/ai/orchestration/emotionalCognitionEngine";
+import { behaviorForDomain, classifyResponseDomain } from "@/features/ai/orchestration/domainBehavior";
+import { buildUnifiedCognition } from "@/features/ai/orchestration/unifiedCognition";
+
+type PacingProfile = "grief" | "burnout" | "overwhelm" | "shutdown" | "conflict" | "default";
+type ResponseDepth = "light" | "heavy" | "overwhelmed";
+type FailureCase = "nothing_helps" | "unclear_need" | "numbness" | "emotional_exhaustion" | "repeated_grief" | "shame" | "emotional_overload" | "hopeless_non_crisis";
+
+export type MomentOrchestratorResult = {
+  trace: { pacingProfile: PacingProfile; responseDepth: ResponseDepth; supportFatigueReduction: boolean; clarificationUsed: boolean; emotionalCognition: EmotionalCognition; unifiedCognition: ReturnType<typeof buildUnifiedCognition>; previousDomain: string | null; currentDomain: string; suppressedDomains: string[]; emotionalCarryoverStrength: number; continuitySuppressedReason: string | null };
+  route: MomentRouteResult;
+  response: { routeLabel: string; routePath: string; reflection: string; tinyNextStep: string; whyThisRoute: string; continueLabel: string; steps: string[]; supportiveNote: string; followUpActions: { label: string; href: string }[]; blocks: OperationalBlock[] };
+  warnings: string[];
+};
+
+const supportLabels: Record<string, string> = { finance_clarity_brain: "Finance pressure", work_stress_brain: "Trying to stay afloat at work", relationship_reflection_brain: "Relationship strain", school_overwhelm_brain: "School overwhelm", confidence_repair_brain: "Confidence dip", life_admin_brain: "Daily life load", grief_support_brain: "Carrying grief", emotional_presence_brain: "Emotional weight", loneliness_support_brain: "Feeling alone", overwhelm_grounding_brain: "Feeling overwhelmed" };
+const hasAny = (text: string, needles: string[]) => needles.some((n) => text.includes(n));
+function getPacingProfile(input: RouteMomentInput, route: MomentRouteResult): PacingProfile { const text = `${input.momentText} ${input.selectedSignals.join(" ")}`.toLowerCase(); if (route.primaryBrainId === "grief_support_brain" || text.includes("grief") || text.includes("loss")) return "grief"; if (route.primaryBrainId === "work_stress_brain" || text.includes("burnout") || text.includes("exhausted")) return "burnout"; if (route.primaryBrainId === "overwhelm_grounding_brain" || text.includes("overwhelm")) return "overwhelm"; if (text.includes("shutdown") || text.includes("numb")) return "shutdown"; if (route.primaryBrainId === "relationship_reflection_brain" || text.includes("conflict") || text.includes("argument")) return "conflict"; return "default"; }
+function getResponseDepth(input: RouteMomentInput, profile: PacingProfile): ResponseDepth { const normalized = `${input.momentText} ${input.selectedSignals.join(" ")} ${(input.knownSupportNeeds ?? []).join(" ")}`.toLowerCase(); if (profile === "grief" || profile === "shutdown" || normalized.includes("can't do") || normalized.includes("cannot do")) return "heavy"; if (profile === "overwhelm" || normalized.includes("exhaust") || normalized.includes("numb") || normalized.includes("spiral")) return "overwhelmed"; return "light"; }
+function shouldReducePrompting(input: RouteMomentInput, profile: PacingProfile, depth: ResponseDepth) { const followUps = input.followUpHistory?.length ?? 0; const repeats = input.recentRouteHistory?.slice(-4).filter((brainId) => brainId === input.recentRouteHistory?.[input.recentRouteHistory.length - 1]).length ?? 0; return depth !== "light" || profile === "grief" || profile === "shutdown" || followUps >= 3 || repeats >= 3; }
+function detectEmotionalFailureCase(input: RouteMomentInput): FailureCase | null { const text = `${input.momentText} ${input.selectedSignals.join(" ")} ${(input.knownSupportNeeds ?? []).join(" ")}`.toLowerCase(); if (hasAny(text, ["nothing helps", "nothing works", "tried everything"])) return "nothing_helps"; if (hasAny(text, ["i don't know what i need", "dont know what i need", "not sure what i need"])) return "unclear_need"; if (hasAny(text, ["numb", "feel nothing", "empty"])) return "numbness"; if (hasAny(text, ["emotionally exhausted", "drained", "worn out", "spent"])) return "emotional_exhaustion"; if (hasAny(text, ["grief again", "still grieving", "same grief", "hasn't gotten better"])) return "repeated_grief"; if (hasAny(text, ["ashamed", "embarrassed", "humiliated", "stupid"])) return "shame"; if (hasAny(text, ["too much", "overloaded", "flooded"])) return "emotional_overload"; if (hasAny(text, ["hopeless", "pointless", "what's the point"])) return "hopeless_non_crisis"; return null; }
+
+function composeNaturalResponse(domain: ReturnType<typeof classifyResponseDomain>, capabilityWeights: ReturnType<typeof buildUnifiedCognition>["capabilityWeights"], momentText: string, opts: { activeDomain: string; suppressedDomains: string[]; emotionalCarryoverStrength: number }) {
+  const suppressGriefCadence = opts.suppressedDomains.includes("grief_loss") || (opts.activeDomain === "tutor" && opts.emotionalCarryoverStrength < 0.25);
+  if (domain === "tutor") {
+    const warmth = capabilityWeights.shameReduction > 0.35 ? "You're not stupid; this just hasn't been explained in a way that clicks yet." : "It's okay for this to feel hard before it starts to make sense.";
+    return {
+      reflection: warmth,
+      tinyNextStep: "Paste the exact problem or prompt, and tell me where you get stuck so we can solve that part first step-by-step.",
+      supportiveNote: "Confusion is a normal stage of learning.",
+    };
+  }
+
+  if (domain === "grief_loss") {
+    return {
+      reflection: "I'm really sorry. Days like this can make the absence feel sharp all over again.",
+      tinyNextStep: "If you want, tell me one memory that feels closest right now, and we can stay there.",
+      supportiveNote: "You don't need to force progress in this moment.",
+    };
+  }
+
+  if (domain === "conflict") {
+    return {
+      reflection: "That sounds painful, and reacting fast usually comes from feeling hurt.",
+      tinyNextStep: "Want to draft one message that is honest and calm without escalating things?",
+      supportiveNote: "You can protect yourself without going on the attack.",
+    };
+  }
+
+  return {
+    reflection: suppressGriefCadence ? `Got it. ${momentText.trim().slice(0, 80)}` : `I hear how heavy this feels. ${momentText.trim().slice(0, 80)}`,
+    tinyNextStep: "Tell me the most urgent part and we'll focus there first.",
+    supportiveNote: "Small steps still count.",
+  };
+}
+
+export function runMomentOrchestrator(input: RouteMomentInput): MomentOrchestratorResult {
+  const route = routeMoment(input);
+  const cognition = buildEmotionalCognition(input);
+  const profile = getPacingProfile(input, route);
+  const depth = getResponseDepth(input, profile);
+  const failureCase = detectEmotionalFailureCase(input);
+  const reducePrompting = shouldReducePrompting(input, profile, depth) || Boolean(failureCase);
+  const domain = classifyResponseDomain(input, route.primaryBrainId);
+  const previousDomain = input.recentRouteHistory?.[0] ? classifyResponseDomain({ ...input, momentText: input.knownSupportNeeds?.[0] ?? "", selectedSignals: [] }, input.recentRouteHistory[0]) : null;
+  const hardDomainTransition = Boolean(previousDomain && previousDomain !== domain && !(previousDomain === "general" || domain === "general"));
+  const domainBehavior = behaviorForDomain(domain);
+  const unifiedCognition = buildUnifiedCognition(input, cognition, input.profileContext, route.primaryBrainId, domain);
+  const suppressedDomains = hardDomainTransition ? [previousDomain as string] : [];
+  const emotionalCarryoverStrength = hardDomainTransition ? 0.05 : unifiedCognition.memoryRelevance.score;
+  const natural = composeNaturalResponse(domain, unifiedCognition.capabilityWeights, input.momentText, { activeDomain: domain, suppressedDomains, emotionalCarryoverStrength });
+
+  const steps = domainBehavior.askFollowUp ? [natural.tinyNextStep] : [];
+  const blocks = [natural.reflection, natural.tinyNextStep]
+    .filter(Boolean)
+    .map<OperationalBlock>((text, index) => index === 0 ? { type: "reflection", text } : { type: "gentle_next_step", text });
+
+  const clarificationUsed = (input.followUpHistory?.length ?? 0) > 0;
+  const continuitySuppressedReason = hardDomainTransition ? "domain_shift" : (unifiedCognition.memoryRelevance.suppressionReason ?? null);
+  const continuity = unifiedCognition.memoryRelevance.applied && !hardDomainTransition
+    ? "I can build on what you've shared before if that still fits this moment."
+    : "We can stay with this moment only, and bring in past context later if you want.";
+  const routeLabel = supportLabels[route.primaryBrainId] ?? route.routeLabel;
+  return {
+    trace: { pacingProfile: profile, responseDepth: depth, supportFatigueReduction: reducePrompting, clarificationUsed, emotionalCognition: cognition, unifiedCognition, previousDomain, currentDomain: domain, suppressedDomains, emotionalCarryoverStrength, continuitySuppressedReason },
+    route,
+    response: {
+      routeLabel,
+      routePath: route.routePath,
+      reflection: natural.reflection,
+      tinyNextStep: natural.tinyNextStep,
+      whyThisRoute: continuity,
+      continueLabel: profile === "grief" ? "Stay here a bit" : `Continue with ${routeLabel}`,
+      steps,
+      supportiveNote: natural.supportiveNote,
+      followUpActions: [{ label: profile === "shutdown" ? "Keep it gentle" : `Open ${routeLabel}`, href: route.routePath }],
+      blocks,
+    },
+    warnings: route.primaryBrainId === "safety_support_brain" ? ["High-severity safety signals detected."] : [],
+  };
+}
+
+===== FILE: features/ai/orchestration/unifiedCognition.ts =====
+import type { RouteMomentInput } from "@/features/ai/router/types";
+import type { EmotionalCognition } from "@/features/ai/orchestration/emotionalCognitionEngine";
+import type { MomentBrainId } from "@/features/ai/brains/types";
+import { classifyResponseDomain, type ResponseDomain } from "@/features/ai/orchestration/domainBehavior";
+
+export type CapabilityId =
+  | "tutor"
+  | "griefPresence"
+  | "emotionalPresence"
+  | "shameReduction"
+  | "taskDecomposition"
+  | "conflictRegulation"
+  | "grounding"
+  | "practicalGuidance"
+  | "memoryRecall";
+
+export type CapabilityMap = Record<CapabilityId, number>;
+
+export type UnifiedCognitionTrace = {
+  capabilityWeights: CapabilityMap;
+  memoryRelevance: {
+    score: number;
+    applied: boolean;
+    suppressionReason?: "domain_mismatch" | "low_similarity" | "low_emotional_similarity" | "incompatible_domain";
+    semanticSimilarity: number;
+    emotionalSimilarity: number;
+    domainCompatibility: number;
+  };
+  dominantCapability: CapabilityId;
+};
+
+const BASE_WEIGHTS: CapabilityMap = {
+  tutor: 0,
+  griefPresence: 0,
+  emotionalPresence: 0.15,
+  shameReduction: 0,
+  taskDecomposition: 0,
+  conflictRegulation: 0,
+  grounding: 0,
+  practicalGuidance: 0,
+  memoryRecall: 0,
+};
+
+const containsAny = (text: string, terms: string[]) => terms.some((term) => text.includes(term));
+const clamp01 = (value: number) => Math.max(0, Math.min(1, value));
+
+function normalizeWeights(weights: CapabilityMap): CapabilityMap {
+  const max = Math.max(...Object.values(weights), 1);
+  const normalized = {} as CapabilityMap;
+  (Object.keys(weights) as CapabilityId[]).forEach((key) => {
+    normalized[key] = Math.round((weights[key] / max) * 100) / 100;
+  });
+  return normalized;
+}
+
+function emotionalSignature(text: string) {
+  const griefTerms = ["grief", "loss", "died", "death", "miss", "mother", "mom", "dad"];
+  const conflictTerms = ["friend", "argument", "conflict", "group chat", "hurt", "boundary"];
+  const tutorTerms = ["math", "homework", "study", "class", "essay", "quiz", "science", "test"];
+  const overwhelmTerms = ["overwhelmed", "flooded", "shutdown", "stuck", "avoid", "can't start"];
+  if (containsAny(text, griefTerms)) return "grief";
+  if (containsAny(text, tutorTerms)) return "tutor";
+  if (containsAny(text, conflictTerms)) return "conflict";
+  if (containsAny(text, overwhelmTerms)) return "overwhelm";
+  return "neutral";
+}
+
+export function computeMemoryRelevance(input: RouteMomentInput, continuitySummary?: string | null, currentDomain?: ResponseDomain): UnifiedCognitionTrace["memoryRelevance"] {
+  if (!continuitySummary) return { score: 0, applied: false, suppressionReason: "low_similarity", semanticSimilarity: 0, emotionalSimilarity: 0, domainCompatibility: 0 };
+  const domainText = `${input.momentText} ${input.selectedSignals.join(" ")}`.toLowerCase();
+  const continuityText = continuitySummary.toLowerCase();
+  const inferredCurrentDomain = currentDomain ?? classifyResponseDomain(input, "emotional_reset_brain");
+  const continuityDomain = containsAny(continuityText, ["grief", "loss", "died", "death", "miss", "mother", "mom"]) ? "grief_loss"
+    : containsAny(continuityText, ["math", "homework", "study", "quiz", "science", "class"]) ? "tutor"
+      : containsAny(continuityText, ["friend", "conflict", "group chat", "boundary"]) ? "conflict"
+        : "general";
+  const domainCompatibility = inferredCurrentDomain === continuityDomain ? 1 : (inferredCurrentDomain === "general" || continuityDomain === "general" ? 0.45 : 0.05);
+
+  const sharedTokenCount = continuityText.split(/\W+/).filter((token) => token.length > 3 && domainText.includes(token)).length;
+  const semanticSimilarity = clamp01(sharedTokenCount / 8);
+  const emotionalSimilarity = emotionalSignature(domainText) === emotionalSignature(continuityText) ? 1 : 0.15;
+  const score = clamp01((semanticSimilarity * 0.45) + (emotionalSimilarity * 0.2) + (domainCompatibility * 0.35));
+  const applied = semanticSimilarity >= 0.2 && emotionalSimilarity >= 0.3 && domainCompatibility >= 0.35 && score >= 0.3;
+  const suppressionReason = applied ? undefined : domainCompatibility < 0.2 ? "domain_mismatch" : emotionalSimilarity < 0.3 ? "low_emotional_similarity" : semanticSimilarity < 0.2 ? "low_similarity" : "incompatible_domain";
+  return { score, applied, suppressionReason, semanticSimilarity, emotionalSimilarity, domainCompatibility };
+}
+
+export function buildUnifiedCognition(input: RouteMomentInput, cognition: EmotionalCognition, continuitySummary?: string | null, primaryBrainId?: MomentBrainId, currentDomain?: ResponseDomain): UnifiedCognitionTrace {
+  const text = `${input.momentText} ${input.selectedSignals.join(" ")} ${(input.knownSupportNeeds ?? []).join(" ")}`.toLowerCase();
+  const weights: CapabilityMap = { ...BASE_WEIGHTS };
+
+  if (containsAny(text, ["math", "homework", "study", "class", "science", "essay", "problem", "quiz"]) || primaryBrainId === "tutor_brain") {
+    weights.tutor += 0.8;
+    weights.taskDecomposition += 0.65;
+    weights.practicalGuidance += 0.4;
+  }
+
+  if (containsAny(text, ["grief", "loss", "died", "death", "mother's day", "mothers day", "miss her", "miss him"]) || primaryBrainId === "grief_support_brain") {
+    weights.griefPresence += 0.95;
+    weights.emotionalPresence += 0.7;
+  }
+
+  if (containsAny(text, ["stupid", "ashamed", "embarrassed", "i'm behind", "im behind"])) {
+    weights.shameReduction += 0.55;
+    weights.emotionalPresence += 0.2;
+  }
+
+  if (containsAny(text, ["friend", "conflict", "boundary", "group chat", "text them", "argument"]) || primaryBrainId === "social_boundary_brain") {
+    weights.conflictRegulation += 0.85;
+    weights.practicalGuidance += 0.35;
+  }
+
+  if (containsAny(text, ["overwhelmed", "spiral", "shutdown", "can't breathe", "panic"])) {
+    weights.grounding += 0.7;
+    weights.emotionalPresence += 0.25;
+  }
+
+  const memoryRelevance = computeMemoryRelevance(input, continuitySummary, currentDomain);
+  weights.memoryRecall = memoryRelevance.applied ? memoryRelevance.score : 0;
+
+  const capabilityWeights = normalizeWeights(weights);
+  const dominantCapability = (Object.entries(capabilityWeights).sort((a, b) => b[1] - a[1])[0]?.[0] ?? "emotionalPresence") as CapabilityId;
+  return { capabilityWeights, memoryRelevance, dominantCapability };
+}
+
+===== FILE: features/ai/orchestration/domainBehavior.ts =====
+import type { RouteMomentInput } from "@/features/ai/router/types";
+import type { MomentBrainId } from "@/features/ai/brains/types";
+
+export type ResponseDomain = "grief_loss" | "tutor" | "stuck_avoidance" | "conflict" | "general_overwhelm" | "loneliness" | "safety" | "general";
+
+export type DomainBehavior = {
+  domain: ResponseDomain;
+  emotionalTemperature: "high" | "medium" | "steady";
+  guidanceTiming: "presence_first" | "quick_validate_then_tutor" | "validate_then_decompose" | "validate_then_slow_reaction" | "calm_then_prioritize" | "safety_first";
+  responseLength: "short" | "medium";
+  askFollowUp: boolean;
+  tutorMode: boolean;
+  avoidAdviceFirst: boolean;
+  bannedPhrases: string[];
+};
+
+const TUTOR_TOKENS = ["math", "homework", "science", "tutor", "study", "studying", "test", "quiz", "grade", "problem", "topic", "class", "teacher", "essay", "writing", "i don't understand", "i dont understand", "feel stupid"];
+
+const hasAny = (text: string, terms: string[]) => terms.some((term) => text.includes(term));
+
+export function classifyResponseDomain(input: RouteMomentInput, routeId: MomentBrainId): ResponseDomain {
+  const normalized = `${input.momentText} ${input.selectedSignals.join(" ")} ${(input.knownSupportNeeds ?? []).join(" ")}`.toLowerCase();
+  if (routeId === "safety_support_brain") return "safety";
+  if (routeId === "grief_support_brain" || hasAny(normalized, ["died", "death", "passed away", "grief", "loss", "miss her", "miss him", "moms"])) return "grief_loss";
+  if (routeId === "tutor_brain" || hasAny(normalized, TUTOR_TOKENS)) return "tutor";
+  if (routeId === "task_start_brain" || hasAny(normalized, ["avoid", "procrast", "can't start", "cannot start", "stuck"])) return "stuck_avoidance";
+  if (routeId === "social_boundary_brain" || hasAny(normalized, ["friend", "left me out", "text something mean", "conflict", "group chat", "hurt"])) return "conflict";
+  if (routeId === "loneliness_support_brain" || hasAny(normalized, ["lonely", "alone", "isolated"])) return "loneliness";
+  if (routeId === "overwhelm_grounding_brain" || hasAny(normalized, ["overwhelmed", "too much", "spiral", "flooded"])) return "general_overwhelm";
+  return "general";
+}
+
+export function behaviorForDomain(domain: ResponseDomain): DomainBehavior {
+  const banned = [
+    "we can stay with this",
+    "we can slow this down",
+    "before we do anything with it",
+    "adjust as your needs change",
+    "this carries a lot of weight",
+    "deep, personal way",
+    "what feels heaviest",
+    "no pressure to reply right away",
+    "saved quietly",
+  ];
+
+  switch (domain) {
+    case "grief_loss":
+      return { domain, emotionalTemperature: "high", guidanceTiming: "presence_first", responseLength: "medium", askFollowUp: true, tutorMode: false, avoidAdviceFirst: true, bannedPhrases: banned };
+    case "tutor":
+      return { domain, emotionalTemperature: "steady", guidanceTiming: "quick_validate_then_tutor", responseLength: "short", askFollowUp: true, tutorMode: true, avoidAdviceFirst: false, bannedPhrases: banned };
+    case "stuck_avoidance":
+      return { domain, emotionalTemperature: "medium", guidanceTiming: "validate_then_decompose", responseLength: "short", askFollowUp: true, tutorMode: false, avoidAdviceFirst: false, bannedPhrases: banned };
+    case "conflict":
+      return { domain, emotionalTemperature: "medium", guidanceTiming: "validate_then_slow_reaction", responseLength: "short", askFollowUp: true, tutorMode: false, avoidAdviceFirst: false, bannedPhrases: banned };
+    case "general_overwhelm":
+      return { domain, emotionalTemperature: "steady", guidanceTiming: "calm_then_prioritize", responseLength: "short", askFollowUp: true, tutorMode: false, avoidAdviceFirst: false, bannedPhrases: banned };
+    case "safety":
+      return { domain, emotionalTemperature: "steady", guidanceTiming: "safety_first", responseLength: "short", askFollowUp: false, tutorMode: false, avoidAdviceFirst: false, bannedPhrases: banned };
+    default:
+      return { domain, emotionalTemperature: "medium", guidanceTiming: "calm_then_prioritize", responseLength: "short", askFollowUp: true, tutorMode: false, avoidAdviceFirst: false, bannedPhrases: banned };
+  }
+}
+
+===== FILE: features/ai/orchestration/emotionalCognitionEngine.ts =====
+import type { RouteMomentInput } from "@/features/ai/router/types";
+
+export type EmotionalTheme = "grief" | "shame" | "loneliness" | "overwhelm" | "fear_of_failure" | "comparison_pain" | "self_criticism" | "hopelessness" | "emotional_exhaustion" | "avoidance" | "relational_pain";
+export type EmotionalContradiction = "wants_connection_but_withdraws" | "wants_progress_but_avoids" | "needs_rest_but_self_pushes" | "asks_help_but_masks_pain";
+export type EmotionalWeight = "light" | "moderate" | "heavy" | "acute";
+export type FragilityLevel = "low" | "guarded" | "fragile" | "raw";
+
+export type EmotionalCognition = {
+  themes: EmotionalTheme[];
+  contradictions: EmotionalContradiction[];
+  unmetNeeds: string[];
+  attachmentSignals: string[];
+  emotionalTension: string[];
+  relationalPain: string[];
+  stressSources: string[];
+  escalationRisk: "low" | "watch" | "elevated";
+  fragilityLevel: FragilityLevel;
+  exhaustionLevel: "low" | "moderate" | "high";
+  isolationLevel: "low" | "moderate" | "high";
+  maskingSignals: string[];
+  connectionBids: string[];
+  subtext: string[];
+  emotionalWeight: EmotionalWeight;
+};
+
+function includesAny(text: string, patterns: string[]) {
+  return patterns.some((pattern) => text.includes(pattern));
+}
+
+function unique<T>(items: T[]): T[] {
+  return [...new Set(items)];
+}
+
+export function buildEmotionalCognition(input: RouteMomentInput): EmotionalCognition {
+  const normalized = `${input.momentText} ${input.selectedSignals.join(" ")} ${(input.knownSupportNeeds ?? []).join(" ")} ${(input.followUpHistory ?? []).map((h) => h.choiceLabel).join(" ")}`.toLowerCase();
+
+  const themes: EmotionalTheme[] = [];
+  if (includesAny(normalized, ["died", "passed away", "grief", "miss", "anniversary"])) themes.push("grief");
+  if (includesAny(normalized, ["ashamed", "hate myself", "i'm the problem", "stupid", "embarrassed"])) themes.push("shame", "self_criticism");
+  if (includesAny(normalized, ["alone", "lonely", "no one", "left out", "excluded"])) themes.push("loneliness");
+  if (includesAny(normalized, ["overwhelmed", "too much", "flooded", "spiral"])) themes.push("overwhelm");
+  if (includesAny(normalized, ["avoid", "procrastinat", "can't start", "cannot start"])) themes.push("avoidance");
+  if (includesAny(normalized, ["fail", "failure", "mess up", "not good enough"])) themes.push("fear_of_failure");
+  if (includesAny(normalized, ["everyone else", "other people", "their moms", "compared to"])) themes.push("comparison_pain");
+  if (includesAny(normalized, ["hopeless", "pointless", "what's the point"])) themes.push("hopelessness");
+  if (includesAny(normalized, ["drained", "exhausted", "tired of", "worn out"])) themes.push("emotional_exhaustion");
+  if (includesAny(normalized, ["fight", "argument", "relationship", "my partner", "my mom", "my dad"])) themes.push("relational_pain");
+
+  const contradictions: EmotionalContradiction[] = [];
+  if (includesAny(normalized, ["alone", "no one"]) && includesAny(normalized, ["whatever", "fine", "don't need"])) contradictions.push("wants_connection_but_withdraws");
+  if (includesAny(normalized, ["need to", "should"]) && includesAny(normalized, ["avoid", "can't start"])) contradictions.push("wants_progress_but_avoids");
+  if (includesAny(normalized, ["exhausted", "burned out"]) && includesAny(normalized, ["must push", "have to keep going"])) contradictions.push("needs_rest_but_self_pushes");
+  if (includesAny(normalized, ["i guess", "whatever", "it's fine"]) && includesAny(normalized, ["hurts", "heavy", "can't"])) contradictions.push("asks_help_but_masks_pain");
+
+  const maskingSignals = unique([
+    includesAny(normalized, ["i guess", "whatever", "it's fine", "doesn't matter"]) ? "emotional minimization language" : "",
+    includesAny(normalized, ["lol", "lmao"]) && includesAny(normalized, ["hurt", "sad", "grief", "panic"]) ? "humor masking distress" : "",
+  ].filter(Boolean));
+
+  const connectionBids = unique([
+    includesAny(normalized, ["anyone", "someone", "wish i could talk", "i just want"]) ? "indirect request for closeness" : "",
+    includesAny(normalized, ["do you", "can you stay", "are you there"]) ? "direct request for steady presence" : "",
+  ].filter(Boolean));
+
+  const isolationLevel = themes.includes("loneliness") || includesAny(normalized, ["nobody", "by myself"]) ? "high" : (includesAny(normalized, ["left out", "excluded"]) ? "moderate" : "low");
+  const exhaustionLevel = themes.includes("emotional_exhaustion") || themes.includes("overwhelm") ? "high" : (includesAny(normalized, ["tired", "spent"]) ? "moderate" : "low");
+  const emotionalWeight: EmotionalWeight = themes.includes("grief") || themes.includes("hopelessness") ? "acute" : (themes.length >= 4 ? "heavy" : themes.length >= 2 ? "moderate" : "light");
+
+  return {
+    themes: unique(themes),
+    contradictions: unique(contradictions),
+    unmetNeeds: unique([
+      themes.includes("grief") ? "permission to grieve without fixing" : "",
+      themes.includes("shame") ? "non-judgmental reassurance" : "",
+      themes.includes("overwhelm") ? "reduced cognitive load" : "",
+      themes.includes("loneliness") ? "felt sense of connection" : "",
+      themes.includes("fear_of_failure") ? "safe-to-start framing" : "",
+    ].filter(Boolean)),
+    attachmentSignals: unique([
+      includesAny(normalized, ["mom", "dad", "partner", "best friend", "left"]) ? "attachment figure activation" : "",
+      includesAny(normalized, ["abandon", "ignored", "left out"]) ? "abandonment sensitivity cue" : "",
+    ].filter(Boolean)),
+    emotionalTension: unique([
+      contradictions.length > 0 ? "internal push-pull between needs and protection" : "",
+      themes.includes("self_criticism") ? "identity-level self-attack" : "",
+    ].filter(Boolean)),
+    relationalPain: unique([
+      themes.includes("comparison_pain") ? "social comparison amplifying hurt" : "",
+      themes.includes("relational_pain") ? "relationship strain carrying emotional load" : "",
+    ].filter(Boolean)),
+    stressSources: unique([
+      includesAny(normalized, ["homework", "school", "exam", "class"]) ? "academic demand" : "",
+      includesAny(normalized, ["work", "boss", "deadline"]) ? "work pressure" : "",
+      includesAny(normalized, ["family", "mom", "dad"]) ? "family context triggers" : "",
+      includesAny(normalized, ["money", "rent", "bills"]) ? "financial pressure" : "",
+    ].filter(Boolean)),
+    escalationRisk: emotionalWeight === "acute" || includesAny(normalized, ["nothing helps", "can't do this"]) ? "elevated" : (themes.length >= 3 ? "watch" : "low"),
+    fragilityLevel: emotionalWeight === "acute" ? "raw" : (emotionalWeight === "heavy" ? "fragile" : (maskingSignals.length > 0 ? "guarded" : "low")),
+    exhaustionLevel,
+    isolationLevel,
+    maskingSignals,
+    connectionBids,
+    subtext: unique([
+      themes.includes("grief") && themes.includes("comparison_pain") ? "reminders are reopening grief and making belonging feel out of reach" : "",
+      themes.includes("avoidance") && themes.includes("shame") ? "avoidance may be protective paralysis, then shame spikes afterward" : "",
+      themes.includes("loneliness") && themes.includes("overwhelm") ? "frustration may be carrying a hidden need for companionship" : "",
+    ].filter(Boolean)),
+    emotionalWeight,
+  };
+}
+
+===== FILE: features/ai/responseSanitizer.ts =====
+import type { MomentCheckInResponse } from "@/features/ai/types";
+
+const INTERNAL_PATTERNS = [
+  /support pacing is/i,
+  /^mode:/i,
+  /^route:/i,
+  /\bbrain\b/i,
+  /orchestrator/i,
+  /cognition/i,
+  /metadata/i,
+  /support mode/i,
+  /timing mode/i,
+  /\bdetected\b/i,
+  /classification/i,
+];
+
+const normalize = (text: string) => text.toLowerCase().replace(/[^a-z0-9\s]/g, " ").replace(/\s+/g, " ").trim();
+
+function isInternalCopy(text: string): boolean {
+  const trimmed = text.trim();
+  if (!trimmed) return true;
+  return INTERNAL_PATTERNS.some((pattern) => pattern.test(trimmed));
+}
+
+function dedupeLines(lines: string[]): string[] {
+  const seen = new Set<string>();
+  const kept: string[] = [];
+  for (const line of lines) {
+    const trimmed = line.trim();
+    if (!trimmed || isInternalCopy(trimmed)) continue;
+    const key = normalize(trimmed);
+    if (!key || seen.has(key)) continue;
+    seen.add(key);
+    kept.push(trimmed);
+  }
+  return kept;
+}
+
+export function sanitizeVisibleResponse(response: MomentCheckInResponse): MomentCheckInResponse {
+  const uniqueVisible = dedupeLines([response.reflection, response.tinyNextStep, ...response.steps, response.supportiveNote]);
+  const fallback = uniqueVisible[0] ?? "Thanks for sharing this with me.";
+  const reflection = dedupeLines([response.reflection])[0] ?? fallback;
+  const tinyNextStep = dedupeLines([response.tinyNextStep]).find((line) => normalize(line) !== normalize(reflection)) ?? "If you want, we can stay with this for a moment.";
+  const steps = dedupeLines(response.steps).filter((line) => normalize(line) !== normalize(reflection) && normalize(line) !== normalize(tinyNextStep)).slice(0, 3);
+  const supportiveNote = dedupeLines([response.supportiveNote]).find((line) => ![reflection, tinyNextStep, ...steps].some((item) => normalize(item) === normalize(line))) ?? "No pressure to do anything right away.";
+  return { ...response, reflection, tinyNextStep, steps, supportiveNote };
+}
+
+export function sanitizeUiCue(copy: string | null | undefined): string | null {
+  if (!copy) return null;
+  const cleaned = dedupeLines([copy]);
+  return cleaned[0] ?? null;
+}
+
+
+===== FILE: app/api/ai/check-in/route.ts =====
+import { NextResponse } from "next/server";
+import { z } from "zod";
+import { runMomentOrchestrator } from "@/features/ai/orchestration/runMomentOrchestrator";
+import { buildThreadUpsert, continuityCueFromThread, findThreadContinuation, inferSupportStyle, summarizeContinuity } from "@/features/moment/continuity/engine";
+import type { MomentThread } from "@/features/moment/continuity/types";
+import { applyRouteSafetyFilters, escalationCopy, resolveAudiencePolicy } from "@/features/moment/policy";
+import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { extractMemoryArtifacts } from "@/features/moment/memory/extractMemoryArtifacts";
+import { persistMomentMemory } from "@/features/moment/memory/persistMomentMemory";
+import { readMomentMemory } from "@/features/moment/memory/readMomentMemory";
+import { getMomentUsageSnapshot } from "@/lib/entitlements";
+import { buildTrustSignal, deriveSupportQualityFlags, summarizeTrace } from "@/features/moment/orchestration/observability";
+import { getCurrentMomentPlan } from "@/lib/subscriptions";
+import { normalizeAgeRange } from "@/lib/momentAudience";
+import { recommendMomentTools } from "@/features/moment/tools/recommend";
+import { buildEmotionalStateModel } from "@/features/moment/continuity/emotionalStateModel";
+import { sanitizeVisibleResponse } from "@/features/ai/responseSanitizer";
+
+const schema = z.object({
+  text: z.string().min(3),
+  selectedStates: z.array(z.string()).default([]),
+  ageRange: z.enum(["under_13", "13_15", "16_17", "18_plus"]).optional(),
+  sourceSurface: z.string().optional(),
+  suggestedIntent: z.string().optional(),
+  optionalBrainHint: z.string().optional(),
+  audience: z.string().optional(),
+  routeMetadata: z.record(z.string(), z.unknown()).optional(),
+  conversationState: z.object({
+    threadId: z.string(),
+    unresolvedClarification: z.object({ promptId: z.string(), followUpHistory: z.array(z.object({ promptId: z.string(), choiceId: z.string(), choiceLabel: z.string() })) }).nullable().optional(),
+    selectedEmotionalContext: z.array(z.string()).default([]),
+    inferredSupportStyle: z.enum(["calm_reflective", "gentle_grounding", "structured_reset", "action_forward"]).optional(),
+  }).optional(),
+});
+
+function summarizeInput(text: string): string { return text.trim().replace(/\s+/g, " ").slice(0, 180); }
+
+function detectPattern(text: string): { key: string; summary: string; focus: string } | null {
+  const normalized = text.toLowerCase();
+  if (/(math|homework|class|test)/.test(normalized)) return { key: "recurring_school_stress", summary: "Math or school stress has been showing up a lot lately.", focus: "Pair grounding with a tiny school start step." };
+  if (/(work|boss|deadline|burnout)/.test(normalized)) return { key: "recurring_work_pressure", summary: "Work pressure seems to be recurring.", focus: "Use calmer restart boundaries before task sorting." };
+  if (/(friend|drama|relationship|conflict)/.test(normalized)) return { key: "recurring_relationship_strain", summary: "Relationship tension seems to keep looping.", focus: "Try pause-before-reply and boundary framing." };
+  if (/(shutdown|avoid|stuck|overwhelmed)/.test(normalized)) return { key: "recurring_shutdown_before_tasks", summary: "Task shutdown has been recurring before starts.", focus: "Lead with emotional grounding, then one setup action." };
+  return null;
+}
+
+function detectEmotionalRhythmHint(text: string, now: Date) {
+  const normalized = text.toLowerCase();
+  const day = now.getUTCDay();
+  const hour = now.getUTCHours();
+  if (/(math|homework|exam|study)/.test(normalized) && hour >= 20) return "Night study pressure can feel sharper.";
+  if (/(alone|lonely|isolated)/.test(normalized) && (day === 0 || day === 6)) return "Weekends can sometimes feel heavier socially.";
+  if (/(work|deadline|meetings|burnout)/.test(normalized) && day === 1 && hour <= 15) return "Monday work pressure can stack quickly.";
+  if (/(conflict|fight|argument|drama)/.test(normalized)) return "After conflict, shutdown can show up as protection.";
+  return null;
+}
+
+function detectSeasonalCue(text: string, now: Date) {
+  const normalized = text.toLowerCase();
+  const month = now.getUTCMonth() + 1;
+  const day = now.getUTCDate();
+  const isWeekend = now.getUTCDay() === 0 || now.getUTCDay() === 6;
+  const tags: string[] = [];
+  if (isWeekend) tags.push("weekend");
+  if (month === 5 && day >= 1 && day <= 15) tags.push("Mother’s Day season");
+  if (/(birthday|anniversary|holiday)/.test(normalized)) tags.push("important date");
+  if (/(exam|final|midterm)/.test(normalized)) tags.push("exam period");
+  if (/(monday|work week|school week)/.test(normalized)) tags.push("start-of-week pressure");
+  return tags.length ? `Context note: ${tags.join(", ")} may be part of how this is landing.` : null;
+}
+
+function buildRecoveryTrajectoryCue(text: string, routeId: string) {
+  const normalized = text.toLowerCase();
+  if (routeId === "grief_support_brain") return "You’ve been approaching this grief in small returns, even when it still feels tender.";
+  if (routeId === "work_stress_brain") return "You’ve been trying to make work pressure more survivable, not perfect.";
+  if (routeId === "school_overwhelm_brain") return "You’ve been coming back to school pressure in steadier, smaller passes.";
+  if (/(boundary|conflict|relationship)/.test(normalized)) return "You’ve been trying to hold clearer boundaries with less self-abandoning.";
+  return "You’ve been showing a quieter kind of follow-through by checking back in.";
+}
+
+function deriveSupportStyle(memorySnapshot: Awaited<ReturnType<typeof readMomentMemory>>) {
+  const recent = memorySnapshot.supportEffectivenessNotes.slice(0, 4).map((item) => item.supportStyle);
+  if (recent.filter((style) => style === "gentle_grounding").length >= 2) return "gentle_grounding";
+  if (recent.filter((style) => style === "structured_reset").length >= 2) return "structured_reset";
+  if (recent.filter((style) => style === "action_forward").length >= 2) return "action_forward";
+  return "calm_reflective";
+}
+
+function deriveToolMemory(memorySnapshot: Awaited<ReturnType<typeof readMomentMemory>>) {
+  const notes = memorySnapshot.supportEffectivenessNotes;
+  const recentlyDismissed = notes
+    .filter((note) => /too much|not helpful|skip|dismiss|not now/i.test(note.outcomeNote))
+    .slice(0, 2)
+    .map(() => "first_problem_together");
+  const recentlyHelpful = notes
+    .filter((note) => /helped|better|easier|less overwhelming/i.test(note.outcomeNote))
+    .slice(0, 3)
+    .map(() => "first_problem_together");
+  return {
+    dismissed: [...new Set(recentlyDismissed)],
+    helpful: [...new Set(recentlyHelpful)],
+  };
+}
+
+
+function ensureResponseShape(response: ReturnType<typeof runMomentOrchestrator>["response"]) {
+  const reflection = typeof response.reflection === "string" && response.reflection.trim().length > 0
+    ? response.reflection
+    : "Thanks for sharing this. We can keep this gentle.";
+  const tinyNextStep = typeof response.tinyNextStep === "string" && response.tinyNextStep.trim().length > 0
+    ? response.tinyNextStep
+    : "One slow breath is enough for now.";
+  return {
+    ...response,
+    reflection,
+    tinyNextStep,
+    steps: Array.isArray(response.steps) && response.steps.length > 0 ? response.steps.filter((s) => typeof s === "string" && s.trim().length > 0) : [tinyNextStep],
+  };
+}
+
+
+function buildFallbackResponse(reason: string) {
+  return {
+    routeLabel: "Gentle reset",
+    routePath: "/check-in",
+    reflection: "Thanks for staying with this. We can keep this gentle.",
+    tinyNextStep: "Take one slower breath and name one thing you need right now.",
+    whyThisRoute: reason,
+    continueLabel: "Stay here",
+    steps: ["We can keep this very light.", "If you want, name one pressure point in a few words."],
+    supportiveNote: "No need to solve this immediately.",
+    followUpActions: [{ label: "Quiet reflection", href: "/check-in" }],
+  };
+}
+
+function createJournalArcSummary(memorySnapshot: Awaited<ReturnType<typeof readMomentMemory>>) {
+  const joined = memorySnapshot.entries.map((entry) => `${entry.inputSummary} ${entry.emotionalState ?? ""}`).join(" ").toLowerCase();
+  if (/(work|deadline|burnout)/.test(joined)) return "Arc lately: work pressure has been recurring, and slower restarts seem to help.";
+  if (/(school|exam|class|homework)/.test(joined)) return "Arc lately: school pressure has been showing up; tiny starts appear more workable than big pushes.";
+  if (/(grief|loss|miss)/.test(joined)) return "Arc lately: you’ve been carrying grief in waves, with gentler check-ins seeming more sustainable.";
+  if (/(overwhelm|shutdown|stuck)/.test(joined)) return "Arc lately: overwhelm loops appear, and grounding-first support tends to land better.";
+  return "Arc lately: you’ve been returning to what matters, and small continuity seems to help.";
+}
+
+
+
+type QaTag = "emotionally_warm" | "too_robotic" | "too_many_prompts" | "too_instructional" | "emotionally_flat" | "emotionally_helpful" | "pacing_mismatch" | "continuity_creepy" | "continuity_comforting";
+
+function deriveQaTags(input: { reflection: string; tinyNextStep: string; steps: string[]; selectedStates: string[]; continuityCue: string | null; supportFatigueReduction: boolean; pacingProfile: string; warnings: string[]; }): QaTag[] {
+  const tags: QaTag[] = [];
+  const joined = `${input.reflection} ${input.tinyNextStep} ${input.steps.join(" ")}`.toLowerCase();
+  if (/(with you|gentle|no pressure|one breath|it's okay)/.test(joined)) tags.push("emotionally_warm", "emotionally_helpful");
+  if (/(framework|optimize|profile|pipeline)/.test(joined)) tags.push("too_robotic");
+  if (input.steps.length >= 3 || /(first|second|third)/.test(joined)) tags.push("too_many_prompts");
+  if (/(you should|you need to|must)/.test(joined)) tags.push("too_instructional");
+  if (!/(feel|hard|heavy|tender|overwhelm|pressure)/.test(joined)) tags.push("emotionally_flat");
+  if (input.pacingProfile === "slow" && /(quick|right now)/.test(joined)) tags.push("pacing_mismatch");
+  if (input.continuityCue && /(always|every time|you keep)/i.test(input.continuityCue)) tags.push("continuity_creepy");
+  if (input.continuityCue && /(small returns|checking back in|steadier)/i.test(input.continuityCue)) tags.push("continuity_comforting");
+  if (input.supportFatigueReduction) tags.push("emotionally_warm");
+  if (input.warnings.length > 0 && !tags.includes("emotionally_helpful")) tags.push("emotionally_helpful");
+  return [...new Set(tags)];
+}
+
+function detectLoopSignals(input: { text: string; selectedStates: string[]; followUpAnswers: string[]; memoryThreads: { status: string }[]; warnings: string[]; responseText: string; }) {
+  const signals: string[] = [];
+  const normalized = `${input.text} ${input.selectedStates.join(" ")} ${input.followUpAnswers.join(" ")}`.toLowerCase();
+  if (/(nothing helps|same thing again|still stuck|again and again)/.test(normalized)) signals.push("repeated_unresolved_loops");
+  if (/(what do you mean|can you clarify|not what i mean)/.test(normalized)) signals.push("circular_clarification");
+  if (input.memoryThreads.filter((t) => t.status === "active").length >= 4) signals.push("support_fatigue_pattern");
+  if (/(doesn't help|not helping|no point)/.test(normalized)) signals.push("nothing_helps_escalation");
+  if (/\b(i\s+guess|whatever|fine)\b/.test(normalized)) signals.push("abrupt_emotional_transition");
+  if (/(first,|second,|third,).*(first,|second,|third,)/.test(input.responseText.toLowerCase())) signals.push("repetitive_response_structure");
+  if (input.warnings.length > 0) signals.push("system_fallback_load");
+  return signals;
+}
+
+export async function POST(request: Request) {
+  const warnings: string[] = [];
+  let continuitySummary: string | null = null;
+  let continuityCue: string | null = null;
+  const supabase = await createSupabaseServerClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const parsed = schema.safeParse(await request.json());
+  if (!parsed.success) return NextResponse.json({ error: "Invalid input" }, { status: 400 });
+  const { data: profile } = await supabase.from("moment_profiles").select("age_range").eq("user_id", user.id).maybeSingle();
+  const trustedAgeRange = normalizeAgeRange(profile?.age_range);
+  const policy = resolveAudiencePolicy(trustedAgeRange);
+  const safety = applyRouteSafetyFilters(`${parsed.data.text} ${parsed.data.selectedStates.join(" ")}`);
+  if (safety.deny) {
+    const safe = { routeLabel: "Emotional Reset", routePath: "/check-in", reflection: "I’m really glad you checked in. This sounds serious and you deserve immediate support.", tinyNextStep: escalationCopy(policy.isMinor), whyThisRoute: "Moment detected language that needs immediate trusted-human support.", continueLabel: "Open Emotional Reset", steps: ["Tell a parent, guardian, school counselor, or another trusted adult exactly what is happening.", "If there is immediate danger, contact local emergency services now."], supportiveNote: "You matter, and you do not need to hold this alone.", followUpActions: [{ label: "Open Check In", href: "/check-in?from=safety" }] };
+    return NextResponse.json({ route: { primaryBrainId: "safety_support_brain", supportingBrainIds: [], routeLabel: "Emotional Reset", routePath: "/check-in", reason: "High-risk language detected.", confidence: "high", audience: "all", category: "emotion" }, response: safe, warnings });
+  }
+
+  const subscription = await getCurrentMomentPlan(user.id);
+  const usage = await getMomentUsageSnapshot(user.id, subscription.plan);
+  if (usage.momentLimit !== null && usage.usedMoments >= usage.momentLimit) {
+    return NextResponse.json({
+      code: "moment_limit_reached",
+      message: "You’ve reached your monthly Moment limit. You can still view your journal and saved support until your limit resets.",
+      usedMoments: usage.usedMoments,
+      momentLimit: usage.momentLimit,
+      remainingMoments: usage.remainingMoments,
+    }, { status: 402 });
+  }
+
+
+  const { data: activeThreads } = await supabase
+    .from("moment_threads")
+    .select("id,user_id,title,summary,primary_brain_id,support_style,emotional_state,status,last_activity_at,created_at,updated_at")
+    .eq("user_id", user.id)
+    .in("status", ["active", "paused"])
+    .order("last_activity_at", { ascending: false })
+    .limit(6);
+
+
+  const followUpAnswers = parsed.data.conversationState?.unresolvedClarification?.followUpHistory.map((entry) => entry.choiceLabel) ?? [];
+  const typedThreads = (activeThreads ?? []) as MomentThread[];
+  continuitySummary = summarizeContinuity(parsed.data.text, typedThreads);
+  const cue = typedThreads.map((thread) => continuityCueFromThread(thread, parsed.data.text)).find((item) => !!item);
+  continuityCue = cue?.prompt ?? null;
+
+  let result;
+  try {
+  result = runMomentOrchestrator({
+    momentText: parsed.data.text,
+    selectedSignals: [...parsed.data.selectedStates, ...followUpAnswers],
+    ageRange: trustedAgeRange,
+    supportStyle: parsed.data.conversationState?.inferredSupportStyle,
+    followUpHistory: parsed.data.conversationState?.unresolvedClarification?.followUpHistory ?? [],
+    knownSupportNeeds: typedThreads.slice(0, 3).map((thread) => thread.summary),
+    profileContext: continuitySummary ?? undefined,
+    recentRouteHistory: typedThreads.slice(0, 4).map((thread) => thread.primary_brain_id),
+    threadId: parsed.data.conversationState?.threadId,
+    sourceSurface: parsed.data.sourceSurface,
+    suggestedIntent: parsed.data.suggestedIntent,
+    optionalBrainHint: parsed.data.optionalBrainHint as "tutor_brain" | "task_start_brain" | "social_boundary_brain" | undefined,
+    audienceHint: parsed.data.audience === "adult" || parsed.data.audience === "teen" || parsed.data.audience === "all" ? parsed.data.audience : undefined,
+  });
+  } catch {
+    const fallback = buildFallbackResponse("Support temporarily shifted into minimal mode.");
+    return NextResponse.json({ route: { primaryBrainId: "emotional_reset_brain", supportingBrainIds: [], routeLabel: "Gentle reset", routePath: "/check-in", reason: "orchestration_fallback", confidence: "low", audience: "all", category: "emotion" }, response: { ...fallback, trustSignal: buildTrustSignal(0), fallbackMode: "orchestrator_failure" }, warnings: ["Orchestration fallback used."] });
+  }
+  const confidenceValue = result.route.confidence === "high" ? 0.95 : result.route.confidence === "medium" ? 0.75 : 0.5;
+  if (result.trace.continuitySuppressedReason) {
+    continuitySummary = null;
+    continuityCue = null;
+  }
+  const safeResponse = sanitizeVisibleResponse(ensureResponseShape(result.response));
+  const { data: routeData, error: routeError } = await supabase.from("moment_routes").insert({ user_id: user.id, primary_brain_id: result.route.primaryBrainId, supporting_brain_ids: result.route.supportingBrainIds, category: result.route.category, audience: result.route.audience, input_summary: summarizeInput(parsed.data.text), route_reason: result.route.reason, confidence: confidenceValue }).select("id").single();
+  const continuation = findThreadContinuation(parsed.data.text, typedThreads, result.route.primaryBrainId);
+  const upsertPayload = buildThreadUpsert(parsed.data.text, result.route, user.id, inferSupportStyle(parsed.data.conversationState?.inferredSupportStyle), continuation?.thread.id);
+  const threadWrite = continuation?.thread.id
+    ? await supabase.from("moment_threads").update(upsertPayload).eq("id", continuation.thread.id).select("id").single()
+    : await supabase.from("moment_threads").insert(upsertPayload).select("id").single();
+  const threadData = threadWrite.data;
+  const threadError = threadWrite.error;
+  if (threadError) warnings.push(`Failed to persist thread continuity: ${threadError.message}`);
+  if (routeError) warnings.push(`Failed to log route event: ${routeError.message}`);
+
+===== FILE: app/dashboard/components/SupportStream.tsx =====
+import { SupportFeedbackInline } from "./SupportFeedbackInline";
+import { SupportToolInline } from "./SupportToolInline";
+import { MomentCard } from "@/components/moment/MomentCard";
+import type { CheckInResult } from "./types";
+
+export function SupportStream({ result, adaptiveCue }: { result: CheckInResult | null; adaptiveCue: string | null }) {
+  if (!result) return null;
+
+  const firstStep = result.response.steps[0];
+
+  return (
+    <MomentCard className="p-4 sm:p-6">
+      <div className="space-y-4">
+        {adaptiveCue ? <p className="text-xs leading-6 text-[#d8cfff]">{adaptiveCue}</p> : null}
+        <p className="text-sm leading-7 text-[#f5edff]">{result.response.reflection}</p>
+        <p className="text-sm leading-7 text-[#ece3ff]">{result.response.tinyNextStep}</p>
+        {firstStep ? <p className="text-sm leading-7 text-[#ddd0f3]">{firstStep}</p> : null}
+      </div>
+      <SupportToolInline response={result.response} />
+      <p className="mt-5 max-w-xl text-xs leading-6 text-[#cabfdf]">You can keep going from here, or pause and come back.</p>
+      <div className="mt-4"><SupportFeedbackInline /></div>
+    </MomentCard>
+  );
+}
+
+===== FILE: app/dashboard/components/ContinuityPanel.tsx =====
+import { MomentCard } from "@/components/moment/MomentCard";
+
+export function ContinuityPanel({ summary, cue }: { summary: string | null; cue: string | null }) {
+  if (!summary && !cue) {
+    return (
+      <MomentCard className="p-5 sm:p-6">
+        <p className="text-sm text-[#efe8ff]">Start wherever it feels easiest.</p>
+      </MomentCard>
+    );
+  }
+  return (
+    <MomentCard className="p-5 sm:p-6">
+      {summary ? <p className="text-sm text-[#efe8ff]">We can pick up from there, or start fresh.</p> : null}
+      {cue ? <p className="mt-2 text-sm text-[#d8d0ee]">You can keep going from what you shared, or tell me what changed.</p> : null}
+    </MomentCard>
+  );
+}
+
+===== FILE: app/dashboard/components/ThreadContinuationCard.tsx =====
+import { MomentCard } from "@/components/moment/MomentCard";
+
+export function ThreadContinuationCard() {
+  return (
+    <MomentCard>
+      <p className="text-xs uppercase tracking-[0.18em] text-violet-100/70">Carry this forward</p>
+      <p className="mt-2 text-sm text-[#efe8ff]">We can pick up from there, or start fresh.</p>
+      
+    </MomentCard>
+  );
+}
+
+===== TARGETED SEARCH RESULTS =====
+features/moment/orchestration/observability.ts:32:    "You can start fresh anytime.",
+features/moment/orchestration/engine.ts:16:  if (brain === "tutor_brain") return [{ label: "Try a smaller problem", href: "/math-reset" }, { label: "Explain this differently", href: "/stuck" }];
+features/moment/memory/extractMemoryArtifacts.ts:24:  school_overwhelm_brain: { title: "Start homework with less shutdown", detail: "Use tiny setup starts when school pressure spikes." },
+features/moment/tools/registry.ts:8:  { id: "explain_another_way", label: "Want to try this a different way?", description: "Reframe the same concept without pressure.", supportedBrainIds: ["tutor_brain", "school_overwhelm_brain"], supportedAgeRanges: [...allAges], triggerSignals: ["don't understand", "confused"], contraindications: ["severe_safety"], outputMode: "inline_prompt" },
+features/moment/tools/registry.ts:9:  { id: "first_problem_together", label: "Want to start with one example?", description: "Guide the first question or first sentence.", supportedBrainIds: ["tutor_brain", "task_start_brain"], supportedAgeRanges: [...allAges], triggerSignals: ["freeze", "can't start"], contraindications: ["severe_safety"], outputMode: "micro_steps" },
+features/moment/tools/registry.ts:10:  { id: "shrink_assignment", label: "Want to shrink this into one tiny start?", description: "Turn assignment load into one small action.", supportedBrainIds: ["tutor_brain", "school_overwhelm_brain"], supportedAgeRanges: [...allAges], triggerSignals: ["assignment", "too much"], contraindications: ["grief_heavy"], outputMode: "micro_steps" },
+features/moment/tools/registry.ts:11:  { id: "study_plan_micro", label: "Want a low-pressure study path?", description: "Create a short, calm study sequence.", supportedBrainIds: ["tutor_brain"], supportedAgeRanges: [...allAges], triggerSignals: ["test prep", "study"], contraindications: ["grief_heavy"], outputMode: "micro_steps" },
+features/moment/tools/registry.ts:12:  { id: "stuck_point_finder", label: "Want help finding the exact stuck point?", description: "Identify where understanding breaks.", supportedBrainIds: ["tutor_brain", "school_overwhelm_brain"], supportedAgeRanges: [...allAges], triggerSignals: ["stuck", "not sure where"], contraindications: [], outputMode: "inline_prompt" },
+features/moment/tools/registry.ts:17:  { id: "calm_before_homework", label: "Want to calm first before homework?", description: "Ground before school tasks.", supportedBrainIds: ["school_overwhelm_brain", "tutor_brain"], supportedAgeRanges: [...teen], triggerSignals: ["homework", "panic"], contraindications: [], outputMode: "presence" }
+features/moment/tools/recommend.ts:17:  if (input.route === "tutor_brain" || input.route === "school_overwhelm_brain") return sorted.slice(0, 1);
+features/moment/tools/contracts.ts:11:  "friend_boundary_sentence","calm_before_homework","tiny_start_step"
+features/ai/orchestration/domainBehavior.ts:4:export type ResponseDomain = "grief_loss" | "tutor" | "stuck_avoidance" | "conflict" | "general_overwhelm" | "loneliness" | "safety" | "general";
+features/ai/orchestration/domainBehavior.ts:9:  guidanceTiming: "presence_first" | "quick_validate_then_tutor" | "validate_then_decompose" | "validate_then_slow_reaction" | "calm_then_prioritize" | "safety_first";
+features/ai/orchestration/domainBehavior.ts:12:  tutorMode: boolean;
+features/ai/orchestration/domainBehavior.ts:17:const TUTOR_TOKENS = ["math", "homework", "science", "tutor", "study", "studying", "test", "quiz", "grade", "problem", "topic", "class", "teacher", "essay", "writing", "i don't understand", "i dont understand", "feel stupid"];
+features/ai/orchestration/domainBehavior.ts:25:  if (routeId === "tutor_brain" || hasAny(normalized, TUTOR_TOKENS)) return "tutor";
+features/ai/orchestration/domainBehavior.ts:48:      return { domain, emotionalTemperature: "high", guidanceTiming: "presence_first", responseLength: "medium", askFollowUp: true, tutorMode: false, avoidAdviceFirst: true, bannedPhrases: banned };
+features/ai/orchestration/domainBehavior.ts:49:    case "tutor":
+features/ai/orchestration/domainBehavior.ts:50:      return { domain, emotionalTemperature: "steady", guidanceTiming: "quick_validate_then_tutor", responseLength: "short", askFollowUp: true, tutorMode: true, avoidAdviceFirst: false, bannedPhrases: banned };
+features/ai/orchestration/domainBehavior.ts:52:      return { domain, emotionalTemperature: "medium", guidanceTiming: "validate_then_decompose", responseLength: "short", askFollowUp: true, tutorMode: false, avoidAdviceFirst: false, bannedPhrases: banned };
+features/ai/orchestration/domainBehavior.ts:54:      return { domain, emotionalTemperature: "medium", guidanceTiming: "validate_then_slow_reaction", responseLength: "short", askFollowUp: true, tutorMode: false, avoidAdviceFirst: false, bannedPhrases: banned };
+features/ai/orchestration/domainBehavior.ts:56:      return { domain, emotionalTemperature: "steady", guidanceTiming: "calm_then_prioritize", responseLength: "short", askFollowUp: true, tutorMode: false, avoidAdviceFirst: false, bannedPhrases: banned };
+features/ai/orchestration/domainBehavior.ts:58:      return { domain, emotionalTemperature: "steady", guidanceTiming: "safety_first", responseLength: "short", askFollowUp: false, tutorMode: false, avoidAdviceFirst: false, bannedPhrases: banned };
+features/ai/orchestration/domainBehavior.ts:60:      return { domain, emotionalTemperature: "medium", guidanceTiming: "calm_then_prioritize", responseLength: "short", askFollowUp: true, tutorMode: false, avoidAdviceFirst: false, bannedPhrases: banned };
+features/ai/orchestration/emotionalCognitionEngine.ts:92:      includesAny(normalized, ["homework", "school", "exam", "class"]) ? "academic demand" : "",
+features/ai/orchestration/unifiedCognition.ts:7:  | "tutor"
+features/ai/orchestration/unifiedCognition.ts:8:  | "griefPresence"
+features/ai/orchestration/unifiedCognition.ts:20:  capabilityWeights: CapabilityMap;
+features/ai/orchestration/unifiedCognition.ts:29:  dominantCapability: CapabilityId;
+features/ai/orchestration/unifiedCognition.ts:33:  tutor: 0,
+features/ai/orchestration/unifiedCognition.ts:34:  griefPresence: 0,
+features/ai/orchestration/unifiedCognition.ts:59:  const tutorTerms = ["math", "homework", "study", "class", "essay", "quiz", "science", "test"];
+features/ai/orchestration/unifiedCognition.ts:62:  if (containsAny(text, tutorTerms)) return "tutor";
+features/ai/orchestration/unifiedCognition.ts:68:export function computeMemoryRelevance(input: RouteMomentInput, continuitySummary?: string | null, currentDomain?: ResponseDomain): UnifiedCognitionTrace["memoryRelevance"] {
+features/ai/orchestration/unifiedCognition.ts:72:  const inferredCurrentDomain = currentDomain ?? classifyResponseDomain(input, "emotional_reset_brain");
+features/ai/orchestration/unifiedCognition.ts:74:    : containsAny(continuityText, ["math", "homework", "study", "quiz", "science", "class"]) ? "tutor"
+features/ai/orchestration/unifiedCognition.ts:88:export function buildUnifiedCognition(input: RouteMomentInput, cognition: EmotionalCognition, continuitySummary?: string | null, primaryBrainId?: MomentBrainId, currentDomain?: ResponseDomain): UnifiedCognitionTrace {
+features/ai/orchestration/unifiedCognition.ts:92:  if (containsAny(text, ["math", "homework", "study", "class", "science", "essay", "problem", "quiz"]) || primaryBrainId === "tutor_brain") {
+features/ai/orchestration/unifiedCognition.ts:93:    weights.tutor += 0.8;
+features/ai/orchestration/unifiedCognition.ts:99:    weights.griefPresence += 0.95;
+features/ai/orchestration/unifiedCognition.ts:118:  const memoryRelevance = computeMemoryRelevance(input, continuitySummary, currentDomain);
+features/ai/orchestration/unifiedCognition.ts:121:  const capabilityWeights = normalizeWeights(weights);
+features/ai/orchestration/unifiedCognition.ts:122:  const dominantCapability = (Object.entries(capabilityWeights).sort((a, b) => b[1] - a[1])[0]?.[0] ?? "emotionalPresence") as CapabilityId;
+features/ai/orchestration/unifiedCognition.ts:123:  return { capabilityWeights, memoryRelevance, dominantCapability };
+features/ai/orchestration/runMomentOrchestrator.ts:13:  trace: { pacingProfile: PacingProfile; responseDepth: ResponseDepth; supportFatigueReduction: boolean; clarificationUsed: boolean; emotionalCognition: EmotionalCognition; unifiedCognition: ReturnType<typeof buildUnifiedCognition>; previousDomain: string | null; currentDomain: string; suppressedDomains: string[]; emotionalCarryoverStrength: number; continuitySuppressedReason: string | null };
+features/ai/orchestration/runMomentOrchestrator.ts:26:function composeNaturalResponse(domain: ReturnType<typeof classifyResponseDomain>, capabilityWeights: ReturnType<typeof buildUnifiedCognition>["capabilityWeights"], momentText: string, opts: { activeDomain: string; suppressedDomains: string[]; emotionalCarryoverStrength: number }) {
+features/ai/orchestration/runMomentOrchestrator.ts:27:  const suppressGriefCadence = opts.suppressedDomains.includes("grief_loss") || (opts.activeDomain === "tutor" && opts.emotionalCarryoverStrength < 0.25);
+features/ai/orchestration/runMomentOrchestrator.ts:28:  if (domain === "tutor") {
+features/ai/orchestration/runMomentOrchestrator.ts:29:    const warmth = capabilityWeights.shameReduction > 0.35 ? "You're not stupid; this just hasn't been explained in a way that clicks yet." : "It's okay for this to feel hard before it starts to make sense.";
+features/ai/orchestration/runMomentOrchestrator.ts:39:      reflection: "I'm really sorry. Days like this can make the absence feel sharp all over again.",
+features/ai/orchestration/runMomentOrchestrator.ts:40:      tinyNextStep: "If you want, tell me one memory that feels closest right now, and we can stay there.",
+features/ai/orchestration/runMomentOrchestrator.ts:68:  const previousDomain = input.recentRouteHistory?.[0] ? classifyResponseDomain({ ...input, momentText: input.knownSupportNeeds?.[0] ?? "", selectedSignals: [] }, input.recentRouteHistory[0]) : null;
+features/ai/orchestration/runMomentOrchestrator.ts:69:  const hardDomainTransition = Boolean(previousDomain && previousDomain !== domain && !(previousDomain === "general" || domain === "general"));
+features/ai/orchestration/runMomentOrchestrator.ts:72:  const suppressedDomains = hardDomainTransition ? [previousDomain as string] : [];
+features/ai/orchestration/runMomentOrchestrator.ts:74:  const natural = composeNaturalResponse(domain, unifiedCognition.capabilityWeights, input.momentText, { activeDomain: domain, suppressedDomains, emotionalCarryoverStrength });
+features/ai/orchestration/runMomentOrchestrator.ts:88:    trace: { pacingProfile: profile, responseDepth: depth, supportFatigueReduction: reducePrompting, clarificationUsed, emotionalCognition: cognition, unifiedCognition, previousDomain, currentDomain: domain, suppressedDomains, emotionalCarryoverStrength, continuitySuppressedReason },
+features/ai/brains/registry.ts:9:  school_overwhelm_brain: { id: "school_overwhelm_brain", label: "School Reset", audience: "teen", allowedAgeRanges: [...teenAges], category: "school", routePath: "/check-in", description: "Breaks school pressure into doable next moves.", safetyBoundaries: defaultSafety, inputSignals: ["school", "class", "test", "homework", "teacher"], systemPrompt: systemPrompts.school_overwhelm_brain, outputSchemaName: "moment_response_v2" },
+features/ai/brains/registry.ts:10:  tutor_brain: { id: "tutor_brain", label: "Tutor Support", audience: "all", category: "math", routePath: "/check-in", description: "Supports learning blocks across math, writing, science, and studying with calm-first guidance.", safetyBoundaries: defaultSafety, inputSignals: ["math", "writing", "science", "study", "homework", "test prep", "assignment", "can't start"], systemPrompt: systemPrompts.tutor_brain, outputSchemaName: "moment_response_v2" },
+features/ai/brains/prompts.ts:5:  tutor_brain: "Helps when schoolwork feels frozen or confusing (math, writing, science, studying, homework, test prep). Avoids shame, speed pressure, and lecturing. Shape: emotional grounding, reflection, school_reset block, tiny solved-first-step. Tone: calm, patient, simple, collaborative, never scolding. First step: normalize stuck feelings, then rewrite one problem in plain words and identify one known value. Include support for 'I don't know where I'm stuck' and freeze/avoidance with reduced-choice starts. Safety: no diagnosis/therapy claims, no legal/medical/financial advice.",
+features/ai/router/routeMoment.ts:35:  if (input.sourceSurface === "tutor") add("tutor_brain", 5);
+features/ai/router/routeMoment.ts:41:  if (hasAny(normalized, ["math", "homework", "studying", "test prep", "science", "writing", "i don't understand", "i dont understand", "grade", "teacher", "class"])) add("tutor_brain", 14);
+features/ai/contracts.ts:6:export const MOMENT_BRAIN_IDS = ["school_overwhelm_brain", "tutor_brain", "social_boundary_brain", "task_start_brain", "emotional_reset_brain", "confidence_repair_brain", "work_stress_brain", "finance_clarity_brain", "relationship_reflection_brain", "household_overload_brain", "life_admin_brain", "decision_reset_brain", "safety_support_brain", "grief_support_brain", "emotional_presence_brain", "loneliness_support_brain", "overwhelm_grounding_brain"] as const;
+features/ai/contracts.ts:10:  tutor_brain: "Tutor support",
+features/ai/mockResponses.ts:5:  tutor_brain: { routeLabel: "Math Reset", routePath: "/math-reset", reflection: "Math feels noisy, not impossible.", tinyNextStep: "Read question one and rewrite it in your own words.", whyThisRoute: "Math friction detected.", continueLabel: "Continue Math Reset", steps: ["Find known values.", "Pick one operation.", "Do only the first step."], supportiveNote: "Clarity first, speed second.", followUpActions: [{ label: "Open Math Reset", href: "/math-reset" }] },
+app/math-reset/page.tsx:6:  return <MomentAppShell title="Tutor" subtitle="Homework help with calm, step-by-step support."><section className="mx-auto max-w-3xl"><MomentPageHeader eyebrow="Tutor" title="Homework help, without the shame spiral" subtitle="Math, writing, science, studying, and test prep." /><ModuleFlowClient title="math-reset" searchParams={resolvedSearchParams} apiPath="/api/ai/math-reset" fields={[{ name: "problem_text", label: "What math problem feels stuck?", area: true }, { name: "stress_level", label: "Stress level right now" }, { name: "test_context", label: "Quiz/test/homework context" }]} /></section></MomentAppShell>;
+app/dashboard/DashboardClient.tsx:39:  const personalizedOpening=useMemo(()=> memoryState.threads[0]?.summary ? `I can hold continuity with what you shared before: ${memoryState.threads[0].summary.toLowerCase()}.` : "You can start anywhere — one sentence is enough.",[memoryState]);
+app/dashboard/DashboardClient.tsx:64:    const blendCue = route.primaryBrainId === "tutor_brain"
+app/dashboard/components/ContinuityPanel.tsx:13:      {summary ? <p className="text-sm text-[#efe8ff]">We can pick up from there, or start fresh.</p> : null}
+app/dashboard/components/ThreadContinuationCard.tsx:7:      <p className="mt-2 text-sm text-[#efe8ff]">We can pick up from there, or start fresh.</p>
+app/api/ai/math-reset/route.ts:13:    sourceSurface: "tutor",
+app/api/ai/math-reset/route.ts:14:    suggestedIntent: "homework_help",
+app/api/ai/math-reset/route.ts:15:    optionalBrainHint: "tutor_brain",
+app/api/ai/check-in/route.ts:40:  if (/(math|homework|class|test)/.test(normalized)) return { key: "recurring_school_stress", summary: "Math or school stress has been showing up a lot lately.", focus: "Pair grounding with a tiny school start step." };
+app/api/ai/check-in/route.ts:51:  if (/(math|homework|exam|study)/.test(normalized) && hour >= 20) return "Night study pressure can feel sharper.";
+app/api/ai/check-in/route.ts:139:  if (/(school|exam|class|homework)/.test(joined)) return "Arc lately: school pressure has been showing up; tiny starts appear more workable than big pushes.";
+app/api/ai/check-in/route.ts:238:    optionalBrainHint: parsed.data.optionalBrainHint as "tutor_brain" | "task_start_brain" | "social_boundary_brain" | undefined,
+app/api/ai/check-in/route.ts:305:    optionalBrainHint: parsed.data.optionalBrainHint as "tutor_brain" | "task_start_brain" | "social_boundary_brain" | undefined,
+app/api/ai/check-in/route.ts:329:    || (result.route.primaryBrainId === "tutor_brain" && shouldSlowDown);
+app/api/ai/check-in/route.ts:360:    previousDomain: result.trace.previousDomain,
+app/api/ai/check-in/route.ts:361:    currentDomain: result.trace.currentDomain,
+app/check-in/page.tsx:5:const stateChips = ["Overwhelmed", "Avoiding homework", "Math makes no sense", "Too many thoughts", "Friend drama", "Can’t start", "Shutting down", "Anxious", "Tired", "Embarrassed"];

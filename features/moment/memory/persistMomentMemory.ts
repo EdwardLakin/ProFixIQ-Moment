@@ -8,6 +8,20 @@ export async function persistMomentMemory(params: {
   routeId: string | null;
   artifacts: MomentMemoryArtifacts;
 }): Promise<string | null> {
+  const dedupeSince = new Date(Date.now() - 90 * 1000).toISOString();
+  const { data: recentDuplicate } = await params.supabase
+    .from("moment_entries")
+    .select("id")
+    .eq("user_id", params.userId)
+    .eq("thread_id", params.threadId)
+    .eq("source", "ai_moment")
+    .eq("input_summary", params.artifacts.entry.inputSummary)
+    .gte("created_at", dedupeSince)
+    .order("created_at", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+  if (recentDuplicate?.id) return recentDuplicate.id;
+
   const { data: entryData, error: entryError } = await params.supabase.from("moment_entries").insert({
     user_id: params.userId,
     thread_id: params.threadId,

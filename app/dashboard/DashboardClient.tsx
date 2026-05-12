@@ -73,10 +73,10 @@ export function DashboardClient({ greeting, memory, plan: _plan, usage, journalC
       <p>{usage.momentLimit === null ? "Moments are here whenever you need them." : `${usage.usedMoments}/${usage.momentLimit} moments used this month.`}</p>
       <Link href="/settings?tab=billing" className="mt-1 inline-block text-xs text-violet-200/80 underline">Manage plan</Link>
     </section>
-    <section className="rounded-2xl border border-white/10 bg-white/[0.03] px-4 py-3 text-sm text-slate-200"><p className="font-medium">Journal</p><p className="text-slate-300">Your moments, organized by date.</p><Link href="/dashboard/journal" className="mt-2 inline-block text-xs underline">Open Journal</Link></section><GreetingSurface headline={greeting.headline} opening={personalizedOpening} text={text} onText={setText} />
+    <GreetingSurface headline={greeting.headline} opening={personalizedOpening} text={text} onText={setText} />
     <IntakeComposer onSubmit={submit} disabled={text.length < 3 || isSubmitting} savedNote={savedNote} />
     {inlineError ? <p className="rounded-xl bg-rose-500/10 px-3 py-2 text-sm text-rose-100">{inlineError}</p> : null}
-    {journalContextEnabled ? <ContinuityPanel summary={result ? continuitySummary : null} cue={result && continuitySummary ? "You can keep going from here, or start fresh." : null} /> : <p className="rounded-xl bg-white/[0.03] px-3 py-2 text-xs text-slate-300">Journal context is off. Moment will still save entries, but won’t read past journal context.</p>}
     <SupportStream result={result} adaptiveCue={adaptiveCue} />
+    {journalContextEnabled ? <ContinuityPanel summary={result ? continuitySummary : null} cue={result && continuitySummary ? "You can keep going from here, or start fresh." : null} /> : null}
   </div>;
 }

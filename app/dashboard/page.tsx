@@ -28,7 +28,7 @@ export default async function DashboardPage() {
 
   return (
     <MomentAppShell title="Moment" subtitle="One calm next step, right when you need it.">
-      <DashboardClient greeting={greeting} memory={memory} plan={subscription.plan} usage={usage} journalContextEnabled={Boolean(profile.journal_context_enabled)} />
+      <DashboardClient greeting={greeting} memory={memory} usage={usage} journalContextEnabled={Boolean(profile.journal_context_enabled)} />
     </MomentAppShell>
   );
 }

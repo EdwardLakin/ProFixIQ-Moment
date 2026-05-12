@@ -1,7 +1,10 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { GoalStatus, MomentMemorySnapshot, SuggestionStatus, TinyWinStatus } from "@/features/moment/memory/types";
 
-export async function readMomentMemory(supabase: SupabaseClient, userId: string): Promise<MomentMemorySnapshot> {
+export async function readMomentMemory(supabase: SupabaseClient, userId: string, options?: { includeContext?: boolean }): Promise<MomentMemorySnapshot> {
+  if (options?.includeContext === false) {
+    return { entries: [], threads: [], goals: [], tinyWins: [], suggestions: [], supportPatterns: [], supportEffectivenessNotes: [] };
+  }
   const [{ data: entries }, { data: threads }, { data: goals }, { data: tinyWins }, { data: suggestions }, { data: supportPatterns }, { data: supportEffectivenessNotes }] = await Promise.all([
     supabase.from("moment_entries").select("id,input_summary,emotional_state,tiny_next_step,created_at").eq("user_id", userId).order("created_at", { ascending: false }).limit(6),
     supabase.from("moment_threads").select("id,title,summary,status,last_activity_at").eq("user_id", userId).in("status", ["active", "paused"]).order("last_activity_at", { ascending: false }).limit(4),

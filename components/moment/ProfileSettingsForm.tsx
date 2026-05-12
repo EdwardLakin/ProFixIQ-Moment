@@ -13,6 +13,7 @@ type ProfileState = {
     birthday_day: string;
     focus_areas: string;
     support_goals: string;
+    journal_context_enabled?: boolean;
   };
 };
 

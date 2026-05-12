@@ -21,6 +21,7 @@ async function updateProfile(_previousState: unknown, formData: FormData) {
   const birthdayDay = typeof birthdayDayCandidate === "number" && birthdayDayCandidate >= 1 && birthdayDayCandidate <= 31 ? birthdayDayCandidate : null;
   const focusAreas = String(formData.get("focus_areas") ?? "").split(",").map((item) => item.trim()).filter((item) => item.length > 0);
   const supportGoals = String(formData.get("support_goals") ?? "").split(",").map((item) => item.trim()).filter((item) => item.length > 0);
+  const journalContextEnabled = String(formData.get("journal_context_enabled") ?? "off") === "on";
 
   const { error } = await supabase.from("moment_profiles").upsert({
     user_id: user.id,
@@ -30,6 +31,7 @@ async function updateProfile(_previousState: unknown, formData: FormData) {
     birthday_day: birthdayDay,
     focus_areas: focusAreas,
     support_goals: supportGoals,
+    journal_context_enabled: journalContextEnabled,
   }, { onConflict: "user_id" });
 
   if (error) {
@@ -62,6 +64,15 @@ async function updateProfile(_previousState: unknown, formData: FormData) {
 }
 
 
+
+async function updateJournalContext(formData: FormData) {
+  "use server";
+  const user = await requireAuthenticatedUser("/settings");
+  const supabase = await createSupabaseServerClient();
+  const enabled = String(formData.get("journal_context_enabled") ?? "off") === "on";
+  await supabase.from("moment_profiles").upsert({ user_id: user.id, journal_context_enabled: enabled }, { onConflict: "user_id" });
+}
+
 async function updateSuggestionStatus(formData: FormData) {
   "use server";
   const user = await requireAuthenticatedUser("/settings");
@@ -75,7 +86,7 @@ async function updateSuggestionStatus(formData: FormData) {
 export default async function SettingsPage() {
   const user = await requireAuthenticatedUser("/settings");
   const supabase = await createSupabaseServerClient();
-  const { data: profile } = await supabase.from("moment_profiles").select("display_name,age_range,birthday_month,birthday_day,focus_areas,support_goals").eq("user_id", user.id).maybeSingle();
+  const { data: profile } = await supabase.from("moment_profiles").select("display_name,age_range,birthday_month,birthday_day,focus_areas,support_goals,journal_context_enabled").eq("user_id", user.id).maybeSingle();
   const { data: goals } = await supabase.from("moment_goals").select("id,title,status").eq("user_id", user.id).eq("status", "active").order("updated_at", { ascending: false }).limit(6);
   const { data: suggestions } = await supabase.from("moment_suggestions").select("id,suggestion_text,status").eq("user_id", user.id).in("status", ["suggested", "accepted"]).order("updated_at", { ascending: false }).limit(6);
   const { data: subscription } = await supabase.from("moment_subscriptions").select("plan,status,current_period_end,cancel_at_period_end,stripe_customer_id,stripe_subscription_id").eq("user_id", user.id).maybeSingle();
@@ -96,10 +107,22 @@ export default async function SettingsPage() {
               birthday_day: profile?.birthday_day ? String(profile.birthday_day) : "",
               focus_areas: (profile?.focus_areas ?? []).join(", "),
               support_goals: (profile?.support_goals ?? []).join(", "),
+              journal_context_enabled: Boolean(profile?.journal_context_enabled),
             }}
           />
         </article>
 
+        <article className="rounded-3xl border border-white/10 bg-white/[0.03] p-5 md:col-span-2">
+          <h2 className="text-lg font-medium">Journal privacy</h2>
+          <p className="mt-1 text-sm text-slate-300">When on, Moment can use your past journal entries to understand patterns and continue conversations. When off, your journal stays saved for you, but Moment won’t use it as context.</p>
+          <form action={updateJournalContext} className="mt-4">
+            <label className="flex items-start gap-3 text-sm text-slate-200">
+              <input type="checkbox" name="journal_context_enabled" defaultChecked={Boolean(profile?.journal_context_enabled)} className="mt-1 h-4 w-4" />
+              <span>Allow Moment to use my journal for context</span>
+            </label>
+            <div className="mt-3"><MomentButton type="submit">Save privacy setting</MomentButton></div>
+          </form>
+        </article>
 
         <article className="rounded-3xl border border-white/10 bg-white/[0.03] p-5 md:col-span-2">
           <h2 className="text-lg font-medium">Billing</h2>

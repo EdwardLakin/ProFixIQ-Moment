@@ -184,8 +184,9 @@ export async function POST(request: Request) {
   if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   const parsed = schema.safeParse(await request.json());
   if (!parsed.success) return NextResponse.json({ error: "Invalid input" }, { status: 400 });
-  const { data: profile } = await supabase.from("moment_profiles").select("age_range").eq("user_id", user.id).maybeSingle();
-  const trustedAgeRange = normalizeAgeRange(profile?.age_range);
+  const { data: ageProfile } = await supabase.from("moment_profiles").select("age_range,journal_context_enabled").eq("user_id", user.id).maybeSingle();
+  const trustedAgeRange = normalizeAgeRange(ageProfile?.age_range);
+  const journalContextEnabled = Boolean(ageProfile?.journal_context_enabled);
   const policy = resolveAudiencePolicy(trustedAgeRange);
   const safety = applyRouteSafetyFilters(`${parsed.data.text} ${parsed.data.selectedStates.join(" ")}`);
   if (safety.deny) {
@@ -292,7 +293,7 @@ export async function POST(request: Request) {
     }
   }
 
-  const memorySnapshot = await readMomentMemory(supabase, user.id).catch(() => ({ entries: [], threads: [], goals: [], tinyWins: [], suggestions: [], supportPatterns: [], supportEffectivenessNotes: [] }));
+  const memorySnapshot = await readMomentMemory(supabase, user.id, { includeContext: journalContextEnabled }).catch(() => ({ entries: [], threads: [], goals: [], tinyWins: [], suggestions: [], supportPatterns: [], supportEffectivenessNotes: [] }));
   const emotionalStateModel = buildEmotionalStateModel({
     routeInput: {
       momentText: parsed.data.text,

@@ -20,7 +20,7 @@ export default async function DashboardPage() {
     now: new Date(),
   });
 
-  const memory = await readMomentMemory(supabase, user.id);
+  const memory = await readMomentMemory(supabase, user.id, { includeContext: Boolean(profile.journal_context_enabled) });
   const subscription = await getCurrentMomentPlan(user.id);
   const usage = await getMomentUsageSnapshot(user.id, subscription.plan);
 
@@ -28,7 +28,7 @@ export default async function DashboardPage() {
 
   return (
     <MomentAppShell title="Moment" subtitle="One calm next step, right when you need it.">
-      <DashboardClient greeting={greeting} memory={memory} plan={subscription.plan} usage={usage} />
+      <DashboardClient greeting={greeting} memory={memory} plan={subscription.plan} usage={usage} journalContextEnabled={Boolean(profile.journal_context_enabled)} />
     </MomentAppShell>
   );
 }

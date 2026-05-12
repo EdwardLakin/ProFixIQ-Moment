@@ -12,7 +12,7 @@ export async function persistMomentMemory(params: {
     user_id: params.userId,
     thread_id: params.threadId,
     route_id: params.routeId,
-    source: params.artifacts.entry.source,
+    source: "ai_moment",
     input_summary: params.artifacts.entry.inputSummary,
     emotional_state: params.artifacts.entry.emotionalState,
     support_style: params.artifacts.entry.supportStyle,
@@ -23,6 +23,12 @@ export async function persistMomentMemory(params: {
     route_audience: params.artifacts.entry.routeAudience,
     response_summary: params.artifacts.entry.responseSummary,
     tiny_next_step: params.artifacts.entry.tinyNextStep,
+    entry_date: new Date().toISOString().slice(0,10),
+    title: null,
+    content: `${params.artifacts.entry.inputSummary}
+
+${params.artifacts.entry.responseSummary}`,
+    ai_context_allowed_snapshot: true,
   }).select("id").single();
   if (entryError || !entryData) return null;
 

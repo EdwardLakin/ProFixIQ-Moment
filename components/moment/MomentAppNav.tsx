@@ -9,6 +9,7 @@ const navItems = [
   { label: "Unblock", href: "/stuck" },
   { label: "Homework", href: "/math-reset" },
   { label: "Conflict", href: "/drama-pause" },
+  { label: "Journal", href: "/dashboard/journal" },
   { label: "Parent", href: "/parent" },
   { label: "Settings", href: "/settings" }
 ];
